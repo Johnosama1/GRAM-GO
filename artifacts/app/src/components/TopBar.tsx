@@ -1,254 +1,95 @@
-import { useUser } from "../lib/userContext";
-import { useEffect, useRef, useState } from "react";
-import lottie from "lottie-web";
-import johnImg from "../../public/dev-john.jpg";
-import ammarImg from "../../public/dev-ammar.jpg";
-import { useWinModalOpen } from "../lib/winModal";
-
-function DevAvatar({ src, name, gradient }: { src: string; name: string; gradient: string }) {
-  const [failed, setFailed] = useState(false);
-  if (failed) {
-    return (
-      <div style={{
-        width: 36, height: 36, borderRadius: "50%",
-        background: gradient,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontWeight: 900, color: "#fff", fontSize: 15, flexShrink: 0,
-      }}>
-        {name[0].toUpperCase()}
-      </div>
-    );
-  }
-  return (
-    <img
-      src={src}
-      alt={name}
-      onError={() => setFailed(true)}
-      style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0,
-        background: gradient }}
-    />
-  );
-}
-
-function StarSticker() {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    let anim: ReturnType<typeof lottie.loadAnimation> | null = null;
-    // Only shown in dev info popup — load on demand
-    import("../../public/star2.json").then((m) => {
-      if (!ref.current) return;
-      anim = lottie.loadAnimation({
-        container: ref.current,
-        renderer: "svg",
-        loop: true,
-        autoplay: true,
-        animationData: m.default as object,
-      });
-    });
-    return () => { if (anim) anim.destroy(); };
-  }, []);
-  return <div ref={ref} style={{ width: 18, height: 18, flexShrink: 0 }} />;
-}
-
-function UsdtSticker() {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    let anim: ReturnType<typeof lottie.loadAnimation> | null = null;
-    // Defer by 500ms — TopBar is always mounted, so we defer to not block first paint
-    const timer = setTimeout(() => {
-      import("../../public/usdt-anim.json").then((m) => {
-        if (!ref.current) return;
-        anim = lottie.loadAnimation({
-          container: ref.current,
-          renderer: "svg",
-          loop: true,
-          autoplay: true,
-          animationData: m.default as object,
-        });
-      });
-    }, 500);
-    return () => { clearTimeout(timer); if (anim) anim.destroy(); };
-  }, []);
-  return <div ref={ref} style={{ width: 28, height: 28, flexShrink: 0, marginLeft: -4, marginRight: -2 }} />;
-}
-
 export default function TopBar() {
-  const { user } = useUser();
-  const stickerRef = useRef<HTMLDivElement>(null);
-  const winModalOpen = useWinModalOpen();
-  const [showInfo, setShowInfo] = useState(false);
-
-  const userDisplay = user ? (user.firstName || user.username || "Miner") : "...";
-  const goBal = user ? parseFloat(user.goBalance || user.balance || "0").toFixed(1) : "0.0";
-  const gramBal = user ? parseFloat(user.gramBalance || "0").toFixed(3) : "0.000";
-
-  useEffect(() => {
-    let anim: ReturnType<typeof lottie.loadAnimation> | null = null;
-    // Defer cap-electro sticker by 600ms to avoid competing with first paint
-    const timer = setTimeout(() => {
-      import("../../public/cap-electro.json").then((m) => {
-        if (!stickerRef.current) return;
-        anim = lottie.loadAnimation({
-          container: stickerRef.current,
-          renderer: "svg",
-          loop: true,
-          autoplay: true,
-          animationData: m.default as object,
-        });
-      });
-    }, 600);
-    return () => { clearTimeout(timer); if (anim) anim.destroy(); };
-  }, []);
-
-  if (winModalOpen) return null;
-
   return (
     <div
       style={{
         position: "fixed",
-        top: "max(env(safe-area-inset-top, 0px), 10px)",
-        left: 12,
-        right: 12,
-        height: 54,
+        top: 0,
+        left: 0,
+        right: 0,
+        height: "calc(max(env(safe-area-inset-top, 0px), 12px) + 48px)",
+        paddingTop: "max(env(safe-area-inset-top, 0px), 12px)",
+        paddingLeft: 16,
+        paddingRight: 16,
         zIndex: 100,
         display: "flex",
         alignItems: "center",
-        justifyContent: "space-between",
-        padding: "6px 8px 6px 6px",
-        borderRadius: 999,
-        background: "rgba(15,15,30,0.55)",
-        backdropFilter: "blur(24px) saturate(160%)",
-        WebkitBackdropFilter: "blur(24px) saturate(160%)",
-        border: "1px solid rgba(255,255,255,0.10)",
-        boxShadow: "0 8px 32px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)",
+        justifyContent: "flex-start",
+        background: "rgba(3,6,18,0.75)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        borderBottom: "1px solid rgba(0,242,254,0.08)",
         direction: "ltr",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, flex: 1, position: "relative" }}>
-        {/* Info popup */}
-        {showInfo && (
-          <>
-            <div
-              onClick={() => setShowInfo(false)}
-              style={{ position: "fixed", inset: 0, zIndex: 9998 }}
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        {/* Glowing Lightning Bolt Logo */}
+        <div style={{ position: "relative", width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="34" height="34" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ filter: "drop-shadow(0 0 10px rgba(0, 242, 254, 0.75))" }}>
+            <circle cx="18" cy="18" r="17" stroke="url(#logoGrad)" strokeWidth="1.8" strokeDasharray="3 3" opacity="0.6" />
+            <circle cx="18" cy="18" r="15" fill="url(#logoBg)" stroke="url(#logoBorder)" strokeWidth="1.2" />
+            <path
+              d="M19.5 7L11 19.5H18L16.5 29L25 16.5H18L19.5 7Z"
+              fill="url(#boltGrad)"
+              stroke="#ffffff"
+              strokeWidth="0.5"
+              style={{ filter: "drop-shadow(0 0 6px #00f2fe)" }}
             />
-            <div style={{
-              position: "absolute",
-              top: 50, left: 0,
-              zIndex: 9999,
-              background: "rgba(15,15,35,0.96)",
-              backdropFilter: "blur(24px)",
-              WebkitBackdropFilter: "blur(24px)",
-              border: "1px solid rgba(251,191,36,0.30)",
-              borderRadius: 18,
-              padding: "16px 20px",
-              boxShadow: "0 12px 40px rgba(0,0,0,0.60)",
-              minWidth: 210,
-            }}>
-              <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, fontWeight: 700, letterSpacing: 1, marginBottom: 10, textTransform: "uppercase" }}>
-                Bot Developers
-              </div>
-              <a
-                href="https://t.me/J_O_H_N8"
-                target="_blank"
-                rel="noreferrer"
-                style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, textDecoration: "none" }}
-                onClick={() => setShowInfo(false)}
-              >
-                <DevAvatar src={johnImg} name="John" gradient="linear-gradient(135deg,#fbbf24,#f59e0b)" />
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                    <div style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>John</div>
-                    <StarSticker />
-                  </div>
-                  <div style={{ color: "rgba(255,255,255,0.40)", fontSize: 11 }}>@J_O_H_N8 · Developer</div>
-                </div>
-              </a>
-              <a
-                href="https://t.me/KINGCRYPTO771"
-                target="_blank"
-                rel="noreferrer"
-                style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }}
-                onClick={() => setShowInfo(false)}
-              >
-                <DevAvatar src={ammarImg} name="Ammar" gradient="linear-gradient(135deg,#7c3aed,#4f46e5)" />
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                    <div style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>𝗔𝗺𝗺𝗮𝗿</div>
-                    <StarSticker />
-                  </div>
-                  <div style={{ color: "rgba(255,255,255,0.40)", fontSize: 11 }}>@KINGCRYPTO771 · Developer</div>
-                </div>
-              </a>
-            </div>
-          </>
-        )}
-
-        {user?.photoUrl ? (
-          <img
-            src={user.photoUrl}
-            alt="avatar"
-            onClick={() => setShowInfo(v => !v)}
-            style={{
-              width: 40, height: 40, borderRadius: "50%", objectFit: "cover",
-              border: "2px solid rgba(0,255,200,0.55)",
-              boxShadow: "0 0 14px rgba(0,255,200,0.30)",
-              flexShrink: 0, cursor: "pointer",
-            }}
-          />
-        ) : (
-          <div
-            onClick={() => setShowInfo(v => !v)}
-            style={{
-              width: 40, height: 40, borderRadius: "50%",
-              background: "linear-gradient(135deg, rgba(0,242,254,0.45), rgba(79,70,229,0.85))",
-              border: "2px solid rgba(0,255,200,0.55)",
-              boxShadow: "0 0 14px rgba(0,255,200,0.25)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontWeight: 900, color: "#00f2fe", fontSize: 15,
-              flexShrink: 0, cursor: "pointer",
-            }}>
-            {userDisplay[0]?.toUpperCase()}
-          </div>
-        )}
-
-        <div style={{ minWidth: 0, overflow: "hidden" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <div style={{
-              color: "#fff", fontWeight: 800, fontSize: 13, lineHeight: 1.15,
-              whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-            }}>
-              {userDisplay}
-            </div>
-            <div
-              ref={stickerRef}
-              style={{ width: 26, height: 26, flexShrink: 0 }}
-            />
-          </div>
-          <div style={{
-            color: "#00f2fe", fontSize: 10, fontWeight: 700, marginTop: 1,
-            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-            display: "flex", alignItems: "center", gap: 3,
-          }}>
-            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#10b981", boxShadow: "0 0 6px #10b981" }} />
-            {goBal} Go
-          </div>
+            <defs>
+              <linearGradient id="logoGrad" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#00f2fe" />
+                <stop offset="0.5" stopColor="#3b82f6" />
+                <stop offset="1" stopColor="#a855f7" />
+              </linearGradient>
+              <linearGradient id="logoBg" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#081028" />
+                <stop offset="1" stopColor="#050816" />
+              </linearGradient>
+              <linearGradient id="logoBorder" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#00f2fe" />
+                <stop offset="1" stopColor="#a855f7" />
+              </linearGradient>
+              <linearGradient id="boltGrad" x1="11" y1="7" x2="25" y2="29" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#ffffff" />
+                <stop offset="0.3" stopColor="#00f2fe" />
+                <stop offset="1" stopColor="#c084fc" />
+              </linearGradient>
+            </defs>
+          </svg>
         </div>
-      </div>
 
-      <div style={{
-        display: "flex", alignItems: "center", gap: 6,
-        background: "linear-gradient(135deg, rgba(251,191,36,0.22), rgba(245,158,11,0.12))",
-        border: "1px solid rgba(251,191,36,0.40)",
-        borderRadius: 999,
-        padding: "6px 12px",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08), 0 0 12px rgba(251,191,36,0.15)",
-        flexShrink: 0,
-      }}>
-        <span style={{ fontSize: 15 }}>💎</span>
-        <div style={{ color: "#fbbf24", fontWeight: 900, fontSize: 13, letterSpacing: 0.2, lineHeight: 1 }}>
-          {gramBal}
-          <span style={{ fontSize: 9, fontWeight: 700, opacity: 0.80, marginLeft: 3 }}>Gram</span>
+        {/* GRAMGO Logo Text & Tagline */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 2 }}>
+            <span style={{ color: "#ffffff", fontWeight: 900, fontSize: 20, letterSpacing: -0.3, fontStyle: "italic", fontFamily: "sans-serif" }}>
+              GRAM
+            </span>
+            <span
+              style={{
+                fontSize: 20,
+                fontWeight: 900,
+                fontStyle: "italic",
+                fontFamily: "sans-serif",
+                background: "linear-gradient(135deg, #a855f7 0%, #c084fc 60%, #00f2fe 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                filter: "drop-shadow(0 0 10px rgba(168, 85, 247, 0.45))",
+              }}
+            >
+              GO
+            </span>
+          </div>
+          <span
+            style={{
+              color: "rgba(0, 242, 254, 0.75)",
+              fontSize: 8.5,
+              fontWeight: 800,
+              letterSpacing: 2,
+              textTransform: "uppercase",
+              lineHeight: 1,
+            }}
+          >
+            MINE • EARN • GROW
+          </span>
         </div>
       </div>
     </div>

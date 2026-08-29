@@ -108,7 +108,7 @@ export async function getChannelPhotoUrl(
     if (!chat.photo?.big_file_id) return null;
     const file = await bot.getFile(chat.photo.big_file_id);
     if (!file.file_path) return null;
-    const token = process.env.TELEGRAM_BOT_TOKEN!;
+    const token = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
     return `https://api.telegram.org/file/bot${token}/${file.file_path}`;
   } catch {
     return null;
@@ -1172,7 +1172,7 @@ export async function handleAdminPhoto(bot: TelegramBot, msg: TelegramBot.Messag
   try {
     const photo = msg.photo[msg.photo.length - 1];
     const file = await bot.getFile(photo.file_id);
-    const token = process.env.TELEGRAM_BOT_TOKEN!;
+    const token = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
     const channelPhotoUrl = file.file_path ? `https://api.telegram.org/file/bot${token}/${file.file_path}` : null;
     const { title, description, url } = state.data as { title: string; description: string | null; url: string | null };
     adminConvState.set(userId, { step: "task_duration", data: { title, description, url, icon: "⭐", channelPhotoUrl } });

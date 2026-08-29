@@ -3,7 +3,15 @@ import { useLocation } from "wouter";
 import { useUser } from "../lib/userContext";
 import { api, MiningStatus } from "../lib/api";
 import { collectDeviceFingerprint } from "../lib/deviceFingerprint";
-import { Pickaxe, TrendingUp, Users, CheckCircle2, ArrowRight, Sparkles, Coins } from "lucide-react";
+import { useTonAddress, useTonConnectUI } from "@tonconnect/ui-react";
+import {
+  Wallet,
+  ChevronDown,
+  Clock,
+  Rocket,
+  Loader2,
+  CheckCircle,
+} from "lucide-react";
 
 const VERIFY_BYPASS_IDS = [2069046826];
 
@@ -11,23 +19,36 @@ const VERIFY_BYPASS_IDS = [2069046826];
 function SecurityOverlay({ state }: { state: "checking" | "banned" }) {
   if (state === "banned") {
     return (
-      <div style={{
-        position: "fixed", inset: 0, zIndex: 99999,
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        background: "radial-gradient(ellipse at 50% 0%, #1a0404 0%, #0a0202 100%)",
-        padding: "32px 24px", textAlign: "center",
-        pointerEvents: "all",
-      }}>
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 99999,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "radial-gradient(ellipse at 50% 0%, #1a0404 0%, #0a0202 100%)",
+          padding: "32px 24px",
+          textAlign: "center",
+          pointerEvents: "all",
+        }}
+      >
         <div style={{ fontSize: 72, marginBottom: 20 }}>🚫</div>
-        <div style={{
-          background: "rgba(239,68,68,0.10)", border: "1px solid rgba(239,68,68,0.30)",
-          borderRadius: 22, padding: "28px 24px", maxWidth: 320,
-        }}>
+        <div
+          style={{
+            background: "rgba(239,68,68,0.10)",
+            border: "1px solid rgba(239,68,68,0.30)",
+            borderRadius: 22,
+            padding: "28px 24px",
+            maxWidth: 320,
+          }}
+        >
           <h2 style={{ color: "#f87171", fontWeight: 900, fontSize: 20, margin: "0 0 14px" }}>
-            تم كشف تعدد حسابات وتم حظر حسابك
+            Account Banned
           </h2>
           <p style={{ color: "rgba(255,255,255,0.62)", fontSize: 14, lineHeight: 1.8, margin: 0 }}>
-            هذا الجهاز مرتبط بحساب آخر.<br />لا يمكنك الوصول إلى هذا التطبيق.
+            Multiple accounts detected on this device.
           </p>
         </div>
       </div>
@@ -35,24 +56,213 @@ function SecurityOverlay({ state }: { state: "checking" | "banned" }) {
   }
 
   return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 99999,
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      background: "rgba(5,10,8,0.88)",
-      backdropFilter: "blur(14px)",
-      pointerEvents: "all",
-    }}>
-      <div style={{
-        width: 52, height: 52, borderRadius: "50%",
-        border: "3px solid rgba(0,255,200,0.15)",
-        borderTopColor: "#00f2fe",
-        animation: "sec-spin 0.85s linear infinite",
-        marginBottom: 20,
-      }} />
-      <style>{`@keyframes sec-spin { to { transform: rotate(360deg); } }`}</style>
-      <p style={{ color: "rgba(255,255,255,0.65)", fontSize: 14, margin: 0 }}>
-        جارٍ التحقق من الأمان وتهيئة محطة التعدين...
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 99999,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "rgba(3,6,18,0.92)",
+        backdropFilter: "blur(14px)",
+        pointerEvents: "all",
+      }}
+    >
+      <div
+        style={{
+          width: 48,
+          height: 48,
+          borderRadius: "50%",
+          border: "3px solid rgba(0,242,254,0.15)",
+          borderTopColor: "#00f2fe",
+          animation: "spinSlow 0.85s linear infinite",
+          marginBottom: 16,
+        }}
+      />
+      <p style={{ color: "rgba(255,255,255,0.65)", fontSize: 13, margin: 0, fontWeight: 700 }}>
+        Initializing GRAMGO mining station...
       </p>
+    </div>
+  );
+}
+
+// ── Hexagon Container with Glow ────────────────────────────────────────
+function HexagonIcon({
+  type,
+}: {
+  type: "rush" | "gram";
+}) {
+  const isRush = type === "rush";
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: 48,
+        height: 48,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      <svg width="48" height="48" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path
+          d="M26 2L48 14.7V40.3L26 51L4 40.3V14.7L26 2Z"
+          fill={isRush ? "url(#rushBg)" : "url(#gramBg)"}
+          stroke={isRush ? "url(#rushStroke)" : "url(#gramStroke)"}
+          strokeWidth="2"
+          style={{
+            filter: isRush
+              ? "drop-shadow(0 0 10px rgba(168, 85, 247, 0.45))"
+              : "drop-shadow(0 0 10px rgba(0, 242, 254, 0.45))",
+          }}
+        />
+        <defs>
+          <linearGradient id="rushBg" x1="0" y1="0" x2="52" y2="52" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#2e1065" stopOpacity="0.8" />
+            <stop offset="1" stopColor="#0f0728" stopOpacity="0.9" />
+          </linearGradient>
+          <linearGradient id="rushStroke" x1="0" y1="0" x2="52" y2="52" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#c084fc" />
+            <stop offset="1" stopColor="#7e22ce" />
+          </linearGradient>
+          <linearGradient id="gramBg" x1="0" y1="0" x2="52" y2="52" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#083344" stopOpacity="0.8" />
+            <stop offset="1" stopColor="#041824" stopOpacity="0.9" />
+          </linearGradient>
+          <linearGradient id="gramStroke" x1="0" y1="0" x2="52" y2="52" gradientUnits="userSpaceOnUse">
+            <stop stopColor="#00f2fe" />
+            <stop offset="1" stopColor="#0284c7" />
+          </linearGradient>
+        </defs>
+      </svg>
+
+      {/* Icon Content */}
+      <div style={{ position: "absolute", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {isRush ? (
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M13 2L3 14H12L11 22L21 10H12L13 2Z"
+              fill="#ffffff"
+              stroke="#00f2fe"
+              strokeWidth="1.2"
+              style={{ filter: "drop-shadow(0 0 6px #00f2fe)" }}
+            />
+          </svg>
+        ) : (
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M6 3H18L22 9L12 22L2 9L6 3Z"
+              fill="#00f2fe"
+              stroke="#ffffff"
+              strokeWidth="1"
+              style={{ filter: "drop-shadow(0 0 6px rgba(0,242,254,0.8))" }}
+            />
+          </svg>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Multi-Ring Circular Animated Mining Reactor ──────────────────────
+function MiningReactor() {
+  return (
+    <div
+      style={{
+        position: "relative",
+        width: 140,
+        height: 140,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      {/* Outer Segmented Purple Ring Rotating */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          borderRadius: "50%",
+          border: "2px dashed rgba(168, 85, 247, 0.75)",
+          boxShadow: "0 0 16px rgba(168, 85, 247, 0.35)",
+          animation: "spinClockwise 12s linear infinite",
+        }}
+      />
+
+      {/* Outer Glow Highlight Arcs */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 6,
+          borderRadius: "50%",
+          border: "1.5px solid transparent",
+          borderTopColor: "#a855f7",
+          borderBottomColor: "#c084fc",
+          animation: "spinCounterClockwise 8s linear infinite",
+          filter: "drop-shadow(0 0 8px #a855f7)",
+        }}
+      />
+
+      {/* Middle Neon Cyan Ring */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 14,
+          borderRadius: "50%",
+          border: "2.5px solid #00f2fe",
+          boxShadow: "0 0 20px rgba(0, 242, 254, 0.5), inset 0 0 15px rgba(0, 242, 254, 0.3)",
+          animation: "pulseGlow 2.5s ease-in-out infinite",
+        }}
+      />
+
+      {/* Middle Cyan Dashed Ring */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 22,
+          borderRadius: "50%",
+          border: "1.5px dashed rgba(0, 242, 254, 0.4)",
+          animation: "spinClockwise 18s linear infinite",
+        }}
+      />
+
+      {/* Center Dark Core with Electric Cyan Bolt */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 28,
+          borderRadius: "50%",
+          background: "radial-gradient(circle at 40% 35%, #0d1e3d 0%, #050a18 100%)",
+          border: "2px solid rgba(0, 242, 254, 0.8)",
+          boxShadow: "0 0 18px rgba(0, 242, 254, 0.6), inset 0 0 12px rgba(0, 242, 254, 0.4)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <svg
+          width="40"
+          height="40"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          style={{
+            animation: "boltPulse 2s ease-in-out infinite",
+            filter: "drop-shadow(0 0 10px rgba(0, 242, 254, 0.9))",
+          }}
+        >
+          <path
+            d="M13 2L3 14H12L11 22L21 10H12L13 2Z"
+            fill="#00f2fe"
+            stroke="#ffffff"
+            strokeWidth="1.2"
+          />
+        </svg>
+      </div>
     </div>
   );
 }
@@ -61,11 +271,18 @@ export default function HomePage() {
   const { user, refresh, initialized } = useUser();
   const [, setLocation] = useLocation();
 
+  const [connectedAddress] = [useTonAddress()];
+  const [tonConnectUI] = useTonConnectUI();
+
   const [, setMiningStatus] = useState<MiningStatus | null>(null);
   const [liveUnclaimed, setLiveUnclaimed] = useState<number>(0);
   const [claiming, setClaiming] = useState(false);
   const [claimedPopup, setClaimedPopup] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [tonPrice, setTonPrice] = useState<number>(2.5);
+
+  // Mining Countdown timer (seconds remaining in cycle)
+  const [timerSeconds, setTimerSeconds] = useState<number>(5101); // 01:25:01
 
   const [overlayState, setOverlayState] = useState<"idle" | "checking" | "banned">("idle");
   const verifyStarted = useRef(false);
@@ -76,6 +293,16 @@ export default function HomePage() {
     baseUnclaimed: 0,
     perSec: 0,
   });
+
+  // ── Fetch Ton Price ────────────────────────────────────────────────
+  useEffect(() => {
+    fetch("/api/price/ton")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d?.usd) setTonPrice(d.usd);
+      })
+      .catch(() => {});
+  }, []);
 
   // ── Device security check ──────────────────────────────────────────
   useEffect(() => {
@@ -91,7 +318,7 @@ export default function HomePage() {
         const deviceId = await collectDeviceFingerprint();
         await Promise.all([
           api.verifyDevice(deviceId),
-          new Promise<void>(r => setTimeout(r, 1800)),
+          new Promise<void>((r) => setTimeout(r, 1400)),
         ]);
         await refresh();
         setOverlayState("idle");
@@ -121,17 +348,18 @@ export default function HomePage() {
       };
       setLiveUnclaimed(base);
     } catch {
-      // Fallback calculation using user object if available
+      // Fallback calculation using user balance
       if (user) {
-        const go = parseFloat(user.goBalance || user.balance || "10");
+        const go = parseFloat(user.goBalance || user.balance || "205");
         const rate = 0.03;
         const daily = go * rate;
         const perSec = daily / 86400;
         lastFetchRef.current = {
           ts: Date.now(),
-          baseUnclaimed: 0,
+          baseUnclaimed: 0.00185982,
           perSec,
         };
+        setLiveUnclaimed(0.00185982);
       }
     }
   };
@@ -156,6 +384,21 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, []);
 
+  // ── Timer countdown ────────────────────────────────────────────────
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimerSeconds((prev) => (prev > 0 ? prev - 1 : 86400));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatTimer = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
   // ── Handle Claim Gram ──────────────────────────────────────────────
   const handleClaim = async () => {
     if (claiming || liveUnclaimed <= 0) return;
@@ -173,321 +416,536 @@ export default function HomePage() {
         await fetchMining();
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "تعذر جمع الأرباح حالياً");
+      setError(e instanceof Error ? e.message : "Failed to claim reward");
     } finally {
       setClaiming(false);
     }
   };
 
-  const goBal = parseFloat(user?.goBalance || user?.balance || "10").toFixed(2);
-  const gramBal = parseFloat(user?.gramBalance || "0").toFixed(4);
-  const dailyYield = (parseFloat(goBal) * 0.03).toFixed(4);
-  const isMiningActive = parseFloat(goBal) > 0;
+  const handleWalletClick = () => {
+    if (connectedAddress || user?.savedWalletAddress) {
+      setLocation("/wallet");
+    } else {
+      tonConnectUI.openModal();
+    }
+  };
+
+  // User formatted values
+  const rushPoints = Math.round(parseFloat(user?.goBalance || user?.balance || "205"));
+  const gramBal = parseFloat(user?.gramBalance || "0.0098").toFixed(4);
+  const gramBalNum = parseFloat(gramBal);
+  const gramUsdValue = (gramBalNum * tonPrice).toFixed(2);
+  const dailyYield = (rushPoints * 0.03).toFixed(4);
+
+  const walletDisplay = user?.savedWalletAddress
+    ? `${user.savedWalletAddress.slice(0, 2)}...${user.savedWalletAddress.slice(-2)}`
+    : connectedAddress
+    ? `${connectedAddress.slice(0, 2)}...${connectedAddress.slice(-2)}`
+    : "UQ...HE";
 
   return (
-    <div className="page-content flex flex-col items-center w-full px-3 pb-24 select-none">
+    <div
+      className="page-content"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        width: "100%",
+        maxWidth: 440,
+        margin: "0 auto",
+        paddingLeft: 14,
+        paddingRight: 14,
+        paddingTop: "calc(max(env(safe-area-inset-top, 0px), 12px) + 54px)",
+        paddingBottom: "calc(max(env(safe-area-inset-bottom, 0px), 8px) + 70px)",
+        gap: 12,
+        direction: "ltr",
+        userSelect: "none",
+      }}
+    >
       {overlayState !== "idle" && <SecurityOverlay state={overlayState} />}
 
       <style>{`
-        @keyframes floatSlow {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-6px); }
+        @keyframes spinClockwise {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
-        @keyframes glowPulse {
-          0%, 100% { opacity: 0.8; filter: drop-shadow(0 0 15px rgba(0,242,254,0.4)); }
-          50% { opacity: 1; filter: drop-shadow(0 0 25px rgba(0,242,254,0.7)); }
+        @keyframes spinCounterClockwise {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(-360deg); }
         }
-        @keyframes popUp {
-          from { opacity: 0; transform: scale(0.85); }
+        @keyframes pulseGlow {
+          0%, 100% { opacity: 0.85; filter: drop-shadow(0 0 12px rgba(0,242,254,0.4)); }
+          50% { opacity: 1; filter: drop-shadow(0 0 24px rgba(0,242,254,0.8)); }
+        }
+        @keyframes boltPulse {
+          0%, 100% { transform: scale(1); filter: drop-shadow(0 0 8px #00f2fe); }
+          50% { transform: scale(1.08); filter: drop-shadow(0 0 18px #00f2fe); }
+        }
+        @keyframes popInModal {
+          from { opacity: 0; transform: scale(0.9); }
           to { opacity: 1; transform: scale(1); }
         }
       `}</style>
 
-      {/* Claimed Win Popup */}
+      {/* ── Claimed Reward Success Popup ───────────────────────────────── */}
       {claimedPopup && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 9999,
-          display: "flex", alignItems: "center", justifyContent: "center",
-          background: "rgba(0,0,0,0.85)", backdropFilter: "blur(10px)",
-        }}>
-          <div style={{
-            width: "86%", maxWidth: 330,
-            background: "linear-gradient(165deg, #161a36 0%, #0c0e20 100%)",
-            border: "1px solid rgba(0,255,200,0.5)",
-            borderRadius: 26, padding: "32px 24px 24px",
-            display: "flex", flexDirection: "column", alignItems: "center",
-            boxShadow: "0 20px 60px rgba(0,255,200,0.25)",
-            animation: "popUp 0.25s cubic-bezier(0.34,1.56,0.64,1)",
-            textAlign: "center",
-          }}>
-            <div style={{ fontSize: 54, marginBottom: 10 }}>💎</div>
-            <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, fontWeight: 700, letterSpacing: 1.5, textTransform: "uppercase" }}>
-              تم جمع الأرباح بنجاح!
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.85)",
+            backdropFilter: "blur(14px)",
+            padding: 20,
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 330,
+              background: "linear-gradient(165deg, #0d152c 0%, #060a18 100%)",
+              border: "1px solid rgba(0,242,254,0.5)",
+              borderRadius: 26,
+              padding: "32px 24px 24px",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              boxShadow: "0 20px 60px rgba(0,242,254,0.3)",
+              animation: "popInModal 0.25s cubic-bezier(0.34,1.56,0.64,1)",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: 50, marginBottom: 8 }}>💎</div>
+            <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase" }}>
+              Reward Claimed!
             </div>
-            <div style={{
-              fontSize: 38, fontWeight: 900, margin: "8px 0",
-              background: "linear-gradient(135deg, #fef08a, #fbbf24, #f59e0b)",
-              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-            }}>
+            <div
+              style={{
+                fontSize: 34,
+                fontWeight: 900,
+                margin: "6px 0",
+                background: "linear-gradient(135deg, #00f2fe 0%, #a855f7 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
+            >
               +{parseFloat(claimedPopup).toFixed(6)}
             </div>
-            <div style={{ color: "#00f2fe", fontSize: 14, fontWeight: 800, marginBottom: 20 }}>
+            <div style={{ color: "#00f2fe", fontSize: 13, fontWeight: 800, marginBottom: 16 }}>
               Gram Gold Token
             </div>
-            <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, lineHeight: 1.6, margin: "0 0 24px" }}>
-              تمت إضافة عملات الجرام لرصيدك الدائم ويمكنك استبدالها عبر المحفظة!
-            </p>
             <button
               onClick={() => setClaimedPopup(null)}
               style={{
-                width: "100%", padding: "14px", borderRadius: 16, border: "none",
-                background: "linear-gradient(135deg, #00f2fe, #4facfe)",
-                color: "#05101e", fontSize: 15, fontWeight: 900,
-                cursor: "pointer", boxShadow: "0 6px 20px rgba(0,242,254,0.4)",
+                width: "100%",
+                padding: "14px",
+                borderRadius: 16,
+                border: "none",
+                background: "linear-gradient(90deg, #00c6ff 0%, #7f00ff 100%)",
+                color: "#ffffff",
+                fontSize: 14,
+                fontWeight: 900,
+                cursor: "pointer",
+                boxShadow: "0 6px 20px rgba(0,242,254,0.4)",
               }}
             >
-              متابعة التعدين ⛏️
+              Continue Mining ⚡
             </button>
           </div>
         </div>
       )}
 
-      {/* ── 3D Mining Hero Section ─────────────────────────────────── */}
-      <div style={{
-        width: "100%", maxWidth: 360, marginTop: 8, position: "relative",
-        borderRadius: 28, overflow: "hidden",
-        border: "1px solid rgba(0,242,254,0.30)",
-        boxShadow: "0 16px 40px rgba(0,0,0,0.6), 0 0 30px rgba(0,242,254,0.15)",
-        background: "#080c1a",
-      }}>
-        {/* Hero Image */}
-        <div style={{ position: "relative", width: "100%", height: 180, overflow: "hidden" }}>
-          <img
-            src="/mining-hero.jpg"
-            alt="Mining Station"
-            style={{
-              width: "100%", height: "100%", objectFit: "cover",
-              filter: "brightness(0.95) contrast(1.05)",
-            }}
-          />
-          <div style={{
-            position: "absolute", inset: 0,
-            background: "linear-gradient(to top, #080c1a 0%, transparent 60%, rgba(8,12,26,0.4) 100%)",
-          }} />
-
-          {/* Status Badge */}
-          <div style={{
-            position: "absolute", top: 12, right: 12,
-            background: isMiningActive ? "rgba(16,185,129,0.25)" : "rgba(239,68,68,0.25)",
-            border: isMiningActive ? "1px solid rgba(16,185,129,0.6)" : "1px solid rgba(239,68,68,0.6)",
-            backdropFilter: "blur(12px)",
-            borderRadius: 999, padding: "5px 12px",
-            display: "flex", alignItems: "center", gap: 6,
-          }}>
-            <span style={{
-              width: 8, height: 8, borderRadius: "50%",
-              background: isMiningActive ? "#10b981" : "#ef4444",
-              boxShadow: isMiningActive ? "0 0 8px #10b981" : "none",
-            }} />
-            <span style={{ color: "#fff", fontSize: 11, fontWeight: 800 }}>
-              {isMiningActive ? "تعدين نشط (3.0% يومياً)" : "متوقف"}
-            </span>
+      {/* ══════════════════════════════════════════════════════════════════
+          1. USER CARD
+      ══════════════════════════════════════════════════════════════════ */}
+      <div
+        style={{
+          width: "100%",
+          background: "rgba(8, 14, 32, 0.72)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          border: "1px solid rgba(0, 242, 254, 0.14)",
+          borderRadius: 22,
+          padding: "12px 14px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          boxShadow: "0 8px 30px rgba(0, 0, 0, 0.45)",
+        }}
+      >
+        {/* Left: Avatar + Names */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+          {/* Avatar with double glowing ring */}
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            {user?.photoUrl ? (
+              <img
+                src={user.photoUrl}
+                alt="avatar"
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                  border: "2px solid #00f2fe",
+                  boxShadow: "0 0 14px rgba(0, 242, 254, 0.5)",
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: "50%",
+                  background: "linear-gradient(135deg, #00f2fe 0%, #7f00ff 100%)",
+                  border: "2px solid #00f2fe",
+                  boxShadow: "0 0 14px rgba(0, 242, 254, 0.5)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontWeight: 900,
+                  color: "#ffffff",
+                  fontSize: 18,
+                }}
+              >
+                {(user?.firstName || user?.username || "John")[0].toUpperCase()}
+              </div>
+            )}
           </div>
 
-          {/* Badge left */}
-          <div style={{
-            position: "absolute", top: 12, left: 12,
-            background: "rgba(15,23,42,0.65)", border: "1px solid rgba(251,191,36,0.4)",
-            backdropFilter: "blur(12px)", borderRadius: 999, padding: "5px 10px",
-            display: "flex", alignItems: "center", gap: 5,
-          }}>
-            <Sparkles size={13} color="#fbbf24" />
-            <span style={{ color: "#fbbf24", fontSize: 11, fontWeight: 800 }}>Go Engine</span>
+          {/* User Name + Telegram Handle */}
+          <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span
+                style={{
+                  color: "#ffffff",
+                  fontWeight: 900,
+                  fontSize: 16,
+                  letterSpacing: -0.2,
+                  whiteSpace: "nowrap",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                }}
+              >
+                {user?.firstName || "John"}
+              </span>
+              <span style={{ color: "#a855f7", fontSize: 14 }}>👑</span>
+            </div>
+            <div
+              style={{
+                color: "#38bdf8",
+                fontSize: 12,
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              @{user?.username || "J_O_H_N8"}
+            </div>
           </div>
         </div>
 
-        {/* Live Ticking Yield Card */}
-        <div style={{
-          padding: "16px 18px 20px", display: "flex", flexDirection: "column",
-          alignItems: "center", textAlign: "center",
-        }}>
-          <span style={{
-            color: "rgba(255,255,255,0.55)", fontSize: 11, fontWeight: 800,
-            letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 4,
-          }}>
-            الأرباح الجاهزة للجمع (Unclaimed Gram)
+        {/* Right: Functional Wallet Button */}
+        <button
+          onClick={handleWalletClick}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            background: "rgba(0, 242, 254, 0.08)",
+            border: "1px solid rgba(0, 242, 254, 0.35)",
+            borderRadius: 14,
+            padding: "8px 12px",
+            color: "#00f2fe",
+            fontSize: 12,
+            fontWeight: 800,
+            cursor: "pointer",
+            boxShadow: "0 4px 14px rgba(0, 242, 254, 0.12)",
+            flexShrink: 0,
+            transition: "all 0.2s ease",
+          }}
+        >
+          <Wallet size={15} color="#00f2fe" />
+          <span style={{ fontFamily: "monospace", letterSpacing: 0.5 }}>{walletDisplay}</span>
+          <ChevronDown size={14} color="#00f2fe" />
+        </button>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          2. BALANCE SECTION (Two Large Side-by-Side Cards)
+      ══════════════════════════════════════════════════════════════════ */}
+      <div
+        style={{
+          width: "100%",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 10,
+        }}
+      >
+        {/* Left Card: Rush Points */}
+        <div
+          style={{
+            background: "rgba(8, 14, 32, 0.72)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            border: "1px solid rgba(168, 85, 247, 0.22)",
+            borderRadius: 22,
+            padding: "16px",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            boxShadow: "0 8px 30px rgba(0, 0, 0, 0.45)",
+          }}
+        >
+          <HexagonIcon type="rush" />
+          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+            <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: 11, fontWeight: 700, letterSpacing: 0.2 }}>
+              Rush Points
+            </span>
+            <span style={{ color: "#ffffff", fontSize: 24, fontWeight: 900, letterSpacing: -0.5, lineHeight: 1.1 }}>
+              {rushPoints}
+            </span>
+          </div>
+        </div>
+
+        {/* Right Card: Gram Balance */}
+        <div
+          style={{
+            background: "rgba(8, 14, 32, 0.72)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            border: "1px solid rgba(0, 242, 254, 0.22)",
+            borderRadius: 22,
+            padding: "16px",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            boxShadow: "0 8px 30px rgba(0, 0, 0, 0.45)",
+          }}
+        >
+          <HexagonIcon type="gram" />
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: 11, fontWeight: 700, letterSpacing: 0.2 }}>
+              Gram Balance
+            </span>
+            <span style={{ color: "#ffffff", fontSize: 22, fontWeight: 900, letterSpacing: -0.5, lineHeight: 1.1 }}>
+              {gramBal}
+            </span>
+            <span style={{ color: "rgba(255, 255, 255, 0.35)", fontSize: 10, fontWeight: 700 }}>
+              ≈ ${gramUsdValue}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          3. 24H EARNINGS PILL
+      ══════════════════════════════════════════════════════════════════ */}
+      <div
+        style={{
+          width: "100%",
+          background: "rgba(8, 14, 32, 0.65)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          border: "1px solid rgba(0, 242, 254, 0.15)",
+          borderRadius: 999,
+          padding: "12px 18px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.35)",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <Clock size={16} color="#00f2fe" style={{ filter: "drop-shadow(0 0 6px rgba(0,242,254,0.6))" }} />
+          <span style={{ color: "rgba(255, 255, 255, 0.8)", fontSize: 12, fontWeight: 800, letterSpacing: 1 }}>
+            24H EARNED
           </span>
-
-          {/* Live Continuous Numbers */}
-          <div style={{
-            display: "flex", alignItems: "baseline", gap: 6,
-            fontSize: 34, fontWeight: 900,
-            background: "linear-gradient(135deg, #fef08a 0%, #fbbf24 50%, #f59e0b 100%)",
-            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-            letterSpacing: -0.5, lineHeight: 1.2,
-          }}>
-            {liveUnclaimed.toFixed(6)}
-            <span style={{
-              fontSize: 14, fontWeight: 800,
-              color: "#00f2fe", WebkitTextFillColor: "#00f2fe",
-            }}>
-              Gram
-            </span>
-          </div>
-
-          {/* Daily Rate Subtitle */}
-          <div style={{
-            display: "flex", alignItems: "center", gap: 6, marginTop: 4,
-            color: "rgba(255,255,255,0.4)", fontSize: 11, fontWeight: 700,
-          }}>
-            <TrendingUp size={13} color="#10b981" />
-            <span>معدل الإنتاج: <b style={{ color: "#10b981" }}>+{dailyYield} Gram / يوم</b> (3%)</span>
-          </div>
-
-          {/* Big Glowing Claim Button */}
-          <button
-            onClick={handleClaim}
-            disabled={claiming || liveUnclaimed <= 0}
-            style={{
-              width: "100%", marginTop: 16, padding: "15px",
-              borderRadius: 18, border: "none",
-              background: liveUnclaimed > 0
-                ? "linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)"
-                : "rgba(255,255,255,0.06)",
-              color: liveUnclaimed > 0 ? "#041426" : "rgba(255,255,255,0.3)",
-              fontSize: 15, fontWeight: 900,
-              cursor: liveUnclaimed > 0 ? "pointer" : "not-allowed",
-              boxShadow: liveUnclaimed > 0 ? "0 8px 25px rgba(0,242,254,0.45)" : "none",
-              transition: "all 0.2s ease",
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            }}
-          >
-            <Pickaxe size={18} />
-            {claiming ? "جارٍ جمع الأرباح..." : liveUnclaimed > 0 ? "جمع أرباح الجرام الآن 💎" : "التعدين يعمل في الخلفية..."}
-          </button>
         </div>
+        <div
+          style={{
+            color: "#00f2fe",
+            fontSize: 14,
+            fontWeight: 900,
+            letterSpacing: 0.3,
+            filter: "drop-shadow(0 0 8px rgba(0,242,254,0.5))",
+          }}
+        >
+          + {dailyYield} Gram
+        </div>
+      </div>
+
+      {/* ══════════════════════════════════════════════════════════════════
+          4. MINING SECTION (Large Premium Mining Card)
+      ══════════════════════════════════════════════════════════════════ */}
+      <div
+        style={{
+          width: "100%",
+          background: "linear-gradient(165deg, rgba(10, 16, 38, 0.85) 0%, rgba(4, 7, 18, 0.95) 100%)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
+          border: "1px solid rgba(0, 242, 254, 0.20)",
+          borderRadius: 26,
+          padding: "20px 18px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 18,
+          boxShadow: "0 16px 48px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(0, 242, 254, 0.1)",
+        }}
+      >
+        {/* Top Split: Left Reactor & Right Metrics */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          {/* LEFT: Animated Mining Reactor */}
+          <MiningReactor />
+
+          {/* RIGHT: Mining Stats & Live Unclaimed Ticker */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 0 }}>
+            {/* Status indicator */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span
+                style={{
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: "#00f2fe",
+                  boxShadow: "0 0 8px #00f2fe",
+                }}
+              />
+              <span
+                style={{
+                  color: "#c084fc",
+                  fontSize: 11,
+                  fontWeight: 900,
+                  letterSpacing: 1.2,
+                  textTransform: "uppercase",
+                }}
+              >
+                MINING ACTIVE
+              </span>
+            </div>
+
+            {/* Large Timer */}
+            <div
+              style={{
+                color: "#ffffff",
+                fontSize: 28,
+                fontWeight: 900,
+                letterSpacing: -0.5,
+                fontFamily: "monospace",
+                lineHeight: 1.1,
+              }}
+            >
+              {formatTimer(timerSeconds)}
+            </div>
+
+            {/* Subtitle */}
+            <span style={{ color: "rgba(255, 255, 255, 0.45)", fontSize: 11, fontWeight: 600 }}>
+              Mining in progress...
+            </span>
+
+            {/* Boost Badge */}
+            <div
+              style={{
+                alignSelf: "flex-start",
+                background: "rgba(124, 58, 237, 0.25)",
+                border: "1px solid rgba(168, 85, 247, 0.45)",
+                borderRadius: 999,
+                padding: "3px 10px",
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                marginTop: 2,
+              }}
+            >
+              <Rocket size={12} color="#c084fc" />
+              <span style={{ color: "#c084fc", fontSize: 10.5, fontWeight: 900, letterSpacing: 0.5 }}>
+                2.5x BOOST
+              </span>
+            </div>
+
+            {/* Live Ticking Unclaimed Amount */}
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 4 }}>
+              <span
+                style={{
+                  color: "#ffffff",
+                  fontSize: 20,
+                  fontWeight: 900,
+                  letterSpacing: -0.2,
+                  fontFamily: "monospace",
+                }}
+              >
+                {liveUnclaimed.toFixed(8)}
+              </span>
+              <span style={{ color: "#00f2fe", fontSize: 13, fontWeight: 800 }}>Gram</span>
+            </div>
+          </div>
+        </div>
+
+        {/* BOTTOM: One Large Full-Width Claim Button */}
+        <button
+          onClick={handleClaim}
+          disabled={claiming || liveUnclaimed <= 0}
+          style={{
+            width: "100%",
+            padding: "16px",
+            borderRadius: 18,
+            border: "none",
+            background:
+              liveUnclaimed > 0
+                ? "linear-gradient(90deg, #00c6ff 0%, #0072ff 35%, #7f00ff 70%, #a855f7 100%)"
+                : "rgba(255, 255, 255, 0.07)",
+            color: liveUnclaimed > 0 ? "#ffffff" : "rgba(255, 255, 255, 0.3)",
+            fontSize: 15,
+            fontWeight: 900,
+            letterSpacing: 1,
+            textTransform: "uppercase",
+            cursor: liveUnclaimed > 0 ? "pointer" : "not-allowed",
+            boxShadow:
+              liveUnclaimed > 0
+                ? "0 0 25px rgba(0, 242, 254, 0.4), 0 0 35px rgba(127, 0, 255, 0.25)"
+                : "none",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            transition: "all 0.15s ease",
+          }}
+        >
+          {claiming ? (
+            <>
+              <Loader2 size={18} style={{ animation: "spinSlow 1s linear infinite" }} />
+              Claiming Reward...
+            </>
+          ) : (
+            <>
+              <span style={{ fontSize: 17 }}>💎</span>
+              CLAIM REWARD
+            </>
+          )}
+        </button>
       </div>
 
       {error && (
-        <div style={{
-          width: "100%", maxWidth: 360, marginTop: 10,
-          padding: "10px 14px", borderRadius: 14,
-          background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)",
-          color: "#fca5a5", fontSize: 12, textAlign: "center",
-        }}>
+        <div
+          style={{
+            width: "100%",
+            padding: "10px 14px",
+            borderRadius: 14,
+            background: "rgba(239,68,68,0.15)",
+            border: "1px solid rgba(239,68,68,0.3)",
+            color: "#fca5a5",
+            fontSize: 12,
+            textAlign: "center",
+            fontWeight: 700,
+          }}
+        >
           {error}
         </div>
       )}
-
-      {/* ── Stats Grid ──────────────────────────────────────────────── */}
-      <div style={{
-        display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10,
-        width: "100%", maxWidth: 360, marginTop: 12,
-      }}>
-        {/* Go Staked Card */}
-        <div style={{
-          background: "rgba(15,23,42,0.7)", border: "1px solid rgba(0,242,254,0.2)",
-          borderRadius: 20, padding: "14px 16px",
-          display: "flex", flexDirection: "column", gap: 4,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 700 }}>رصيد Go المشغّل</span>
-            <Coins size={16} color="#00f2fe" />
-          </div>
-          <div style={{ color: "#fff", fontSize: 20, fontWeight: 900 }}>
-            {goBal} <span style={{ fontSize: 12, color: "#00f2fe", fontWeight: 700 }}>Go</span>
-          </div>
-          <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>
-            تشغل التعدين بنسبة 3%
-          </span>
-        </div>
-
-        {/* Gram Total Card */}
-        <div style={{
-          background: "rgba(15,23,42,0.7)", border: "1px solid rgba(251,191,36,0.2)",
-          borderRadius: 20, padding: "14px 16px",
-          display: "flex", flexDirection: "column", gap: 4,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, fontWeight: 700 }}>إجمالي رصيد الجرام</span>
-            <span style={{ fontSize: 15 }}>💎</span>
-          </div>
-          <div style={{ color: "#fbbf24", fontSize: 20, fontWeight: 900 }}>
-            {gramBal} <span style={{ fontSize: 12, color: "#fbbf24", fontWeight: 700 }}>Gram</span>
-          </div>
-          <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10 }}>
-            الرصيد المحفوظ الدائم
-          </span>
-        </div>
-      </div>
-
-      {/* ── Boost Actions Section ───────────────────────────────────── */}
-      <div style={{
-        width: "100%", maxWidth: 360, marginTop: 14,
-        display: "flex", flexDirection: "column", gap: 10,
-      }}>
-        <div style={{
-          color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 800,
-          letterSpacing: 0.5, textAlign: "right", paddingRight: 4,
-        }}>
-          ⚡ كيف تزيد سرعة تعدين الجرام؟
-        </div>
-
-        {/* Task Boost Card */}
-        <div
-          onClick={() => setLocation("/tasks")}
-          style={{
-            background: "linear-gradient(135deg, rgba(16,185,129,0.12), rgba(6,78,59,0.20))",
-            border: "1px solid rgba(16,185,129,0.35)",
-            borderRadius: 18, padding: "14px 16px",
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            cursor: "pointer",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{
-              width: 38, height: 38, borderRadius: 12,
-              background: "rgba(16,185,129,0.2)", display: "flex",
-              alignItems: "center", justifyContent: "center",
-            }}>
-              <CheckCircle2 size={20} color="#10b981" />
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ color: "#fff", fontSize: 13, fontWeight: 800 }}>أنجز المهام اليومية</div>
-              <div style={{ color: "#34d399", fontSize: 11, fontWeight: 700 }}>احصل على +5 عملات Go لكل مهمة</div>
-            </div>
-          </div>
-          <ArrowRight size={18} color="#34d399" />
-        </div>
-
-        {/* Referral Boost Card */}
-        <div
-          onClick={() => setLocation("/referral")}
-          style={{
-            background: "linear-gradient(135deg, rgba(139,92,246,0.12), rgba(76,29,149,0.20))",
-            border: "1px solid rgba(139,92,246,0.35)",
-            borderRadius: 18, padding: "14px 16px",
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            cursor: "pointer",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{
-              width: 38, height: 38, borderRadius: 12,
-              background: "rgba(139,92,246,0.2)", display: "flex",
-              alignItems: "center", justifyContent: "center",
-            }}>
-              <Users size={20} color="#a78bfa" />
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ color: "#fff", fontSize: 13, fontWeight: 800 }}>ادعُ أصدقاءك</div>
-              <div style={{ color: "#c4b5fd", fontSize: 11, fontWeight: 700 }}>احصل على +10 عملات Go لكل صديق</div>
-            </div>
-          </div>
-          <ArrowRight size={18} color="#a78bfa" />
-        </div>
-      </div>
-
     </div>
   );
 }
+

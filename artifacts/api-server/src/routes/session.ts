@@ -32,12 +32,11 @@ async function isAdminUser(userId: number): Promise<boolean> {
 
 const router = Router();
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
-
 // ── Parse + validate Telegram WebApp initData ─────────────────────────
 function parseInitData(initData: string): { valid: boolean; userId?: number } {
   try {
-    if (!BOT_TOKEN) {
+    const token = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
+    if (!token) {
       // In production, no token means fail closed — cannot verify identity
       if (process.env.NODE_ENV === "production") return { valid: false };
       // In dev, allow through without verification
@@ -51,7 +50,7 @@ function parseInitData(initData: string): { valid: boolean; userId?: number } {
 
     const entries = [...params.entries()].sort(([a], [b]) => a.localeCompare(b));
     const checkStr = entries.map(([k, v]) => `${k}=${v}`).join("\n");
-    const secretKey = crypto.createHmac("sha256", "WebAppData").update(BOT_TOKEN).digest();
+    const secretKey = crypto.createHmac("sha256", "WebAppData").update(token).digest();
     const computed = crypto.createHmac("sha256", secretKey).update(checkStr).digest("hex");
 
     if (

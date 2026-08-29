@@ -4,7 +4,7 @@ import https from "https";
 import http from "http";
 
 const router = Router();
-const bot = new TelegramBot(process.env.TELEGRAM_BOT_TOKEN || "", { polling: false });
+const getBot = () => new TelegramBot(process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "", { polling: false });
 
 // Known developer Telegram user IDs
 const KNOWN_IDS: Record<string, number> = {
@@ -43,7 +43,8 @@ router.get("/avatar/:username", async (req: Request, res: Response) => {
     const userId = KNOWN_IDS[username];
     if (!userId) { res.status(404).json({ error: "unknown user" }); return; }
 
-    const photos = await bot.getUserProfilePhotos(userId, { limit: 1 });
+    const botInst = getBot();
+    const photos = await botInst.getUserProfilePhotos(userId, { limit: 1 });
     if (!photos.total_count || !photos.photos[0]?.length) {
       res.status(404).json({ error: "no photo" }); return;
     }
@@ -51,7 +52,7 @@ router.get("/avatar/:username", async (req: Request, res: Response) => {
     // Pick the largest size
     const sizes = photos.photos[0];
     const best = sizes[sizes.length - 1];
-    const link = await bot.getFileLink(best.file_id);
+    const link = await botInst.getFileLink(best.file_id);
     const { data, contentType } = await fetchBuffer(link);
 
     cache[username] = { data, contentType, ts: now };

@@ -6,9 +6,9 @@ import { logger } from "../lib/logger";
 const router = Router();
 const gunzipAsync = promisify(gunzip);
 
-const TOKEN = process.env.TELEGRAM_BOT_TOKEN ?? "";
-const TG_API = `https://api.telegram.org/bot${TOKEN}`;
-const TG_FILE = `https://api.telegram.org/file/bot${TOKEN}`;
+const getToken = () => process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
+const getTgApi = () => `https://api.telegram.org/bot${getToken()}`;
+const getTgFile = () => `https://api.telegram.org/file/bot${getToken()}`;
 
 interface CachedSticker { buf: Buffer; contentType: string; format: string }
 const cache = new Map<string, CachedSticker>();
@@ -40,7 +40,7 @@ async function fetchAndCache(emojiId: string): Promise<CachedSticker> {
   if (hit) return hit;
 
   // 1. Get sticker metadata
-  const sRes = await fetch(`${TG_API}/getCustomEmojiStickers`, {
+  const sRes = await fetch(`${getTgApi()}/getCustomEmojiStickers`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ custom_emoji_ids: [emojiId] }),
@@ -49,7 +49,7 @@ async function fetchAndCache(emojiId: string): Promise<CachedSticker> {
   if (!sData.ok || !sData.result?.length) throw new Error("Sticker not found");
 
   // 2. Get file path
-  const fRes = await fetch(`${TG_API}/getFile`, {
+  const fRes = await fetch(`${getTgApi()}/getFile`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ file_id: sData.result[0].file_id }),
@@ -61,7 +61,7 @@ async function fetchAndCache(emojiId: string): Promise<CachedSticker> {
   const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
 
   // 3. Download file
-  const dlRes = await fetch(`${TG_FILE}/${filePath}`);
+  const dlRes = await fetch(`${getTgFile()}/${filePath}`);
   if (!dlRes.ok) throw new Error("Failed to download sticker");
   const rawBuf = Buffer.from(await dlRes.arrayBuffer());
 

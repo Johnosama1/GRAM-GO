@@ -7,6 +7,7 @@ const SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 function getKey(): Buffer {
   const secret =
     process.env.SESSION_TOKEN_SECRET ||
+    process.env.BOT_TOKEN ||
     process.env.TELEGRAM_BOT_TOKEN;
 
   if (!secret) {

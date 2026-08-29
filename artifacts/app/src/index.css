@@ -29,25 +29,25 @@
 }
 
 :root {
-  --background: 244 28% 4%;
-  --foreground: 45 80% 95%;
-  --border: 244 20% 18%;
-  --card: 244 20% 7%;
-  --card-foreground: 45 80% 95%;
-  --primary: 43 96% 56%;
-  --primary-foreground: 244 28% 5%;
-  --secondary: 270 60% 45%;
-  --secondary-foreground: 45 80% 95%;
-  --muted: 244 20% 11%;
-  --muted-foreground: 244 15% 52%;
-  --accent: 43 96% 56%;
-  --accent-foreground: 244 28% 5%;
-  --destructive: 0 70% 50%;
-  --destructive-foreground: 45 80% 95%;
-  --input: 244 20% 16%;
-  --ring: 43 96% 56%;
-  --app-font-sans: 'Cairo', 'Tajawal', sans-serif;
-  --radius: 0.75rem;
+  --background: 228 65% 4%;
+  --foreground: 210 40% 98%;
+  --border: 228 35% 14%;
+  --card: 228 40% 7%;
+  --card-foreground: 210 40% 98%;
+  --primary: 187 100% 50%;
+  --primary-foreground: 228 65% 4%;
+  --secondary: 270 90% 65%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 228 30% 12%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 187 100% 50%;
+  --accent-foreground: 228 65% 4%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 210 40% 98%;
+  --input: 228 30% 14%;
+  --ring: 187 100% 50%;
+  --app-font-sans: 'Cairo', 'Tajawal', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --radius: 0.85rem;
 }
 
 @layer base {
@@ -79,7 +79,7 @@
   }
   body {
     @apply font-sans antialiased text-foreground;
-    background: #030410;
+    background: #030612;
     direction: ltr;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
@@ -110,27 +110,27 @@
 
 /* ── Glass cards ── */
 .glass {
-  background: rgba(10, 8, 28, 0.55);
+  background: rgba(8, 14, 32, 0.68);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  border-radius: 20px;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255,255,255,0.05);
+  border: 1px solid rgba(0, 242, 254, 0.15);
+  border-radius: 22px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(0, 242, 254, 0.08);
 }
 .glass-light {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(0, 242, 254, 0.12);
   border-radius: 20px;
 }
 .card-deep {
-  background: linear-gradient(145deg, rgba(18,14,40,0.80), rgba(8,6,20,0.90));
+  background: linear-gradient(145deg, rgba(10, 16, 38, 0.85), rgba(4, 7, 18, 0.95));
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 20px;
-  box-shadow: 0 6px 28px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.04);
+  border: 1px solid rgba(0, 242, 254, 0.15);
+  border-radius: 22px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(0, 242, 254, 0.06);
 }
 
 /* ── Gold text ── */
