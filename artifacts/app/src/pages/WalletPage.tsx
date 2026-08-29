@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import lottie from "lottie-web";
 import { useUser } from "../lib/userContext";
-import { api, swapGramToTon, invalidateUserCaches, getWithdrawalsOnce } from "../lib/api";
+import { api, swapUsdtToTon, swapGramToTon, invalidateUserCaches, getWithdrawalsOnce } from "../lib/api";
 import type { Withdrawal } from "../lib/api";
 import { useTonAddress, useTonConnectUI } from "@tonconnect/ui-react";
 import {
@@ -12,6 +12,26 @@ import { useLocation } from "wouter";
 
 const MIN_WITHDRAWAL = 0.1;
 const TON_IMG  = "https://assets.coingecko.com/coins/images/17980/standard/photo_2024-09-10_17.09.00.jpeg?1725963446";
+const USDT_IMG = "https://assets.coingecko.com/coins/images/325/large/Tether.png";
+
+function UsdtLogo({ size = 32 }: { size?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let anim: ReturnType<typeof lottie.loadAnimation> | null = null;
+    import("../../public/usdt-anim.json").then((m) => {
+      if (!ref.current) return;
+      anim = lottie.loadAnimation({
+        container: ref.current,
+        renderer: "svg",
+        loop: true,
+        autoplay: true,
+        animationData: m.default as object,
+      });
+    }).catch(() => {});
+    return () => { if (anim) anim.destroy(); };
+  }, []);
+  return <div ref={ref} style={{ width: size, height: size, flexShrink: 0 }} />;
+}
 
 function GramLogo({ size = 32 }: { size?: number }) {
   return (
@@ -110,13 +130,14 @@ export default function WalletPage() {
     }
   }, [connectedAddress]);
 
+  const usdtBalance = parseFloat(user?.balance     || "0");
   const gramBalance = parseFloat(user?.gramBalance || "0");
   const goBalance   = parseFloat(user?.goBalance   || user?.balance || "0");
   const tonBalance  = parseFloat(user?.tonBalance  || "0");
   const savedWallet = user?.savedWalletAddress ?? null;
   const canWithdraw = tonBalance >= MIN_WITHDRAWAL;
   const swapAmtNum  = parseFloat(swapAmount) || 0;
-  const canSwap     = gramBalance > 0 && !swapping;
+  const canSwap     = (gramBalance > 0 || usdtBalance > 0) && !swapping;
   const tonEquiv    = tonPrice && swapAmtNum > 0 ? (swapAmtNum / tonPrice).toFixed(4) : null;
   const amtNum      = parseFloat(amount) || 0;
 
@@ -130,12 +151,15 @@ export default function WalletPage() {
   const handleSwap = async () => {
     if (!user || swapping) return;
     setSwapError(""); setSwapResult(null);
-    const amt = swapAmtNum || gramBalance;
+    const available = gramBalance > 0 ? gramBalance : usdtBalance;
+    const amt = swapAmtNum || available;
     if (amt <= 0) { setSwapError("أدخل مبلغاً"); return; }
-    if (amt > gramBalance) { setSwapError("رصيد الجرام غير كافٍ"); return; }
+    if (amt > available) { setSwapError("الرصيد غير كافٍ"); return; }
     setSwapping(true);
     try {
-      const res = await swapGramToTon(user.id, amt);
+      const res = gramBalance > 0
+        ? await swapGramToTon(user.id, amt)
+        : await swapUsdtToTon(user.id, amt);
       setSwapResult({ tonAmount: res.tonAmount, tonPrice: res.tonPrice });
       invalidateUserCaches(user.id);
       await refresh();
@@ -436,23 +460,23 @@ export default function WalletPage() {
             )}
 
             {/* CTA */}
-            <button onClick={handleSwap} disabled={!canSwap || usdtBalance <= 0}
+            <button onClick={handleSwap} disabled={!canSwap || (gramBalance <= 0 && usdtBalance <= 0)}
               style={{
                 width: "100%", padding: "16px", borderRadius: 18, border: "none",
-                background: canSwap && usdtBalance > 0
-                  ? "linear-gradient(135deg, #7c3aed 0%, #4f46e5 100%)"
+                background: canSwap && (gramBalance > 0 || usdtBalance > 0)
+                  ? "linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)"
                   : "rgba(255,255,255,0.05)",
-                color: canSwap && usdtBalance > 0 ? "#fff" : "rgba(255,255,255,0.22)",
+                color: canSwap && (gramBalance > 0 || usdtBalance > 0) ? "#080c1a" : "rgba(255,255,255,0.22)",
                 fontSize: 15, fontWeight: 800, fontFamily: "inherit",
-                cursor: canSwap && usdtBalance > 0 ? "pointer" : "not-allowed",
+                cursor: canSwap && (gramBalance > 0 || usdtBalance > 0) ? "pointer" : "not-allowed",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 9,
-                boxShadow: canSwap && usdtBalance > 0 ? "0 8px 28px rgba(124,58,237,0.45)" : "none",
+                boxShadow: canSwap && (gramBalance > 0 || usdtBalance > 0) ? "0 8px 28px rgba(251,191,36,0.45)" : "none",
                 opacity: swapping ? 0.65 : 1,
                 letterSpacing: 0.3,
               }}>
               {swapping
                 ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Converting…</>
-                : <><ArrowDownUp size={15} /> Swap USDT → TON</>}
+                : <><ArrowDownUp size={15} /> Swap {gramBalance > 0 ? "Gram" : "USDT"} → TON</>}
             </button>
 
             {/* Hint */}

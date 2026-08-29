@@ -5,6 +5,8 @@ import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
 import { rm, mkdir, rename } from "node:fs/promises";
 
+process.env.NODE_ENV = process.env.NODE_ENV || "production";
+
 globalThis.require = createRequire(import.meta.url);
 
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
