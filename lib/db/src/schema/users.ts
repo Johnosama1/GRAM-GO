@@ -26,6 +26,9 @@ export const usersTable = pgTable("users", {
   userAgent: text("user_agent"),
   verificationToken: text("verification_token"),
   savedWalletAddress: text("saved_wallet_address"),
+  dailyStreak: integer("daily_streak").notNull().default(0),
+  lastDailyClaimAt: timestamp("last_daily_claim_at"),
+  comboCompletedAt: timestamp("combo_completed_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 
   // ── Subscription enforcement fields ──────────────────────────────
