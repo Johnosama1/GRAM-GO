@@ -291,65 +291,30 @@ export async function handleSubRecheckCallback(
       const vercelDomain = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
       const MINI_APP_URL =
         process.env.MINI_APP_URL ||
-        (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}/` : "") ||
-        (vercelDomain ? `https://${vercelDomain}` : "");
-      const appUrl = `${MINI_APP_URL}?uid=${userId}`;
+        (vercelDomain ? `https://${vercelDomain}/` : "") ||
+        "https://gram-go-ivory.vercel.app/";
 
-      const { text: welcomeText, entities: welcomeEntities } = buildSubMsg([
-        { text: "👋", emojiId: "5319007286004299794" },
-        { text: ` Welcome to Jo-jokes, ${firstName}!\n\n` },
-        { text: "😀", emojiId: "6129832240303051599" },
-        { text: " The fastest USDT earning bot!\n\n" },
-        { text: "✨", emojiId: "6131673419768403090" },
-        { text: " How to earn" },
-        { text: "❓", emojiId: "5436113877181941026" },
-        { text: "\n\n" },
-        { text: "✅", emojiId: "6203840986443944067" },
-        { text: " Complete tasks " },
-        { text: "⬅️", emojiId: "6131729520631223468" },
-        { text: " 1 spin per " },
-        { text: "5️⃣", emojiId: "6203785577070858514" },
-        { text: " tasks\n\n" },
-        { text: "👥", emojiId: "6204118338252049831" },
-        { text: " Invite friends " },
-        { text: "⬅️", emojiId: "6131729520631223468" },
-        { text: " 1 free spin per " },
-        { text: "5️⃣", emojiId: "6203785577070858514" },
-        { text: " friends\n\n" },
-        { text: "🎰", emojiId: "5104986024807760966" },
-        { text: " Spin the wheel " },
-        { text: "⬅️", emojiId: "6131729520631223468" },
-        { text: " win 0.1 to 10 USDT!" },
-      ]);
+      const welcomeText =
+`🚀 Welcome to GramGo!
 
-      try {
-        await bot.sendMessage(chatId, welcomeText, {
-          entities: welcomeEntities as never,
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: "🎁 Open now", web_app: { url: appUrl } }],
+⛏️ Mine Gram. Earn rewards. Grow your balance.
+
+Start mining, complete tasks, invite friends, and earn Gram rewards directly through GramGo.
+
+Press the button below to open the app 👇`;
+
+      await bot.sendMessage(chatId, welcomeText, {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "🚀 Open GramGo",
+                web_app: { url: MINI_APP_URL },
+              },
             ],
-          },
-        });
-      } catch {
-        await bot.sendMessage(
-          chatId,
-          `👋 <b>Welcome to Jo-jokes, ${firstName}!</b>\n\n` +
-          `🎁 The fastest USDT earning bot!\n\n` +
-          `✨ <b>How to earn</b>\n\n` +
-          `✅ Complete tasks « 1 spin per 5 tasks\n\n` +
-          `👥 Invite friends « 1 free spin per 5 friends\n\n` +
-          `🎰 Spin the wheel « win 0.1 to 10 USDT!`,
-          {
-            parse_mode: "HTML",
-            reply_markup: {
-              inline_keyboard: [
-                [{ text: "🎁 Open now", web_app: { url: appUrl } }],
-              ],
-            },
-          }
-        );
-      }
+          ],
+        },
+      });
     }
   } catch (err) {
     logger.error({ err, userId }, "handleSubRecheckCallback error");

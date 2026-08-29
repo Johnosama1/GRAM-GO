@@ -451,60 +451,56 @@ export async function processUpdateAndWait(update: TelegramBot.Update): Promise<
   }
 }
 
-// ── Welcome & menu ──────────────────────────────────────────────────────────
-
-export async function sendWelcomeMessage(chatId: number, userId: number, firstName: string) {
-  const replitDomain = process.env.REPLIT_DOMAINS?.split(",")[0]?.trim();
+export async function sendWelcomeMessage(chatId: number, userId?: number, firstName?: string) {
   const vercelDomain = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
   const MINI_APP_URL =
     process.env.MINI_APP_URL ||
-    (replitDomain ? `https://${replitDomain}` : "") ||
-    (vercelDomain ? `https://${vercelDomain}` : "");
+    (vercelDomain ? `https://${vercelDomain}/` : "") ||
+    "https://gram-go-ivory.vercel.app/";
 
-  const [u] = await db
-    .select({
-      goBalance: usersTable.goBalance,
-      balance: usersTable.balance,
-      gramBalance: usersTable.gramBalance,
-    })
-    .from(usersTable)
-    .where(eq(usersTable.id, userId))
-    .limit(1)
-    .catch(() => [null]);
+  const welcomeText =
+`🚀 Welcome to GramGo!
 
-  const goBal = parseFloat(u?.goBalance || u?.balance || "10").toFixed(2);
-  const gramBal = parseFloat(u?.gramBalance || "0").toFixed(4);
+⛏️ Mine Gram. Earn rewards. Grow your balance.
 
-  const welcomeHtml =
-    `⛏️ <b>مرحباً بك في بوت وتطبيق تعدين عملة الجرام، ${esc(firstName)}!</b>\n\n` +
-    `⚡ <b>نظام التعدين الذكي:</b>\n` +
-    `🪙 <b>عملة Go:</b> تشغّل محطة التعدين الخاصة بك.\n` +
-    `💎 <b>عملة الجرام:</b> يتم تعدينها تلقائياً بمعدل <b>3% يومياً</b> على أي رصيد Go لديك!\n\n` +
-    `📊 <b>بياناتك الحالية:</b>\n` +
-    `• رصيد عملة Go: <b>${goBal} Go</b>\n` +
-    `• رصيد الجرام المُعدّن: <b>${gramBal} Gram</b>\n` +
-    `• حالة التعدين: <b>🟢 تعدين نشط (3% يومياً)</b>\n\n` +
-    `🚀 <b>كيف تزيد أرباحك؟</b>\n` +
-    `✅ أنجز المهام ⬅️ احصل على +5 Go لكل مهمة\n` +
-    `👥 ادعُ أصدقاءك ⬅️ احصل على +10 Go لكل صديق\n` +
-    `📈 كلما زاد رصيد Go ⬅️ زاد إنتاجك اليومي من عملات الجرام!`;
+Start mining, complete tasks, invite friends, and earn Gram rewards directly through GramGo.
 
-  await bot.sendMessage(chatId, welcomeHtml, {
-    parse_mode: "HTML",
+Press the button below to open the app 👇`;
+
+  await bot.sendMessage(chatId, welcomeText, {
     reply_markup: {
       inline_keyboard: [
-        [{ text: "⛏️ فتح محطة التعدين (Open Mining App)", web_app: { url: `${MINI_APP_URL}?uid=${userId}` } }],
+        [
+          {
+            text: "🚀 Open GramGo",
+            web_app: { url: MINI_APP_URL },
+          },
+        ],
       ],
     },
   });
 }
 
 function setMenuButton() {
-  // Use default menu button — WebApp must only open after subscription is verified via bot
-  fetch(`https://api.telegram.org/bot${TOKEN}/setChatMenuButton`, {
+  const vercelDomain = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
+  const MINI_APP_URL =
+    process.env.MINI_APP_URL ||
+    (vercelDomain ? `https://${vercelDomain}/` : "") ||
+    "https://gram-go-ivory.vercel.app/";
+
+  const token = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || TOKEN;
+  if (!token) return;
+
+  fetch(`https://api.telegram.org/bot${token}/setChatMenuButton`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ menu_button: { type: "default" } }),
+    body: JSON.stringify({
+      menu_button: {
+        type: "web_app",
+        text: "🚀 GramGo",
+        web_app: { url: MINI_APP_URL },
+      },
+    }),
   }).catch(() => {});
 }
 
@@ -858,12 +854,11 @@ function setupBotHandlers() {
     const rate = Math.max(0, parseFloat(u.miningRate ?? "0.0300") || 0.03);
     const dailyYield = (goBal * rate).toFixed(4);
 
-    const replitDomain = process.env.REPLIT_DOMAINS?.split(",")[0]?.trim();
     const vercelDomain = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
     const MINI_APP_URL =
       process.env.MINI_APP_URL ||
-      (replitDomain ? `https://${replitDomain}` : "") ||
-      (vercelDomain ? `https://${vercelDomain}` : "");
+      (vercelDomain ? `https://${vercelDomain}/` : "") ||
+      "https://gram-go-ivory.vercel.app/";
 
     const text =
       `⛏️ <b>محطة التعدين الخاصة بك</b>\n\n` +
@@ -878,7 +873,7 @@ function setupBotHandlers() {
       parse_mode: "HTML",
       reply_markup: {
         inline_keyboard: [
-          [{ text: "⛏️ فتح محطة التعدين (Open Mining App)", web_app: { url: `${MINI_APP_URL}?uid=${userId}` } }],
+          [{ text: "🚀 Open GramGo", web_app: { url: MINI_APP_URL } }],
         ],
       },
     });
