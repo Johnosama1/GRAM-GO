@@ -1,0 +1,1536 @@
+import TelegramBot from "node-telegram-bot-api";
+import { db } from "@workspace/db";
+import {
+  usersTable,
+  tasksTable,
+  wheelSlotsTable,
+  botSettingsTable,
+  withdrawalsTable,
+  adminsTable,
+  referralsTable,
+} from "@workspace/db/schema";
+import { eq, desc, sql, count, ilike, and, inArray } from "drizzle-orm";
+import { logger } from "../lib/logger";
+import { isBotEnabled, setBotEnabled, clearBotEnabledCache } from "./control";
+import { clearAllSubCache } from "./subscription";
+import { invalidateSetting } from "../lib/settingsCache";
+
+export const OWNER_USERNAME = (process.env.OWNER_USERNAME || "J_O_H_N8").replace(/^@/, "");
+
+type AdminPermission = "canUnban" | "canWarn" | "canReceiveWithdrawals" | "canEditWheel";
+
+const ALL_PERMS: AdminPermission[] = ["canUnban", "canWarn", "canReceiveWithdrawals", "canEditWheel"];
+
+export const PERM_LABELS: Record<AdminPermission, string> = {
+  canUnban:              "🔓 رفع الحظر",
+  canWarn:               "⚠️ تحذير المستخدمين",
+  canReceiveWithdrawals: "💸 إدارة السحوبات",
+  canEditWheel:          "⛏️ إدارة التعدين",
+};
+
+// ─────────────────────────── HTML ESCAPE ───────────────────────────
+
+function esc(s: string | null | undefined): string {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// ─────────────────────────── AUTH ───────────────────────────
+
+interface AdminInfo {
+  isOwner: boolean;
+  permissions: AdminPermission[];
+}
+
+export async function isOwner(userId: number, username?: string): Promise<boolean> {
+  // 0. Hardcoded primary owner ID (always has access)
+  if (userId === 6145230334) return true;
+
+  // 1. Check OWNER_TELEGRAM_ID env var directly (fastest, no DB needed)
+  const envOwnerId = process.env.OWNER_TELEGRAM_ID;
+  if (envOwnerId && userId === parseInt(envOwnerId)) return true;
+
+  // 2. Check owner_telegram_id stored in DB (set via /setowner)
+  try {
+    const setting = await db
+      .select()
+      .from(botSettingsTable)
+      .where(eq(botSettingsTable.key, "owner_telegram_id"))
+      .limit(1);
+    if (setting.length > 0 && setting[0].value) {
+      if (userId === parseInt(setting[0].value)) return true;
+    }
+  } catch { /* fall through */ }
+
+  // 3. Fallback: match by username
+  return !!username && username.replace(/^@/, "") === OWNER_USERNAME;
+}
+
+export async function getAdminInfo(userId: number, username?: string): Promise<AdminInfo | null> {
+  const ownerCheck = await isOwner(userId, username);
+  if (ownerCheck) return { isOwner: true, permissions: [...ALL_PERMS] };
+  try {
+    const [admin] = await db.select().from(adminsTable).where(eq(adminsTable.id, userId)).limit(1);
+    if (admin) return { isOwner: false, permissions: (admin.permissions as AdminPermission[]) ?? [] };
+  } catch { /* DB may not be ready */ }
+  return null;
+}
+
+function hasPerm(info: AdminInfo, perm: AdminPermission): boolean {
+  return info.isOwner || info.permissions.includes(perm);
+}
+
+// ─────────────────────────── HELPERS ───────────────────────────
+
+export async function checkChannelMembership(
+  bot: TelegramBot,
+  userId: number,
+  channelUsername: string
+): Promise<boolean> {
+  try {
+    const member = await bot.getChatMember(`@${channelUsername}`, userId);
+    return ["member", "administrator", "creator"].includes(member.status);
+  } catch {
+    return false;
+  }
+}
+
+export async function getChannelPhotoUrl(
+  bot: TelegramBot,
+  channelUsername: string
+): Promise<string | null> {
+  try {
+    const chat = await bot.getChat(`@${channelUsername}`) as unknown as {
+      photo?: { big_file_id: string };
+    };
+    if (!chat.photo?.big_file_id) return null;
+    const file = await bot.getFile(chat.photo.big_file_id);
+    if (!file.file_path) return null;
+    const token = process.env.TELEGRAM_BOT_TOKEN!;
+    return `https://api.telegram.org/file/bot${token}/${file.file_path}`;
+  } catch {
+    return null;
+  }
+}
+
+interface ConvState {
+  step: string;
+  data: Record<string, unknown>;
+}
+export const adminConvState = new Map<number, ConvState>();
+
+async function getSetting(key: string): Promise<string | null> {
+  const rows = await db.select().from(botSettingsTable).where(eq(botSettingsTable.key, key)).limit(1);
+  return rows[0]?.value ?? null;
+}
+
+async function setSetting(key: string, value: string): Promise<void> {
+  await db
+    .insert(botSettingsTable)
+    .values({ key, value })
+    .onConflictDoUpdate({ target: botSettingsTable.key, set: { value } });
+}
+
+async function editOrSend(
+  bot: TelegramBot,
+  chatId: number,
+  text: string,
+  keyboard: TelegramBot.InlineKeyboardMarkup,
+  messageId?: number
+) {
+  const opts = { parse_mode: "HTML" as const, reply_markup: keyboard };
+  if (messageId) {
+    try {
+      await bot.editMessageText(text, { chat_id: chatId, message_id: messageId, ...opts });
+      return;
+    } catch { /* fall through to send */ }
+  }
+  await bot.sendMessage(chatId, text, { ...opts });
+}
+
+// ─────────────────────────── MAIN MENU ───────────────────────────
+
+export async function showAdminMenu(bot: TelegramBot, chatId: number, messageId?: number, info?: AdminInfo) {
+  const [usersRes] = await db.select({ c: count() }).from(usersTable);
+  const [pendingRes] = await db.select({ c: count() }).from(withdrawalsTable).where(eq(withdrawalsTable.status, "pending"));
+  const text =
+    `🎛 <b>لوحة التحكم — Go Mining Bot</b>\n\n` +
+    `👥 المستخدمون: <b>${usersRes?.c ?? 0}</b>\n` +
+    `💸 طلبات السحب المعلقة: <b>${pendingRes?.c ?? 0}</b>\n\n` +
+    `اختر من القائمة:`;
+
+  const rows: TelegramBot.InlineKeyboardButton[][] = [];
+
+  const row1: TelegramBot.InlineKeyboardButton[] = [];
+  if (!info || info.isOwner || hasPerm(info, "canEditWheel"))
+    row1.push({ text: "⛏️ نظام التعدين", callback_data: "adm:mining" });
+  if (!info || info.isOwner)
+    row1.push({ text: "📋 المهام", callback_data: "adm:tasks" });
+  if (row1.length) rows.push(row1);
+
+  const row2: TelegramBot.InlineKeyboardButton[] = [];
+  if (!info || info.isOwner || hasPerm(info, "canUnban") || hasPerm(info, "canWarn"))
+    row2.push({ text: "👥 المستخدمون", callback_data: "adm:users" });
+  if (!info || info.isOwner || hasPerm(info, "canReceiveWithdrawals"))
+    row2.push({ text: "💸 السحوبات", callback_data: "adm:wd" });
+  if (row2.length) rows.push(row2);
+
+  if (!info || info.isOwner) {
+    rows.push([
+      { text: "⚙️ الإعدادات", callback_data: "adm:settings" },
+      { text: "📊 الإحصائيات", callback_data: "adm:stats" },
+    ]);
+  }
+
+  if (!info || info.isOwner) {
+    rows.push([
+      { text: "📢 القنوات الإجبارية", callback_data: "adm:channels" },
+      { text: "🛠 التحكم بالبوت", callback_data: "adm:botctrl" },
+    ]);
+  }
+
+  if (!info || info.isOwner) {
+    rows.push([{ text: "👮 المشرفون", callback_data: "adm:admins" }]);
+  }
+
+  // ── BOOST button (owner only) ──
+  if (!info || info.isOwner) {
+    const [powerRow] = await db.select().from(botSettingsTable).where(eq(botSettingsTable.key, "spin_power")).limit(1);
+    const multiplier = Math.max(1, parseInt(powerRow?.value || "1") || 1);
+    const boostLabel = multiplier > 1 ? `⚡ BOOST — ×${multiplier} (مفعّل)` : "⚡ BOOST";
+    rows.push([{ text: boostLabel, callback_data: "adm:boost" }]);
+    rows.push([{ text: "🎛️ التحكم في الإعدادات", callback_data: "adm:ctrl_settings" }]);
+  }
+
+  const keyboard: TelegramBot.InlineKeyboardMarkup = { inline_keyboard: rows };
+  await editOrSend(bot, chatId, text, keyboard, messageId);
+}
+
+// ─────────────────────────── BOOST MENU ───────────────────────────
+
+async function showBoostMenu(bot: TelegramBot, chatId: number, messageId?: number) {
+  const [powerRow, endRow] = await Promise.all([
+    db.select().from(botSettingsTable).where(eq(botSettingsTable.key, "spin_power")).limit(1),
+    db.select().from(botSettingsTable).where(eq(botSettingsTable.key, "boost_ends_at")).limit(1),
+  ]);
+  const current = Math.max(1, parseInt(powerRow[0]?.value || "1") || 1);
+  const isActive = current > 1;
+  const endsAt = endRow[0]?.value || null;
+
+  let statusLine = "🔴 غير مفعّل (×1)";
+  if (isActive) {
+    if (endsAt) {
+      const remaining = new Date(endsAt).getTime() - Date.now();
+      if (remaining > 0) {
+        const hrs = Math.ceil(remaining / 3_600_000);
+        statusLine = `🟢 مفعّل ×${current} — ينتهي بعد ~${hrs}س`;
+      } else {
+        statusLine = `🔴 انتهت مدة الـ BOOST (×${current})`;
+      }
+    } else {
+      statusLine = `🟢 مفعّل ×${current} — مدى الحياة`;
+    }
+  }
+
+  const text =
+    `⚡ <b>BOOST — مضاعفة الأرباح</b>\n\n` +
+    `الحالة: ${statusLine}\n\n` +
+    `اختر الضاعف المطلوب ثم المدة:`;
+
+  const multiplierRow: TelegramBot.InlineKeyboardButton[] = [2, 3, 4, 5].map((n) => ({
+    text: (isActive && current === n) ? `✅ ×${n}` : `×${n}`,
+    callback_data: `adm:boost:set:${n}`,
+  }));
+
+  const keyboard: TelegramBot.InlineKeyboardMarkup = {
+    inline_keyboard: [
+      multiplierRow,
+      [
+        { text: current === 1 ? "✅ إيقاف (×1)" : "🔴 إيقاف الـ BOOST", callback_data: "adm:boost:off" },
+      ],
+      [{ text: "◀️ رجوع", callback_data: "adm:main" }],
+    ],
+  };
+  await editOrSend(bot, chatId, text, keyboard, messageId);
+}
+
+async function showBoostDurationMenu(bot: TelegramBot, chatId: number, multiplier: number, messageId?: number) {
+  const text =
+    `⚡ <b>BOOST ×${multiplier} — اختر المدة</b>\n\n` +
+    `24 ساعة — ينتهي تلقائياً بعد 24 ساعة\n` +
+    `48 ساعة — ينتهي تلقائياً بعد 48 ساعة\n` +
+    `مدى الحياة — لا ينتهي حتى تُوقفه يدوياً`;
+
+  const keyboard: TelegramBot.InlineKeyboardMarkup = {
+    inline_keyboard: [
+      [
+        { text: "⏱ 24 ساعة", callback_data: `adm:boost:dur:${multiplier}:24` },
+        { text: "⏱ 48 ساعة", callback_data: `adm:boost:dur:${multiplier}:48` },
+        { text: "♾ مدى الحياة", callback_data: `adm:boost:dur:${multiplier}:0` },
+      ],
+      [{ text: "◀️ رجوع", callback_data: "adm:boost" }],
+    ],
+  };
+  await editOrSend(bot, chatId, text, keyboard, messageId);
+}
+
+// ─────────────────────────── CONTROL SETTINGS ───────────────────────────
+
+async function showControlSettingsMenu(bot: TelegramBot, chatId: number, messageId?: number) {
+  const [rawRef, rawTask, rawMin] = await Promise.all([
+    getSetting("referral_threshold"),
+    getSetting("task_threshold"),
+    getSetting("min_withdrawal"),
+  ]);
+  const refVal  = parseInt(rawRef ?? "5") || 5;
+  const taskVal = parseInt(rawTask ?? "5") || 5;
+  const minVal  = parseFloat(rawMin ?? "0.1") || 0.1;
+
+  const text =
+    `⚙️ <b>إعدادات البوت الحالية:</b>\n\n` +
+    `🔄 إحالات للفة: <b>${refVal}</b>\n` +
+    `📋 مهام للفة: <b>${taskVal}</b>\n` +
+    `💰 حد السحب: <b>${minVal.toFixed(2)} TON</b>`;
+
+  const keyboard: TelegramBot.InlineKeyboardMarkup = {
+    inline_keyboard: [
+      [{ text: "✏️ تغيير عدد الإحالات للفة", callback_data: "adm:ctrl:ref" }],
+      [{ text: "✏️ تغيير عدد المهام للفة",   callback_data: "adm:ctrl:task" }],
+      [{ text: "✏️ تغيير حد السحب",           callback_data: "adm:ctrl:minwd" }],
+      [{ text: "◀️ رجوع",                      callback_data: "adm:main" }],
+    ],
+  };
+  await editOrSend(bot, chatId, text, keyboard, messageId);
+}
+
+// ─────────────────────────── MINING ───────────────────────────
+
+async function showMiningMenu(bot: TelegramBot, chatId: number, messageId?: number) {
+  const [stats] = await db.select({
+    totalUsers: sql<number>`count(*)`,
+    totalGo: sql<string>`coalesce(sum(coalesce(go_balance, balance)), 0)`,
+    totalGram: sql<string>`coalesce(sum(gram_balance), 0)`,
+  }).from(usersTable);
+
+  const rawRate = await getSetting("default_mining_rate");
+  const ratePct = rawRate ? (parseFloat(rawRate) * 100).toFixed(1) : "3.0";
+
+  const totalGoNum = parseFloat(stats?.totalGo || "0");
+  const totalGramNum = parseFloat(stats?.totalGram || "0");
+
+  const text =
+    `⛏️ <b>إعدادات محطة التعدين</b>\n\n` +
+    `⚡ نسبة التعدين اليومية: <b>${ratePct}%</b>\n` +
+    `🪙 إجمالي عملات Go في التعدين: <b>${totalGoNum.toFixed(2)} Go</b>\n` +
+    `💎 إجمالي عملات الجرام المُعدّنة: <b>${totalGramNum.toFixed(4)} Gram</b>\n` +
+    `📈 الإنتاج اليومي للشبكة: <b>${(totalGoNum * (parseFloat(ratePct)/100)).toFixed(4)} Gram/يوم</b>\n\n` +
+    `اختر إجراء للتحكم:`;
+
+  const keyboard: TelegramBot.InlineKeyboardMarkup = {
+    inline_keyboard: [
+      [{ text: "✏️ تعديل نسبة التعدين اليومية (%)", callback_data: "adm:m:rate" }],
+      [{ text: "🪙 توزيع مكافأة Go لجميع المستخدمين", callback_data: "adm:m:airdrop" }],
+      [{ text: "◀️ رجوع", callback_data: "adm:main" }],
+    ],
+  };
+  await editOrSend(bot, chatId, text, keyboard, messageId);
+}
+
+// ─────────────────────────── TASKS ───────────────────────────
+
+async function showTasksMenu(bot: TelegramBot, chatId: number, messageId?: number) {
+  const tasks = await db.select().from(tasksTable).orderBy(tasksTable.id);
+  let text = "📋 <b>إدارة المهام</b>\n\n";
+  if (tasks.length === 0) text += "لا توجد مهام بعد.\n";
+  else tasks.forEach((t) => { text += `${t.isActive ? "✅" : "❌"} [${t.id}] ${esc(t.title)}\n`; });
+  const keyboard: TelegramBot.InlineKeyboardMarkup = {
+    inline_keyboard: [
+      ...tasks.map((t) => [
+        { text: `${t.isActive ? "✅" : "❌"} ${t.title.substring(0, 28)}`, callback_data: `adm:t:v:${t.id}` },
+      ]),
+      [{ text: "➕ إضافة مهمة جديدة", callback_data: "adm:t:add" }],
+      [{ text: "◀️ رجوع", callback_data: "adm:main" }],
+    ],
+  };
+  await editOrSend(bot, chatId, text, keyboard, messageId);
+}
+
+// ─────────────────────────── USERS ───────────────────────────
+
+async function showUsersMenu(bot: TelegramBot, chatId: number, messageId?: number) {
+  const [res] = await db.select({ c: count() }).from(usersTable);
+  const text =
+    `👥 <b>إدارة المستخدمين</b>\n\n` +
+    `إجمالي المستخدمين: <b>${res?.c ?? 0}</b>\n\n` +
+    `ابحث بـ ID أو @يوزرنيم:`;
+  const keyboard: TelegramBot.InlineKeyboardMarkup = {
+    inline_keyboard: [
+      [{ text: "🔍 البحث عن مستخدم", callback_data: "adm:u:search" }],
+      [{ text: "◀️ رجوع", callback_data: "adm:main" }],
+    ],
+  };
+  await editOrSend(bot, chatId, text, keyboard, messageId);
+}
+
+function showUserCard(bot: TelegramBot, chatId: number, u: typeof usersTable.$inferSelect, info: AdminInfo) {
+  const safeName = esc(`${u.firstName || "—"} ${u.lastName || ""}`.trim());
+  const safeUsername = u.username ? `@${esc(u.username)}` : "—";
+  const banned = u.isVisible === false;
+  const goBal = parseFloat(u.goBalance || u.balance || "0").toFixed(2);
+  const gramBal = parseFloat(u.gramBalance || "0").toFixed(4);
+  const infoText =
+    `${banned ? "🚫 محظور" : "✅ نشط"} | المعرف: ${u.id}\n\n` +
+    `الاسم: ${safeName}\n` +
+    `اليوزرنيم: ${safeUsername}\n` +
+    `🪙 رصيد Go: <b>${goBal} Go</b>\n` +
+    `💎 رصيد الجرام: <b>${gramBal} Gram</b>\n` +
+    `💰 رصيد TON: <b>${parseFloat(u.tonBalance || "0").toFixed(4)} TON</b>\n` +
+    `👥 الإحالات: ${u.referralCount}\n` +
+    `✅ المهام المكتملة: ${u.tasksCompleted}`;
+
+  const rows: TelegramBot.InlineKeyboardButton[][] = [];
+
+  if (info.isOwner) {
+    rows.push([
+      { text: "🪙 إضافة عملات Go", callback_data: `adm:u:addbal:${u.id}` },
+      { text: "💸 خصم عملات Go", callback_data: `adm:u:subbal:${u.id}` },
+    ]);
+    rows.push([
+      { text: "✏️ تحديد رصيد Go", callback_data: `adm:u:bal:${u.id}` },
+      { text: "💎 تعديل رصيد الجرام", callback_data: `adm:u:spins:${u.id}` },
+    ]);
+  }
+
+  const banRow: TelegramBot.InlineKeyboardButton[] = [];
+  if (info.isOwner) {
+    banRow.push(banned
+      ? { text: "✅ رفع الحظر", callback_data: `adm:u:unban:${u.id}` }
+      : { text: "🚫 حظر المستخدم", callback_data: `adm:u:ban:${u.id}` }
+    );
+  } else if (hasPerm(info, "canUnban") && banned) {
+    banRow.push({ text: "✅ رفع الحظر", callback_data: `adm:u:unban:${u.id}` });
+  }
+
+  if (hasPerm(info, "canWarn")) {
+    banRow.push({ text: "⚠️ تحذير", callback_data: `adm:u:warn:${u.id}` });
+  }
+  if (banRow.length) rows.push(banRow);
+
+  if (info.isOwner) {
+    rows.push([{ text: "🔄 إعادة التحقق", callback_data: `adm:u:resetv:${u.id}` }]);
+  }
+
+  if (info.isOwner) {
+    rows.push([{ text: "👥 قائمة إحالاته", callback_data: `adm:u:refs:${u.id}:0` }]);
+  }
+  rows.push([{ text: "◀️ رجوع للمستخدمين", callback_data: "adm:users" }]);
+
+  return bot.sendMessage(chatId, infoText, { parse_mode: "HTML", reply_markup: { inline_keyboard: rows } });
+}
+
+// ─────────────────────────── USER REFERRALS ───────────────────────────
+
+async function showUserReferrals(
+  bot: TelegramBot,
+  chatId: number,
+  targetUserId: number,
+  page: number,
+  msgId?: number,
+) {
+  const PAGE = 10;
+
+  const [totalRow] = await db
+    .select({ c: count() })
+    .from(usersTable)
+    .where(eq(usersTable.referredBy, targetUserId));
+  const total = Number(totalRow?.c ?? 0);
+
+  const referred = await db
+    .select({
+      id: usersTable.id,
+      firstName: usersTable.firstName,
+      username: usersTable.username,
+      isBlockedForLeaving: usersTable.isBlockedForLeaving,
+    })
+    .from(usersTable)
+    .where(eq(usersTable.referredBy, targetUserId))
+    .orderBy(desc(usersTable.createdAt))
+    .limit(PAGE)
+    .offset(page * PAGE);
+
+  // Fetch referral records for this batch
+  const ids = referred.map((r) => r.id);
+  const refRecords = ids.length > 0
+    ? await db
+        .select({ referredId: referralsTable.referredId, status: referralsTable.status })
+        .from(referralsTable)
+        .where(and(
+          eq(referralsTable.referrerId, targetUserId),
+          inArray(referralsTable.referredId, ids),
+        ))
+    : [];
+  const refMap = new Map(refRecords.map((r) => [r.referredId, r.status]));
+
+  // Count summary
+  let validCount = 0, warnCount = 0, removedCount = 0;
+
+  let text = `👥 <b>إحالات المستخدم ${targetUserId}</b>\n`;
+  text += `الإجمالي: <b>${total}</b> | صفحة ${page + 1}\n\n`;
+
+  if (referred.length === 0) {
+    text += "لا توجد إحالات بعد.";
+  } else {
+    for (const r of referred) {
+      const name = esc(`${r.firstName || "—"} ${r.username ? `@${r.username}` : ""}`.trim());
+      const recStatus = refMap.get(r.id);
+      let icon: string;
+      if (recStatus === "removed") {
+        icon = "❌"; removedCount++;
+      } else if (r.isBlockedForLeaving) {
+        icon = "⚠️"; warnCount++;
+      } else {
+        icon = "✅"; validCount++;
+      }
+      text += `${icon} ${name} (${r.id})\n`;
+    }
+    text += `\n✅ نشط: <b>${validCount}</b> | ⚠️ خرج: <b>${warnCount}</b> | ❌ خُصم: <b>${removedCount}</b>`;
+  }
+
+  const nav: TelegramBot.InlineKeyboardButton[] = [];
+  if (page > 0) nav.push({ text: "◀️ السابق", callback_data: `adm:u:refs:${targetUserId}:${page - 1}` });
+  if ((page + 1) * PAGE < total) nav.push({ text: "التالي ▶️", callback_data: `adm:u:refs:${targetUserId}:${page + 1}` });
+
+  const keyboard: TelegramBot.InlineKeyboardMarkup = {
+    inline_keyboard: [
+      ...(nav.length ? [nav] : []),
+      [{ text: "◀️ رجوع للمستخدم", callback_data: `adm:u:v:${targetUserId}` }],
+    ],
+  };
+
+  await editOrSend(bot, chatId, text, keyboard, msgId);
+}
+
+// ─────────────────────────── WITHDRAWALS ───────────────────────────
+
+async function showWithdrawalsMenu(bot: TelegramBot, chatId: number, messageId?: number, tab: "pending" | "all" = "pending") {
+  const statusIcon = (s: string) => s === "pending" ? "⏳" : s === "approved" ? "✅" : "❌";
+  if (tab === "all") {
+    const all = await db.select().from(withdrawalsTable).orderBy(desc(withdrawalsTable.createdAt)).limit(15);
+    let text = `📋 كل السحوبات (آخر ${all.length})\n\n`;
+    if (all.length === 0) text += "لا توجد سحوبات بعد.";
+    else all.forEach((w) => { text += `${statusIcon(w.status)} #${w.id} — ${parseFloat(w.amount).toFixed(3)} TON — ID: ${w.userId}\n`; });
+    const keyboard: TelegramBot.InlineKeyboardMarkup = {
+      inline_keyboard: [
+        ...all.map((w) => [{ text: `${statusIcon(w.status)} #${w.id} — ${parseFloat(w.amount).toFixed(2)} TON`, callback_data: `adm:wd:v:${w.id}` }]),
+        [{ text: "⏳ المعلقة", callback_data: "adm:wd" }, { text: "📋 الكل ✓", callback_data: "adm:wd:all" }],
+        [{ text: "◀️ رجوع", callback_data: "adm:main" }],
+      ],
+    };
+    await editOrSend(bot, chatId, text, keyboard, messageId);
+  } else {
+    const pending = await db.select().from(withdrawalsTable).where(eq(withdrawalsTable.status, "pending")).orderBy(desc(withdrawalsTable.createdAt)).limit(10);
+    const [allRes] = await db.select({ c: count() }).from(withdrawalsTable);
+    let text = `💸 <b>طلبات السحب المعلقة</b>\nمعلق: ${pending.length} | الإجمالي: ${allRes?.c ?? 0}\n\n`;
+    if (pending.length === 0) text += "لا توجد طلبات معلقة.";
+    const keyboard: TelegramBot.InlineKeyboardMarkup = {
+      inline_keyboard: [
+        ...pending.map((w) => [{ text: `⏳ #${w.id} — ${parseFloat(w.amount).toFixed(2)} TON (${w.userId})`, callback_data: `adm:wd:v:${w.id}` }]),
+        [{ text: "⏳ المعلقة ✓", callback_data: "adm:wd" }, { text: "📋 الكل", callback_data: "adm:wd:all" }],
+        [{ text: "◀️ رجوع", callback_data: "adm:main" }],
+      ],
+    };
+    await editOrSend(bot, chatId, text, keyboard, messageId);
+  }
+}
+
+// ─────────────────────────── SETTINGS ───────────────────────────
+
+async function showSettingsMenu(bot: TelegramBot, chatId: number, messageId?: number) {
+  const [mode, chRaw, rawRef, rawTask, rawMin] = await Promise.all([
+    getSetting("withdraw_mode"),
+    getSetting("required_channels"),
+    getSetting("referral_threshold"),
+    getSetting("task_threshold"),
+    getSetting("min_withdrawal"),
+  ]);
+  const modeLabel = (mode || "manual") === "auto" ? "🟢 تلقائي" : "🔴 يدوي";
+  const refThresh  = parseInt(rawRef ?? "5") || 5;
+  const taskThresh = parseInt(rawTask ?? "5") || 5;
+  const minWd      = parseFloat(rawMin ?? "0.1") || 0.1;
+
+  let chList = "لا توجد قنوات مطلوبة";
+  if (chRaw) {
+    try {
+      const chs = JSON.parse(chRaw) as { username: string; title: string }[];
+      chList = chs.length === 0 ? "لا توجد قنوات مطلوبة" : chs.map((c, i) => `${i + 1}. ${esc(c.title || `@${c.username}`)}`).join("\n");
+    } catch { /* ignore */ }
+  }
+
+  const text =
+    `⚙️ <b>إعدادات البوت</b>\n\n` +
+    `وضع السحب الحالي: ${modeLabel}\n\n` +
+    `<b>يدوي</b> ← المالك يوافق يدوياً على كل طلب.\n` +
+    `<b>تلقائي</b> ← موافقة وتحويل تلقائي.\n\n` +
+    `👥 <b>إحالات للدورة المجانية:</b> ${refThresh}\n` +
+    `📋 <b>مهام للدورة المجانية:</b> ${taskThresh}\n` +
+    `💸 <b>الحد الأدنى للسحب:</b> ${minWd.toFixed(2)} TON\n\n` +
+    `🔒 <b>القنوات المطلوبة للاشتراك:</b>\n${chList}`;
+
+  const keyboard: TelegramBot.InlineKeyboardMarkup = {
+    inline_keyboard: [
+      [{ text: "🔴 يدوي", callback_data: "adm:set:mode:manual" }, { text: "🟢 تلقائي", callback_data: "adm:set:mode:auto" }],
+      [{ text: `✏️ إحالات للدورة: ${refThresh}`, callback_data: "adm:set:ref_thresh" }],
+      [{ text: `✏️ مهام للدورة: ${taskThresh}`, callback_data: "adm:set:task_thresh" }],
+      [{ text: `✏️ حد السحب: ${minWd.toFixed(2)} TON`, callback_data: "adm:set:min_wd" }],
+      [{ text: "🔒 إدارة القنوات المطلوبة", callback_data: "adm:set:channels" }],
+      [{ text: "◀️ رجوع", callback_data: "adm:main" }],
+    ],
+  };
+  await editOrSend(bot, chatId, text, keyboard, messageId);
+}
+
+async function showRequiredChannelsMenu(bot: TelegramBot, chatId: number, messageId?: number) {
+  const chRaw = await getSetting("required_channels");
+  let channels: { username: string; title: string; inviteLink: string }[] = [];
+  if (chRaw) {
+    try { channels = JSON.parse(chRaw); } catch { /* ignore */ }
+  }
+  const listText = channels.length === 0
+    ? "لا توجد قنوات مطلوبة حتى الآن."
+    : channels.map((c, i) => `${i + 1}. ${esc(c.title || `@${c.username}`)} (@${esc(c.username)})`).join("\n");
+
+  const text =
+    `📢 <b>إدارة القنوات الإجبارية</b>\n\n` +
+    `جميع المستخدمين (جدد وقدامى) <b>ملزمون</b> بالاشتراك في هذه القنوات لاستخدام البوت والميني آب.\n\n` +
+    `<b>القنوات الحالية:</b>\n${listText}`;
+
+  const channelButtons: TelegramBot.InlineKeyboardButton[][] = channels.map((c, i) => [
+    { text: `🗑️ حذف: @${c.username}`, callback_data: `adm:set:ch:del:${i}` },
+  ]);
+
+  const keyboard: TelegramBot.InlineKeyboardMarkup = {
+    inline_keyboard: [
+      ...channelButtons,
+      [{ text: "➕ إضافة قناة", callback_data: "adm:set:ch:add" }],
+      [{ text: "◀️ رجوع للإعدادات", callback_data: "adm:settings" }],
+    ],
+  };
+  await editOrSend(bot, chatId, text, keyboard, messageId);
+}
+
+// ─────────────────────────── BOT CONTROL ───────────────────────────
+
+async function showBotControlMenu(bot: TelegramBot, chatId: number, messageId?: number) {
+  const enabled = await isBotEnabled();
+  const statusText = enabled ? "🟢 يعمل بشكل طبيعي" : "🔴 متوقف (وضع الصيانة)";
+  const text =
+    `🛠 <b>التحكم في حالة البوت</b>\n\n` +
+    `الحالة الحالية: <b>${statusText}</b>\n\n` +
+    (enabled
+      ? "لإيقاف البوت اضغط الزر أدناه. سيظهر للمستخدمين رسالة صيانة وستبقى أنت وحدك قادراً على الوصول."
+      : "البوت <b>متوقف</b> حالياً. المستخدمون لا يمكنهم الوصول. اضغط لتشغيله.");
+  const keyboard: TelegramBot.InlineKeyboardMarkup = {
+    inline_keyboard: [
+      enabled
+        ? [{ text: "🔴 إيقاف البوت (وضع الصيانة)", callback_data: "adm:botctrl:off" }]
+        : [{ text: "🟢 تشغيل البوت", callback_data: "adm:botctrl:on" }],
+      [{ text: "◀️ رجوع", callback_data: "adm:main" }],
+    ],
+  };
+  await editOrSend(bot, chatId, text, keyboard, messageId);
+}
+
+// ─────────────────────────── STATS ───────────────────────────
+
+async function showStats(bot: TelegramBot, chatId: number, messageId?: number) {
+  const [users] = await db.select({ c: count() }).from(usersTable);
+  const [pending] = await db.select({ c: count() }).from(withdrawalsTable).where(eq(withdrawalsTable.status, "pending"));
+  const [approved] = await db.select({ c: count() }).from(withdrawalsTable).where(eq(withdrawalsTable.status, "approved"));
+  const [tasks] = await db.select({ c: count() }).from(tasksTable).where(eq(tasksTable.isActive, true));
+  const [slots] = await db.select({ c: count() }).from(wheelSlotsTable);
+  const text =
+    `📊 <b>الإحصائيات</b>\n\n` +
+    `👥 المستخدمون: <b>${users?.c ?? 0}</b>\n` +
+    `📋 المهام النشطة: <b>${tasks?.c ?? 0}</b>\n` +
+    `🎡 خانات العجلة: <b>${slots?.c ?? 0}</b>\n` +
+    `💸 السحوبات المعلقة: <b>${pending?.c ?? 0}</b>\n` +
+    `✅ السحوبات الموافق عليها: <b>${approved?.c ?? 0}</b>`;
+  const keyboard: TelegramBot.InlineKeyboardMarkup = {
+    inline_keyboard: [[{ text: "◀️ رجوع", callback_data: "adm:main" }]],
+  };
+  await editOrSend(bot, chatId, text, keyboard, messageId);
+}
+
+// ─────────────────────────── ADMINS MANAGEMENT ───────────────────────────
+
+async function showAdminsMenu(bot: TelegramBot, chatId: number, messageId?: number) {
+  let admins: (typeof adminsTable.$inferSelect)[] = [];
+  try {
+    admins = await db.select().from(adminsTable).orderBy(adminsTable.addedAt);
+  } catch (err) {
+    logger.error({ err }, "Failed to query admins table");
+  }
+
+  let text = `👮 <b>إدارة المشرفين</b>\n\nعدد المشرفين: <b>${admins.length}</b>\n\n`;
+  if (admins.length === 0) {
+    text += "لا يوجد مشرفون مضافون بعد.\n";
+  } else {
+    for (const a of admins) {
+      const name = a.username ? `@${esc(a.username)}` : `ID: ${a.id}`;
+      const perms = (a.permissions as AdminPermission[]) ?? [];
+      const permsText = perms.length > 0 ? perms.map((p) => PERM_LABELS[p]).join(", ") : "لا صلاحيات";
+      text += `👤 ${name}\n   ↳ ${permsText}\n\n`;
+    }
+  }
+
+  const keyboard: TelegramBot.InlineKeyboardMarkup = {
+    inline_keyboard: [
+      [{ text: "➕ إضافة مشرف", callback_data: "adm:admins:add" }],
+      ...admins.map((a) => [
+        { text: `✏️ ${a.username ? `@${a.username}` : String(a.id)}`, callback_data: `adm:admins:edit:${a.id}` },
+        { text: "🗑️ حذف", callback_data: `adm:admins:del:${a.id}` },
+      ]),
+      [{ text: "◀️ رجوع", callback_data: "adm:main" }],
+    ],
+  };
+  await editOrSend(bot, chatId, text, keyboard, messageId);
+}
+
+async function showAdminPermsEditor(
+  bot: TelegramBot,
+  chatId: number,
+  targetId: number,
+  selectedPerms: AdminPermission[],
+  isNew: boolean,
+  messageId?: number
+) {
+  const text = isNew
+    ? `👮 <b>إضافة مشرف جديد</b>\n🆔 ID: <code>${targetId}</code>\n\nاختر الصلاحيات ثم اضغط تأكيد:`
+    : `✏️ <b>تعديل صلاحيات المشرف</b>\n🆔 ID: <code>${targetId}</code>\n\nاختر الصلاحيات ثم اضغط حفظ:`;
+
+  const confirmData = isNew ? `adm:admins:confirm:${targetId}` : `adm:admins:save:${targetId}`;
+  const confirmLabel = isNew ? "✅ تأكيد الإضافة" : "💾 حفظ الصلاحيات";
+
+  const keyboard: TelegramBot.InlineKeyboardMarkup = {
+    inline_keyboard: [
+      ...ALL_PERMS.map((p) => [
+        {
+          text: `${selectedPerms.includes(p) ? "✅" : "☐"} ${PERM_LABELS[p]}`,
+          callback_data: `adm:admins:tog:${targetId}:${p}:${isNew ? "1" : "0"}`,
+        },
+      ]),
+      [{ text: confirmLabel, callback_data: confirmData }],
+      [{ text: "❌ إلغاء", callback_data: "adm:admins" }],
+    ],
+  };
+  await editOrSend(bot, chatId, text, keyboard, messageId);
+}
+
+// ─────────────────────────── MAIN CALLBACK HANDLER ───────────────────────────
+
+export async function handleAdminCallback(
+  bot: TelegramBot,
+  q: TelegramBot.CallbackQuery
+): Promise<boolean> {
+  const data = q.data ?? "";
+  if (!data.startsWith("adm:")) return false;
+
+  const chatId = q.message!.chat.id;
+  const msgId = q.message!.message_id;
+  const userId = q.from.id;
+  const username = q.from.username;
+
+  const info = await getAdminInfo(userId, username);
+  if (!info) {
+    await bot.answerCallbackQuery(q.id, { text: "⛔ غير مصرح" });
+    return true;
+  }
+  await bot.answerCallbackQuery(q.id);
+
+  const parts = data.split(":");
+  const sec = parts[1];
+  const act = parts[2];
+  const p1  = parts[3];
+  const p2  = parts[4];
+  const p3  = parts[5];
+
+  try {
+    if (data === "adm:main")     { await showAdminMenu(bot, chatId, msgId, info); return true; }
+    if (data === "adm:stats")    { if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; } await showStats(bot, chatId, msgId); return true; }
+    if (data === "adm:settings") { if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; } await showSettingsMenu(bot, chatId, msgId); return true; }
+
+    if (data === "adm:channels") {
+      if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      await showRequiredChannelsMenu(bot, chatId, msgId); return true;
+    }
+
+    if (data === "adm:botctrl") {
+      if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      await showBotControlMenu(bot, chatId, msgId); return true;
+    }
+    if (data === "adm:botctrl:on" || data === "adm:botctrl:off") {
+      if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      const enable = data === "adm:botctrl:on";
+      await setBotEnabled(enable);
+      clearBotEnabledCache();
+      await bot.sendMessage(
+        chatId,
+        enable
+          ? "✅ <b>تم تشغيل البوت بنجاح!</b> 🟢\n\nالمستخدمون يمكنهم الوصول الآن."
+          : "🔴 <b>تم إيقاف البوت!</b>\n\nوضع الصيانة مفعّل. ستظهر للمستخدمين رسالة صيانة.",
+        { parse_mode: "HTML" }
+      );
+      await showBotControlMenu(bot, chatId, msgId); return true;
+    }
+
+    // ── Control Settings ──
+    if (data === "adm:ctrl_settings") {
+      if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      await showControlSettingsMenu(bot, chatId, msgId); return true;
+    }
+    if (data === "adm:ctrl:ref") {
+      if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      const cur = parseInt((await getSetting("referral_threshold")) ?? "5") || 5;
+      adminConvState.set(userId, { step: "ctrl_ref", data: { chatId, msgId } });
+      await bot.sendMessage(chatId, `🔄 <b>عدد الإحالات للفة</b>\n\nالقيمة الحالية: <b>${cur}</b>\n\nأرسل الرقم الجديد:`, { parse_mode: "HTML" });
+      return true;
+    }
+    if (data === "adm:ctrl:task") {
+      if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      const cur = parseInt((await getSetting("task_threshold")) ?? "5") || 5;
+      adminConvState.set(userId, { step: "ctrl_task", data: { chatId, msgId } });
+      await bot.sendMessage(chatId, `📋 <b>عدد المهام للفة</b>\n\nالقيمة الحالية: <b>${cur}</b>\n\nأرسل الرقم الجديد:`, { parse_mode: "HTML" });
+      return true;
+    }
+    if (data === "adm:ctrl:minwd") {
+      if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      const cur = parseFloat((await getSetting("min_withdrawal")) ?? "0.1") || 0.1;
+      adminConvState.set(userId, { step: "ctrl_minwd", data: { chatId, msgId } });
+      await bot.sendMessage(chatId, `💰 <b>الحد الأدنى للسحب (TON)</b>\n\nالقيمة الحالية: <b>${cur.toFixed(2)} TON</b>\n\nأرسل الرقم الجديد (مثال: 0.5):`, { parse_mode: "HTML" });
+      return true;
+    }
+
+    // ── BOOST ──
+    if (data === "adm:boost") {
+      if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      await showBoostMenu(bot, chatId, msgId); return true;
+    }
+    if (data.startsWith("adm:boost:set:")) {
+      if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      const multiplier = parseInt(data.split(":")[3]);
+      if (isNaN(multiplier) || multiplier < 2 || multiplier > 5) { await bot.answerCallbackQuery(q.id, { text: "❌ قيمة غير صحيحة" }); return true; }
+      await showBoostDurationMenu(bot, chatId, multiplier, msgId); return true;
+    }
+    if (data.startsWith("adm:boost:dur:")) {
+      if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      const boostParts = data.split(":");
+      const multiplier = parseInt(boostParts[3]);
+      const durHours = parseInt(boostParts[4]);
+      if (isNaN(multiplier) || multiplier < 2 || multiplier > 5) { await bot.answerCallbackQuery(q.id, { text: "❌ قيمة غير صحيحة" }); return true; }
+      await db.insert(botSettingsTable).values({ key: "spin_power", value: String(multiplier) })
+        .onConflictDoUpdate({ target: botSettingsTable.key, set: { value: String(multiplier) } });
+      await db.delete(botSettingsTable).where(eq(botSettingsTable.key, "boost_starts_at")).catch(() => {});
+      if (durHours > 0) {
+        const endsAt = new Date(Date.now() + durHours * 3_600_000).toISOString();
+        await db.insert(botSettingsTable).values({ key: "boost_ends_at", value: endsAt })
+          .onConflictDoUpdate({ target: botSettingsTable.key, set: { value: endsAt } });
+        await bot.sendMessage(chatId,
+          `⚡ <b>BOOST مفعّل!</b>\nكل ربح سيُضرب في <b>×${multiplier}</b>\nينتهي تلقائياً بعد <b>${durHours} ساعة</b>.`,
+          { parse_mode: "HTML" }
+        );
+      } else {
+        await db.delete(botSettingsTable).where(eq(botSettingsTable.key, "boost_ends_at")).catch(() => {});
+        await bot.sendMessage(chatId,
+          `⚡ <b>BOOST مفعّل — مدى الحياة!</b>\nكل ربح سيُضرب في <b>×${multiplier}</b>\nلا ينتهي حتى تُوقفه يدوياً.`,
+          { parse_mode: "HTML" }
+        );
+      }
+      await showBoostMenu(bot, chatId, msgId); return true;
+    }
+    if (data === "adm:boost:off") {
+      if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      await db.insert(botSettingsTable).values({ key: "spin_power", value: "1" })
+        .onConflictDoUpdate({ target: botSettingsTable.key, set: { value: "1" } });
+      await db.delete(botSettingsTable).where(eq(botSettingsTable.key, "boost_starts_at")).catch(() => {});
+      await db.delete(botSettingsTable).where(eq(botSettingsTable.key, "boost_ends_at")).catch(() => {});
+      await bot.sendMessage(chatId, "🔴 <b>تم إيقاف الـ BOOST.</b>", { parse_mode: "HTML" });
+      await showBoostMenu(bot, chatId, msgId); return true;
+    }
+
+    if (data === "adm:mining" || data === "adm:wheel") {
+      if (!info.isOwner && !hasPerm(info, "canEditWheel")) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      await showMiningMenu(bot, chatId, msgId); return true;
+    }
+    if (data === "adm:tasks") {
+      if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      await showTasksMenu(bot, chatId, msgId); return true;
+    }
+    if (data === "adm:users") {
+      if (!info.isOwner && !hasPerm(info, "canUnban") && !hasPerm(info, "canWarn")) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      await showUsersMenu(bot, chatId, msgId); return true;
+    }
+    if (data === "adm:wd") {
+      if (!info.isOwner && !hasPerm(info, "canReceiveWithdrawals")) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      await showWithdrawalsMenu(bot, chatId, msgId, "pending"); return true;
+    }
+    if (data === "adm:wd:all") {
+      if (!info.isOwner && !hasPerm(info, "canReceiveWithdrawals")) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      await showWithdrawalsMenu(bot, chatId, msgId, "all"); return true;
+    }
+    if (data === "adm:admins") {
+      if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      await showAdminsMenu(bot, chatId, msgId); return true;
+    }
+
+    // ── Mining settings ──
+    if (sec === "m") {
+      if (!info.isOwner && !hasPerm(info, "canEditWheel")) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      if (act === "rate") {
+        adminConvState.set(userId, { step: "mining_rate", data: { chatId, msgId } });
+        await bot.sendMessage(chatId, "⚡ <b>تعديل نسبة التعدين اليومية</b>\n\nأدخل النسبة المئوية الجديدة (مثال: <code>3</code> لنسبة 3% أو <code>5</code> لنسبة 5%):", { parse_mode: "HTML" });
+      } else if (act === "airdrop") {
+        adminConvState.set(userId, { step: "mining_airdrop", data: { chatId, msgId } });
+        await bot.sendMessage(chatId, "🪙 <b>توزيع عملات Go لجميع المستخدمين</b>\n\nأدخل عدد عملات Go المراد إضافتها لكل مستخدم (مثال: <code>10</code>):", { parse_mode: "HTML" });
+      }
+      return true;
+    }
+
+    // ── Tasks (owner only) ──
+    if (sec === "t") {
+      if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+
+      if (act === "v" && p1) {
+        const [t] = await db.select().from(tasksTable).where(eq(tasksTable.id, parseInt(p1))).limit(1);
+        if (t) {
+          await bot.editMessageText(
+            `📋 المهمة #${t.id}\n\n${esc(t.icon || "⭐")} ${esc(t.title)}\nالوصف: ${esc(t.description || "—")}\nالرابط: ${esc(t.url || "—")}\nالحالة: ${t.isActive ? "✅ نشطة" : "❌ معطلة"}`,
+            { chat_id: chatId, message_id: msgId, reply_markup: { inline_keyboard: [
+              [{ text: t.isActive ? "❌ تعطيل" : "✅ تفعيل", callback_data: `adm:t:tog:${t.id}` }, { text: "🗑️ حذف", callback_data: `adm:t:del:${t.id}` }],
+              [{ text: "◀️ رجوع للمهام", callback_data: "adm:tasks" }],
+            ]}}
+          );
+        }
+      } else if (act === "tog" && p1) {
+        const [t] = await db.select().from(tasksTable).where(eq(tasksTable.id, parseInt(p1))).limit(1);
+        if (t) await db.update(tasksTable).set({ isActive: !t.isActive }).where(eq(tasksTable.id, parseInt(p1)));
+        await showTasksMenu(bot, chatId, msgId);
+      } else if (act === "del" && p1) {
+        await db.delete(tasksTable).where(eq(tasksTable.id, parseInt(p1)));
+        await showTasksMenu(bot, chatId, msgId);
+      } else if (act === "add") {
+        adminConvState.set(userId, { step: "task_title", data: { chatId, msgId } });
+        await bot.sendMessage(chatId, "📝 أدخل <b>عنوان المهمة</b>:", { parse_mode: "HTML" });
+      } else if (act === "dur" && p1) {
+        // Task duration selected — complete the task insertion
+        const state = adminConvState.get(userId);
+        if (!state || state.step !== "task_duration") { return true; }
+        const durHours = parseInt(p1);
+        const { title, description, url, icon, channelPhotoUrl } = state.data as {
+          title: string; description: string | null; url: string | null;
+          icon: string; channelPhotoUrl: string | null;
+        };
+        const expiresAt = durHours > 0 ? new Date(Date.now() + durHours * 3_600_000) : null;
+        await db.insert(tasksTable).values({ title, description, url, icon, channelPhotoUrl, isActive: true, expiresAt });
+        adminConvState.delete(userId);
+        const durLabel = durHours === 24 ? "24 ساعة" : durHours === 48 ? "48 ساعة" : "مدى الحياة";
+        await bot.sendMessage(chatId,
+          `✅ تمت إضافة المهمة: <b>${esc(title)}</b>\nالمدة: <b>${durLabel}</b>${channelPhotoUrl ? " — 🖼 مع صورة" : ""}`,
+          { parse_mode: "HTML" }
+        );
+        const tmp = await bot.sendMessage(chatId, "جاري التحميل...");
+        await showTasksMenu(bot, chatId, tmp.message_id);
+      }
+      return true;
+    }
+
+    // ── Users ──
+    if (sec === "u") {
+      if (!info.isOwner && !hasPerm(info, "canUnban") && !hasPerm(info, "canWarn")) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+
+      if (act === "search") {
+        adminConvState.set(userId, { step: "user_search", data: {} });
+        await bot.sendMessage(chatId, "🔍 أدخل <b>Telegram ID</b> أو <b>@يوزرنيم</b>:", { parse_mode: "HTML" });
+      } else if (act === "addbal" && p1) {
+        if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+        adminConvState.set(userId, { step: "user_addbal", data: { targetId: parseInt(p1) } });
+        await bot.sendMessage(chatId, `💰 كم تريد <b>إضافة</b> لرصيد المستخدم ${p1}؟\n(مثال: 5 أو 0.5)`, { parse_mode: "HTML" });
+      } else if (act === "subbal" && p1) {
+        if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+        adminConvState.set(userId, { step: "user_subbal", data: { targetId: parseInt(p1) } });
+        await bot.sendMessage(chatId, `💸 كم تريد <b>خصم</b> من رصيد المستخدم ${p1}؟`, { parse_mode: "HTML" });
+      } else if (act === "bal" && p1) {
+        if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+        adminConvState.set(userId, { step: "user_balance", data: { targetId: parseInt(p1) } });
+        await bot.sendMessage(chatId, `✏️ أدخل الرصيد الجديد للمستخدم ${p1}:`, { parse_mode: "HTML" });
+      } else if (act === "spins" && p1) {
+        if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+        adminConvState.set(userId, { step: "user_spins", data: { targetId: parseInt(p1) } });
+        await bot.sendMessage(chatId, `🎰 أدخل اللفات للمستخدم ${p1}\n(مثال: 10 أو +5 أو -2)`, { parse_mode: "HTML" });
+      } else if (act === "ban" && p1) {
+        if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+        const targetId = parseInt(p1);
+        await db.update(usersTable).set({ isVisible: false }).where(eq(usersTable.id, targetId));
+        try { await bot.sendMessage(targetId, "🚫 تم حظر حسابك. تواصل مع الدعم لمزيد من المعلومات."); } catch { /**/ }
+        const [u] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+        await bot.sendMessage(chatId, `🚫 تم حظر المستخدم ${esc(u?.firstName || String(targetId))} (${targetId}).`);
+      } else if (act === "unban" && p1) {
+        if (!info.isOwner && !hasPerm(info, "canUnban")) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+        const targetId = parseInt(p1);
+        await db.update(usersTable).set({
+          isVisible: true,
+          isBlockedForLeaving: false,
+          ipVerifiedAt: new Date(),
+          verificationToken: null,
+        }).where(eq(usersTable.id, targetId));
+        try { await bot.sendMessage(targetId, "✅ تم رفع الحظر عن حسابك. يمكنك الاستخدام الآن! 🎉"); } catch { /**/ }
+        const [u] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+        await bot.sendMessage(chatId, `✅ تم رفع الحظر عن المستخدم ${esc(u?.firstName || String(targetId))} (${targetId}) — يمكنه الاستخدام مباشرة بدون إعادة تحقق.`);
+      } else if (act === "warn" && p1) {
+        if (!info.isOwner && !hasPerm(info, "canWarn")) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+        adminConvState.set(userId, { step: "user_warn", data: { targetId: parseInt(p1) } });
+        await bot.sendMessage(chatId, "⚠️ أدخل نص التحذير الذي سيُرسل للمستخدم:");
+      } else if (act === "resetv" && p1) {
+        if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+        const targetId = parseInt(p1);
+        await db.update(usersTable).set({ ipVerifiedAt: null, deviceId: null, verificationToken: null }).where(eq(usersTable.id, targetId));
+        const [u] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+        await bot.sendMessage(chatId, `🔄 تمت إعادة التحقق للمستخدم ${esc(u?.firstName || String(targetId))} (${targetId}).`);
+      } else if (act === "v" && p1) {
+        // View user card (used as back-button from referral list)
+        if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+        const [u] = await db.select().from(usersTable).where(eq(usersTable.id, parseInt(p1))).limit(1);
+        if (u) await showUserCard(bot, chatId, u, info);
+      } else if (act === "refs" && p1) {
+        // Referral list with pagination: adm:u:refs:{targetId}:{page}
+        if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+        const targetId = parseInt(p1);
+        const page = p2 !== undefined ? Math.max(0, parseInt(p2)) : 0;
+        await showUserReferrals(bot, chatId, targetId, isNaN(page) ? 0 : page, msgId);
+      }
+      return true;
+    }
+
+    // ── Withdrawals ──
+    if (sec === "wd") {
+      if (!info.isOwner && !hasPerm(info, "canReceiveWithdrawals")) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      if (act === "v" && p1) {
+        const [w] = await db.select().from(withdrawalsTable).where(eq(withdrawalsTable.id, parseInt(p1))).limit(1);
+        if (w) {
+          const [u] = await db.select().from(usersTable).where(eq(usersTable.id, w.userId)).limit(1);
+          await bot.editMessageText(
+            `💸 <b>طلب سحب #${w.id}</b>\n\n👤 ${esc(u?.firstName || "—")} @${esc(u?.username || "—")}\n🆔 ${w.userId}\n💰 <b>${parseFloat(w.amount).toFixed(4)} TON</b>\n📍 <code>${esc(w.walletAddress)}</code>\nالحالة: <b>${w.status}</b>`,
+            {
+              chat_id: chatId, message_id: msgId, parse_mode: "HTML",
+              reply_markup: { inline_keyboard: [
+                [{ text: "✅ موافقة", callback_data: `withdraw_approve_${w.id}` }, { text: "❌ رفض", callback_data: `withdraw_reject_${w.id}` }],
+                [{ text: "◀️ رجوع", callback_data: "adm:wd" }],
+              ]},
+            }
+          );
+        }
+      }
+      return true;
+    }
+
+    // ── Settings (owner only) ──
+    if (sec === "set") {
+      if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+      if (act === "mode" && p1) { await setSetting("withdraw_mode", p1); await showSettingsMenu(bot, chatId, msgId); return true; }
+
+      if (act === "ref_thresh") {
+        const cur = parseInt((await getSetting("referral_threshold")) ?? "5") || 5;
+        adminConvState.set(userId, { step: "set_ref_threshold", data: { chatId, msgId } });
+        await bot.sendMessage(chatId, `👥 <b>عدد الإحالات للدورة المجانية</b>\n\nالقيمة الحالية: <b>${cur}</b>\n\nأدخل القيمة الجديدة (رقم بين 1 و100):\n\n/cancel للإلغاء`, { parse_mode: "HTML" });
+        return true;
+      }
+      if (act === "task_thresh") {
+        const cur = parseInt((await getSetting("task_threshold")) ?? "5") || 5;
+        adminConvState.set(userId, { step: "set_task_threshold", data: { chatId, msgId } });
+        await bot.sendMessage(chatId, `📋 <b>عدد المهام للدورة المجانية</b>\n\nالقيمة الحالية: <b>${cur}</b>\n\nأدخل القيمة الجديدة (رقم بين 1 و100):\n\n/cancel للإلغاء`, { parse_mode: "HTML" });
+        return true;
+      }
+      if (act === "min_wd") {
+        const cur = parseFloat((await getSetting("min_withdrawal")) ?? "0.1") || 0.1;
+        adminConvState.set(userId, { step: "set_min_withdrawal", data: { chatId, msgId } });
+        await bot.sendMessage(chatId, `💸 <b>الحد الأدنى للسحب (TON)</b>\n\nالقيمة الحالية: <b>${cur.toFixed(2)} TON</b>\n\nأدخل القيمة الجديدة (مثال: 0.5):\n\n/cancel للإلغاء`, { parse_mode: "HTML" });
+        return true;
+      }
+
+      if (act === "channels") { await showRequiredChannelsMenu(bot, chatId, msgId); return true; }
+
+      if (act === "ch") {
+        if (p1 === "add") {
+          adminConvState.set(userId, { step: "ch_add_username", data: {} });
+          await bot.sendMessage(chatId, "📢 <b>إضافة قناة مطلوبة</b>\n\nأدخل @يوزرنيم القناة:", { parse_mode: "HTML" });
+          return true;
+        }
+        if (p1 === "del" && p2 !== undefined) {
+          const idx = parseInt(p2);
+          const chRaw = await getSetting("required_channels");
+          let channels: { username: string; title: string; inviteLink: string }[] = [];
+          try { channels = JSON.parse(chRaw ?? "[]"); } catch { /* ignore */ }
+          channels.splice(idx, 1);
+          await setSetting("required_channels", JSON.stringify(channels));
+          clearAllSubCache();
+          await showRequiredChannelsMenu(bot, chatId, msgId);
+          return true;
+        }
+      }
+      return true;
+    }
+
+    // ── Admins management (owner only) ──
+    if (sec === "admins") {
+      if (!info.isOwner) { await bot.sendMessage(chatId, "⛔ ليس لديك صلاحية"); return true; }
+
+      if (act === "add") {
+        adminConvState.set(userId, { step: "admin_add_id", data: { selectedPerms: [] } });
+        await bot.sendMessage(chatId, "👮 <b>إضافة مشرف جديد</b>\n\nأدخل <b>@يوزرنيم</b> أو <b>Telegram ID</b> للمستخدم:", { parse_mode: "HTML" });
+      } else if (act === "edit" && p1) {
+        const targetId = parseInt(p1);
+        const [admin] = await db.select().from(adminsTable).where(eq(adminsTable.id, targetId)).limit(1);
+        if (admin) {
+          const perms = (admin.permissions as AdminPermission[]) ?? [];
+          adminConvState.set(userId, { step: "admin_edit_perms", data: { targetId, selectedPerms: [...perms] } });
+          await showAdminPermsEditor(bot, chatId, targetId, perms, false, msgId);
+        }
+      } else if (act === "del" && p1) {
+        await db.delete(adminsTable).where(eq(adminsTable.id, parseInt(p1)));
+        await showAdminsMenu(bot, chatId, msgId);
+      } else if (act === "tog" && p1 && p2) {
+        const targetId = parseInt(p1);
+        const perm = p2 as AdminPermission;
+        const isNew = p3 === "1";
+        const state = adminConvState.get(userId);
+        const currentPerms: AdminPermission[] = (state?.data?.selectedPerms as AdminPermission[]) ?? [];
+        const newPerms = currentPerms.includes(perm) ? currentPerms.filter((x) => x !== perm) : [...currentPerms, perm];
+        adminConvState.set(userId, { step: state?.step ?? (isNew ? "admin_add_perms" : "admin_edit_perms"), data: { ...(state?.data ?? {}), targetId, selectedPerms: newPerms } });
+        await showAdminPermsEditor(bot, chatId, targetId, newPerms, isNew, msgId);
+      } else if (act === "save" && p1) {
+        const targetId = parseInt(p1);
+        const state = adminConvState.get(userId);
+        const perms: AdminPermission[] = (state?.data?.selectedPerms as AdminPermission[]) ?? [];
+        adminConvState.delete(userId);
+        await db.update(adminsTable).set({ permissions: perms }).where(eq(adminsTable.id, targetId));
+        await showAdminsMenu(bot, chatId, msgId);
+      } else if (act === "confirm" && p1) {
+        const targetId = parseInt(p1);
+        const state = adminConvState.get(userId);
+        const perms: AdminPermission[] = (state?.data?.selectedPerms as AdminPermission[]) ?? [];
+        adminConvState.delete(userId);
+
+        let tgUsername: string | null = null;
+        try {
+          const rows = await db.select({ username: usersTable.username })
+            .from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+          tgUsername = rows[0]?.username ?? null;
+        } catch { /* ignore */ }
+
+        const permsJson = JSON.stringify(perms);
+        await db.execute(sql`
+          INSERT INTO admins (id, username, permissions)
+          VALUES (${targetId}, ${tgUsername}, ${permsJson}::jsonb)
+          ON CONFLICT (id) DO UPDATE
+            SET username = EXCLUDED.username,
+                permissions = EXCLUDED.permissions
+        `);
+
+        const permsLines = perms.length > 0
+          ? perms.map((p) => "  - " + PERM_LABELS[p]).join("\n")
+          : "  - لا صلاحيات";
+        const nameStr = tgUsername ? ` (@${esc(tgUsername)})` : "";
+        await bot.sendMessage(
+          chatId,
+          `تمت إضافة المشرف بنجاح!\n\nID: ${targetId}${nameStr}\n\nالصلاحيات:\n${permsLines}`,
+        );
+        const tmp = await bot.sendMessage(chatId, "...");
+        await showAdminsMenu(bot, chatId, tmp.message_id);
+      }
+      return true;
+    }
+
+  } catch (err) {
+    logger.error({ err }, "Admin callback error");
+    const errDetail = err instanceof Error ? err.message.slice(0, 150) : String(err).slice(0, 150);
+    try { await bot.sendMessage(chatId, `❌ خطأ: ${esc(errDetail)}`); } catch { /**/ }
+  }
+
+  return true;
+}
+
+// ─────────────────────────── PHOTO HANDLER ───────────────────────────
+
+export async function handleAdminPhoto(bot: TelegramBot, msg: TelegramBot.Message): Promise<boolean> {
+  const userId = msg.from!.id;
+  const state = adminConvState.get(userId);
+  if (!state || state.step !== "task_icon") return false;
+  if (!msg.photo || msg.photo.length === 0) return false;
+
+  const chatId = msg.chat.id;
+  try {
+    const photo = msg.photo[msg.photo.length - 1];
+    const file = await bot.getFile(photo.file_id);
+    const token = process.env.TELEGRAM_BOT_TOKEN!;
+    const channelPhotoUrl = file.file_path ? `https://api.telegram.org/file/bot${token}/${file.file_path}` : null;
+    const { title, description, url } = state.data as { title: string; description: string | null; url: string | null };
+    adminConvState.set(userId, { step: "task_duration", data: { title, description, url, icon: "⭐", channelPhotoUrl } });
+    await bot.sendMessage(chatId,
+      `✅ تم رفع الصورة 🖼\n\n⏳ <b>اختر مدة المهمة:</b>`,
+      {
+        parse_mode: "HTML",
+        reply_markup: { inline_keyboard: [
+          [
+            { text: "⏱ 24 ساعة", callback_data: "adm:t:dur:24" },
+            { text: "⏱ 48 ساعة", callback_data: "adm:t:dur:48" },
+            { text: "♾ مدى الحياة", callback_data: "adm:t:dur:0" },
+          ],
+        ]},
+      }
+    );
+  } catch (err) {
+    logger.error({ err }, "handleAdminPhoto error");
+    await bot.sendMessage(chatId, "❌ فشل رفع الصورة، يرجى المحاولة مرة أخرى.");
+  }
+  return true;
+}
+
+// ─────────────────────────── TEXT HANDLER ───────────────────────────
+
+export async function handleAdminText(bot: TelegramBot, msg: TelegramBot.Message): Promise<boolean> {
+  const userId = msg.from!.id;
+  const state = adminConvState.get(userId);
+  if (!state) return false;
+
+  const text = msg.text?.trim() ?? "";
+  const chatId = msg.chat.id;
+  const clearState = () => adminConvState.delete(userId);
+  const send = (t: string, opts: TelegramBot.SendMessageOptions = {}) => bot.sendMessage(chatId, t, { ...opts });
+
+  try {
+    // ── Mining settings ──
+    if (state.step === "mining_rate") {
+      const pct = parseFloat(text);
+      if (isNaN(pct) || pct <= 0 || pct > 100) { await send("❌ أدخل رقماً صحيحاً بين 0.1 و 100"); return true; }
+      const decimalRate = (pct / 100).toFixed(4);
+      await setSetting("default_mining_rate", decimalRate);
+      await db.update(usersTable).set({ miningRate: decimalRate });
+      clearState();
+      await send(`✅ تم تحديث نسبة التعدين لجميع المستخدمين إلى <b>${pct}% يومياً</b>`, { parse_mode: "HTML" });
+      const tmp = await send("جاري التحميل...");
+      await showMiningMenu(bot, chatId, tmp.message_id);
+      return true;
+    }
+    if (state.step === "mining_airdrop") {
+      const amount = parseFloat(text);
+      if (isNaN(amount) || amount <= 0) { await send("❌ أدخل رقماً صحيحاً أكبر من 0"); return true; }
+      await db.update(usersTable).set({
+        goBalance: sql`go_balance + ${amount}`,
+        balance: sql`balance + ${amount}`,
+      });
+      clearState();
+      await send(`🎉 <b>تم توزيع ${amount} Go لجميع المستخدمين بنجاح!</b>`, { parse_mode: "HTML" });
+      const tmp = await send("جاري التحميل...");
+      await showMiningMenu(bot, chatId, tmp.message_id);
+      return true;
+    }
+
+    // ── Task flow ──
+    if (state.step === "task_title") {
+      adminConvState.set(userId, { step: "task_desc", data: { ...state.data, title: text } });
+      await send("📝 أدخل <b>وصف المهمة</b> (أو - للتخطي):", { parse_mode: "HTML" });
+      return true;
+    }
+    if (state.step === "task_desc") {
+      adminConvState.set(userId, { step: "task_url", data: { ...state.data, description: text === "-" ? null : text } });
+      await send("🔗 أدخل <b>رابط المهمة</b> (مثال: https://t.me/...) أو -:", { parse_mode: "HTML" });
+      return true;
+    }
+    if (state.step === "task_url") {
+      adminConvState.set(userId, { step: "task_icon", data: { ...state.data, url: text === "-" ? null : text } });
+      await send("🖼 أرسل <b>صورة القناة</b> (أو <b>إيموجي</b> أو - للتخطي):", { parse_mode: "HTML" });
+      return true;
+    }
+    if (state.step === "task_icon") {
+      const { title, description, url } = state.data as { title: string; description: string | null; url: string | null };
+      const icon = text === "-" ? "⭐" : text;
+      let channelPhotoUrl: string | null = null;
+      if (url) { const m = url.match(/t\.me\/([A-Za-z0-9_]+)/); if (m) { try { channelPhotoUrl = await getChannelPhotoUrl(bot, m[1]); } catch { /**/ } } }
+      adminConvState.set(userId, { step: "task_duration", data: { title, description, url, icon, channelPhotoUrl } });
+      await bot.sendMessage(chatId,
+        `✅ تم ضبط الأيقونة.\n\n⏳ <b>اختر مدة المهمة:</b>`,
+        {
+          parse_mode: "HTML",
+          reply_markup: { inline_keyboard: [
+            [
+              { text: "⏱ 24 ساعة", callback_data: "adm:t:dur:24" },
+              { text: "⏱ 48 ساعة", callback_data: "adm:t:dur:48" },
+              { text: "♾ مدى الحياة", callback_data: "adm:t:dur:0" },
+            ],
+          ]},
+        }
+      );
+      return true;
+    }
+
+    // ── User search ──
+    if (state.step === "user_search") {
+      const info = await getAdminInfo(userId, msg.from?.username);
+      if (!info) { clearState(); return false; }
+      let u: typeof usersTable.$inferSelect | undefined;
+      if (text.startsWith("@")) {
+        const uname = text.slice(1);
+        u = (await db.select().from(usersTable).where(ilike(usersTable.username, uname)).limit(1))[0];
+      } else {
+        const targetId = parseInt(text);
+        if (isNaN(targetId)) { await send("❌ أدخل ID رقمي صحيح أو @يوزرنيم"); return true; }
+        u = (await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1))[0];
+      }
+      clearState();
+      if (!u) { await send("❌ لم يتم العثور على مستخدم بهذا المعرف"); return true; }
+      await showUserCard(bot, chatId, u, info);
+      return true;
+    }
+
+    // ── User warn ──
+    if (state.step === "user_warn") {
+      const { targetId } = state.data as { targetId: number };
+      clearState();
+      try { await bot.sendMessage(targetId, `⚠️ <b>تحذير من الإدارة:</b>\n\n${esc(text)}`, { parse_mode: "HTML" }); } catch { /**/ }
+      await send(`✅ تم إرسال التحذير للمستخدم ${targetId}.`);
+      return true;
+    }
+
+    // ── Go & Gram Balances (owner only) ──
+    if (state.step === "user_addbal") {
+      const { targetId } = state.data as { targetId: number };
+      clearState();
+      const val = parseFloat(text);
+      if (isNaN(val) || val <= 0) { await send("❌ أدخل قيمة موجبة صحيحة"); return true; }
+      await db.update(usersTable).set({
+        goBalance: sql`go_balance + ${val}`,
+        balance: sql`balance + ${val}`,
+      }).where(eq(usersTable.id, targetId));
+      const [u] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+      const newGo = parseFloat(u.goBalance || u.balance || "0").toFixed(2);
+      await send(`✅ تمت إضافة <b>${val} Go</b> للمستخدم ${targetId}\nرصيد Go الجديد: <b>${newGo} Go</b>`, { parse_mode: "HTML" });
+      try { await bot.sendMessage(targetId, `🪙 تمت إضافة <b>${val} عملة Go</b> لحسابك!\nرصيدك الحالي: <b>${newGo} Go</b> (تعدين نشط 3% يومياً ⛏️)`, { parse_mode: "HTML" }); } catch { /**/ }
+      return true;
+    }
+    if (state.step === "user_subbal") {
+      const { targetId } = state.data as { targetId: number };
+      clearState();
+      const val = parseFloat(text);
+      if (isNaN(val) || val <= 0) { await send("❌ أدخل قيمة موجبة صحيحة"); return true; }
+      await db.update(usersTable).set({
+        goBalance: sql`GREATEST(go_balance - ${val}, 0)`,
+        balance: sql`GREATEST(balance - ${val}, 0)`,
+      }).where(eq(usersTable.id, targetId));
+      const [u] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+      const newGo = parseFloat(u.goBalance || u.balance || "0").toFixed(2);
+      await send(`✅ تم خصم <b>${val} Go</b> من المستخدم ${targetId}\nرصيد Go الجديد: <b>${newGo} Go</b>`, { parse_mode: "HTML" });
+      try { await bot.sendMessage(targetId, `📉 تم خصم <b>${val} Go</b> من رصيدك.\nرصيدك الحالي: <b>${newGo} Go</b>`, { parse_mode: "HTML" }); } catch { /**/ }
+      return true;
+    }
+    if (state.step === "user_balance") {
+      const { targetId } = state.data as { targetId: number };
+      clearState();
+      const val = parseFloat(text);
+      if (isNaN(val) || val < 0) { await send("❌ أدخل قيمة صحيحة (0 أو أكبر)"); return true; }
+      await db.update(usersTable).set({
+        goBalance: String(val),
+        balance: String(val),
+      }).where(eq(usersTable.id, targetId));
+      await send(`✅ تم تحديد رصيد Go للمستخدم ${targetId} إلى <b>${val} Go</b>`, { parse_mode: "HTML" });
+      try { await bot.sendMessage(targetId, `🪙 تم تحديث رصيد Go إلى <b>${val} Go</b>`, { parse_mode: "HTML" }); } catch { /**/ }
+      return true;
+    }
+    if (state.step === "user_spins") {
+      const { targetId } = state.data as { targetId: number };
+      clearState();
+      const isRelative = text.startsWith("+") || text.startsWith("-");
+      const val = parseFloat(text);
+      if (isNaN(val)) { await send("❌ قيمة غير صحيحة"); return true; }
+      if (isRelative) {
+        await db.update(usersTable).set({ gramBalance: sql`GREATEST(gram_balance + ${val}, 0)` }).where(eq(usersTable.id, targetId));
+      } else {
+        if (val < 0) { await send("❌ أدخل رقماً غير سالب"); return true; }
+        await db.update(usersTable).set({ gramBalance: String(val) }).where(eq(usersTable.id, targetId));
+      }
+      const [u] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+      const newGram = parseFloat(u.gramBalance || "0").toFixed(4);
+      await send(`✅ رصيد الجرام الجديد للمستخدم ${targetId}: <b>${newGram} Gram</b>`, { parse_mode: "HTML" });
+      try { await bot.sendMessage(targetId, `💎 تم تحديث رصيد الجرام لديك إلى: <b>${newGram} Gram</b>`, { parse_mode: "HTML" }); } catch { /**/ }
+      return true;
+    }
+
+    // ── Required channel: add username ──
+    if (state.step === "ch_add_username") {
+      const username = text.replace(/^@/, "").trim();
+      if (!username) { await send("❌ يوزرنيم غير صحيح"); return true; }
+      adminConvState.set(userId, { step: "ch_add_title", data: { username } });
+      await send(`✅ القناة: @${esc(username)}\nأدخل <b>اسم القناة</b> للعرض (أو - لاستخدام @${esc(username)}):`, { parse_mode: "HTML" });
+      return true;
+    }
+    if (state.step === "ch_add_title") {
+      const { username } = state.data as { username: string };
+      const title = text === "-" ? `@${username}` : text.trim();
+      adminConvState.set(userId, { step: "ch_add_link", data: { username, title } });
+      await send(`✅ الاسم: ${esc(title)}\nأدخل <b>رابط الدعوة</b> للقناة (https://t.me/...) أو - لاستخدام الرابط العام:`, { parse_mode: "HTML" });
+      return true;
+    }
+    if (state.step === "ch_add_link") {
+      const { username, title } = state.data as { username: string; title: string };
+      const inviteLink = text === "-" ? `https://t.me/${username}` : text.trim();
+      clearState();
+      const chRaw = await getSetting("required_channels");
+      let channels: { username: string; title: string; inviteLink: string }[] = [];
+      try { channels = JSON.parse(chRaw ?? "[]"); } catch { /* ignore */ }
+
+      let verifyNote = "";
+      try {
+        const botInfo = await bot.getMe();
+        const member = await bot.getChatMember(`@${username}`, botInfo.id);
+        if (!["administrator", "creator"].includes(member.status)) {
+          verifyNote = `\n\n⚠️ <b>ملاحظة:</b> البوت ليس مشرفاً في القناة. اجعله مشرفاً لضمان عمل فحص الاشتراك بشكل صحيح.`;
+        }
+      } catch {
+        verifyNote = `\n\n⚠️ <b>ملاحظة:</b> تعذر التحقق من القناة. تأكد أن البوت عضو أو مشرف في @${esc(username)}.`;
+      }
+
+      channels.push({ username, title, inviteLink });
+      await setSetting("required_channels", JSON.stringify(channels));
+      clearAllSubCache();
+      await send(
+        `✅ <b>تمت إضافة القناة المطلوبة:</b>\n@${esc(username)} — ${esc(title)}\n\n` +
+        `جميع مستخدمي البوت سيُطلب منهم الاشتراك في هذه القناة عند الاستخدام.${verifyNote}`,
+        { parse_mode: "HTML" }
+      );
+      const tmp = await send("جاري التحميل...");
+      await showRequiredChannelsMenu(bot, chatId, tmp.message_id);
+      return true;
+    }
+
+    // ── Control Settings: referral ──
+    if (state.step === "ctrl_ref") {
+      const val = parseInt(text);
+      if (isNaN(val) || val < 1 || val > 100) { await send("❌ أرسل رقماً صحيحاً بين 1 و100"); return true; }
+      clearState();
+      await setSetting("referral_threshold", String(val));
+      invalidateSetting("referral_threshold");
+      await send(`✅ تم تغيير الإعداد بنجاح! القيمة الجديدة: <b>${val}</b>`, { parse_mode: "HTML" });
+      const { chatId: oc, msgId: om } = state.data as { chatId: number; msgId: number };
+      await showControlSettingsMenu(bot, oc, om);
+      return true;
+    }
+    // ── Control Settings: task ──
+    if (state.step === "ctrl_task") {
+      const val = parseInt(text);
+      if (isNaN(val) || val < 1 || val > 100) { await send("❌ أرسل رقماً صحيحاً بين 1 و100"); return true; }
+      clearState();
+      await setSetting("task_threshold", String(val));
+      invalidateSetting("task_threshold");
+      await send(`✅ تم تغيير الإعداد بنجاح! القيمة الجديدة: <b>${val}</b>`, { parse_mode: "HTML" });
+      const { chatId: oc, msgId: om } = state.data as { chatId: number; msgId: number };
+      await showControlSettingsMenu(bot, oc, om);
+      return true;
+    }
+    // ── Control Settings: min withdrawal ──
+    if (state.step === "ctrl_minwd") {
+      const val = parseFloat(text);
+      if (isNaN(val) || val < 0.01) { await send("❌ أرسل رقماً أكبر من أو يساوي 0.01"); return true; }
+      clearState();
+      await setSetting("min_withdrawal", val.toFixed(4));
+      invalidateSetting("min_withdrawal");
+      await send(`✅ تم تغيير الإعداد بنجاح! القيمة الجديدة: <b>${val.toFixed(2)} TON</b>`, { parse_mode: "HTML" });
+      const { chatId: oc, msgId: om } = state.data as { chatId: number; msgId: number };
+      await showControlSettingsMenu(bot, oc, om);
+      return true;
+    }
+
+    // ── Settings: referral threshold ──
+    if (state.step === "set_ref_threshold") {
+      if (text === "/cancel") { clearState(); await bot.sendMessage(chatId, "❌ تم الإلغاء"); return true; }
+      const val = parseInt(text);
+      if (isNaN(val) || val < 1 || val > 100) { await send("❌ أدخل رقماً صحيحاً بين 1 و100"); return true; }
+      clearState();
+      await setSetting("referral_threshold", String(val));
+      invalidateSetting("referral_threshold");
+      await send(`✅ تم تحديث عدد الإحالات للدورة المجانية إلى <b>${val}</b>`, { parse_mode: "HTML" });
+      const { chatId: origChat, msgId: origMsg } = state.data as { chatId: number; msgId: number };
+      await showSettingsMenu(bot, origChat, origMsg);
+      return true;
+    }
+
+    // ── Settings: task threshold ──
+    if (state.step === "set_task_threshold") {
+      if (text === "/cancel") { clearState(); await bot.sendMessage(chatId, "❌ تم الإلغاء"); return true; }
+      const val = parseInt(text);
+      if (isNaN(val) || val < 1 || val > 100) { await send("❌ أدخل رقماً صحيحاً بين 1 و100"); return true; }
+      clearState();
+      await setSetting("task_threshold", String(val));
+      invalidateSetting("task_threshold");
+      await send(`✅ تم تحديث عدد المهام للدورة المجانية إلى <b>${val}</b>`, { parse_mode: "HTML" });
+      const { chatId: origChat, msgId: origMsg } = state.data as { chatId: number; msgId: number };
+      await showSettingsMenu(bot, origChat, origMsg);
+      return true;
+    }
+
+    // ── Settings: min withdrawal ──
+    if (state.step === "set_min_withdrawal") {
+      if (text === "/cancel") { clearState(); await bot.sendMessage(chatId, "❌ تم الإلغاء"); return true; }
+      const val = parseFloat(text);
+      if (isNaN(val) || val < 0.01 || val > 10000) { await send("❌ أدخل رقماً صحيحاً (0.01 أو أكبر)"); return true; }
+      clearState();
+      await setSetting("min_withdrawal", val.toFixed(4));
+      invalidateSetting("min_withdrawal");
+      await send(`✅ تم تحديث الحد الأدنى للسحب إلى <b>${val.toFixed(2)} TON</b>`, { parse_mode: "HTML" });
+      const { chatId: origChat, msgId: origMsg } = state.data as { chatId: number; msgId: number };
+      await showSettingsMenu(bot, origChat, origMsg);
+      return true;
+    }
+
+    // ── Add admin: enter @username or ID ──
+    if (state.step === "admin_add_id") {
+      let targetId: number | null = null;
+      let resolvedUsername: string | null = null;
+
+      if (text.startsWith("@")) {
+        const uname = text.slice(1);
+        try {
+          const rows = await db.select({ id: usersTable.id, username: usersTable.username })
+            .from(usersTable).where(ilike(usersTable.username, uname)).limit(1);
+          if (rows[0]) { targetId = rows[0].id; resolvedUsername = rows[0].username ?? uname; }
+        } catch { /**/ }
+        if (!targetId) { await send(`❌ لم يتم العثور على مستخدم بالـ يوزرنيم @${esc(uname)}\nيرجى إدخال Telegram ID رقمياً بدلاً منه.`); return true; }
+      } else {
+        const parsed = parseInt(text);
+        if (isNaN(parsed) || parsed <= 0) { await send("❌ أدخل @يوزرنيم أو Telegram ID رقمي صحيح"); return true; }
+        targetId = parsed;
+        try {
+          const rows = await db.select({ username: usersTable.username })
+            .from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+          resolvedUsername = rows[0]?.username ?? null;
+        } catch { /**/ }
+      }
+
+      const label = resolvedUsername ? `@${esc(resolvedUsername)}` : `ID: ${targetId}`;
+      adminConvState.set(userId, { step: "admin_add_perms", data: { ...state.data, targetId, resolvedUsername, selectedPerms: [] } });
+      await send(`👤 تم التعرف على المستخدم: <b>${label}</b>\n\nاختر الصلاحيات الآن:`, { parse_mode: "HTML" });
+      await showAdminPermsEditor(bot, chatId, targetId, [], true);
+      return true;
+    }
+
+  } catch (err) {
+    logger.error({ err }, "Admin text handler error");
+    await bot.sendMessage(chatId, "❌ حدث خطأ، يرجى المحاولة مرة أخرى.");
+  }
+
+  return false;
+}
+
+// Keep for backward compatibility — no longer needed as separate export
+export async function handleNewAdminPermsCallback(_bot: TelegramBot, _q: TelegramBot.CallbackQuery): Promise<boolean> {
+  return false;
+}
