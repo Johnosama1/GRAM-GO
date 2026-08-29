@@ -745,18 +745,18 @@ export default function TabBar() {
                     boxShadow: "0 0 16px rgba(0,242,254,0.4)",
                   }}
                 >
-                  {(user?.firstName || user?.username || "M")[0].toUpperCase()}
+                  {(([user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.username || "U")[0] || "U").toUpperCase()}
                 </div>
               )}
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ color: "#ffffff", fontSize: 17, fontWeight: 900 }}>
-                    {user?.firstName || user?.username || "Miner"}
+                    {[user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.username || "Telegram User"}
                   </span>
                   <span style={{ color: "#a855f7" }}>👑</span>
                 </div>
                 <div style={{ color: "#38bdf8", fontSize: 12, fontWeight: 700, marginTop: 2 }}>
-                  @{user?.username || "miner"}
+                  {user?.username ? `@${user.username}` : (user?.id ? `ID: ${user.id}` : "")}
                 </div>
               </div>
             </div>
@@ -831,7 +831,7 @@ export default function TabBar() {
                 Open Wallet
               </button>
               <a
-                href="https://t.me/J_O_H_N8"
+                href="https://t.me/GramGoSupport"
                 target="_blank"
                 rel="noreferrer"
                 style={{

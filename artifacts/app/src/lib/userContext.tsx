@@ -44,9 +44,6 @@ const UserContext = createContext<UserContextType>({
   recheckSession: async () => {},
 });
 
-const OWNER_USERNAME = "J_O_H_N8";
-const OWNER_ID = 6145230334;
-
 // ── LocalStorage cache helpers ──────────────────────────────────────
 const CACHE_TTL = 5 * 60 * 1000;
 
@@ -209,12 +206,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       await doIssueSession(freshUser.id);
 
       // ── Step 4: Check admin status ────────────────────────────────
-      // Quick check by known owner ID/username first, then API for sub-admins
-      if (freshUser.id === OWNER_ID || freshUser.username === OWNER_USERNAME) {
-        setIsAdminState(true);
-      } else {
-        api.adminCheck(freshUser.id).then(() => setIsAdminState(true)).catch(() => setIsAdminState(false));
-      }
+      api.adminCheck(freshUser.id)
+        .then((res) => setIsAdminState(res.isAdmin))
+        .catch(() => setIsAdminState(false));
 
       // ── Step 5: Pre-warm secondary caches ─────────────────────────
       getCompletedTasksOnce(freshUser.id).catch(() => {});

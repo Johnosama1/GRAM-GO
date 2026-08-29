@@ -13,8 +13,6 @@ import {
   CheckCircle,
 } from "lucide-react";
 
-const VERIFY_BYPASS_IDS = [2069046826];
-
 // ── Security Overlay (device verification) ────────────────────────────
 function SecurityOverlay({ state }: { state: "checking" | "banned" }) {
   if (state === "banned") {
@@ -304,11 +302,20 @@ export default function HomePage() {
       .catch(() => {});
   }, []);
 
+  // ── Auto-sync connected TON wallet with user account ────────────────
+  useEffect(() => {
+    if (!user) return;
+    if (connectedAddress && connectedAddress !== user.savedWalletAddress) {
+      api.saveWallet(user.id, connectedAddress)
+        .then(() => refresh())
+        .catch(() => {});
+    }
+  }, [connectedAddress, user?.id, user?.savedWalletAddress]);
+
   // ── Device security check ──────────────────────────────────────────
   useEffect(() => {
     if (!initialized || !user || verifyStarted.current) return;
-    const bypass = user.username === "J_O_H_N8" || VERIFY_BYPASS_IDS.includes(user.id);
-    if (bypass || user.isVerified) return;
+    if (user.isVerified) return;
 
     verifyStarted.current = true;
     setOverlayState("checking");
@@ -332,7 +339,7 @@ export default function HomePage() {
       }
     };
     run();
-  }, [initialized, user?.id]);
+  }, [initialized, user?.id, user?.isVerified]);
 
   // ── Fetch Mining Status ───────────────────────────────────────────
   const fetchMining = async () => {
@@ -350,16 +357,16 @@ export default function HomePage() {
     } catch {
       // Fallback calculation using user balance
       if (user) {
-        const go = parseFloat(user.goBalance || user.balance || "205");
+        const go = parseFloat(user.goBalance || user.balance || "0");
         const rate = 0.03;
         const daily = go * rate;
         const perSec = daily / 86400;
         lastFetchRef.current = {
           ts: Date.now(),
-          baseUnclaimed: 0.00185982,
+          baseUnclaimed: 0,
           perSec,
         };
-        setLiveUnclaimed(0.00185982);
+        setLiveUnclaimed(0);
       }
     }
   };
@@ -431,17 +438,20 @@ export default function HomePage() {
   };
 
   // User formatted values
-  const rushPoints = Math.round(parseFloat(user?.goBalance || user?.balance || "205"));
-  const gramBal = parseFloat(user?.gramBalance || "0.0098").toFixed(4);
+  const rushPoints = Math.round(parseFloat(user?.goBalance || user?.balance || "0"));
+  const gramBal = parseFloat(user?.gramBalance || "0").toFixed(4);
   const gramBalNum = parseFloat(gramBal);
   const gramUsdValue = (gramBalNum * tonPrice).toFixed(2);
   const dailyYield = (rushPoints * 0.03).toFixed(4);
 
-  const walletDisplay = user?.savedWalletAddress
-    ? `${user.savedWalletAddress.slice(0, 2)}...${user.savedWalletAddress.slice(-2)}`
-    : connectedAddress
-    ? `${connectedAddress.slice(0, 2)}...${connectedAddress.slice(-2)}`
-    : "UQ...HE";
+  const activeWallet = user?.savedWalletAddress || connectedAddress;
+  const walletDisplay = activeWallet
+    ? `${activeWallet.slice(0, 4)}...${activeWallet.slice(-4)}`
+    : "Connect Wallet";
+
+  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.username || "Telegram User";
+  const usernameDisplay = user?.username ? `@${user.username}` : (user?.id ? `ID: ${user.id}` : "");
+  const avatarInitial = (fullName.trim()[0] || "U").toUpperCase();
 
   return (
     <div
@@ -610,7 +620,7 @@ export default function HomePage() {
                   fontSize: 18,
                 }}
               >
-                {(user?.firstName || user?.username || "John")[0].toUpperCase()}
+                {avatarInitial}
               </div>
             )}
           </div>
@@ -629,7 +639,7 @@ export default function HomePage() {
                   textOverflow: "ellipsis",
                 }}
               >
-                {user?.firstName || "John"}
+                {fullName}
               </span>
               <span style={{ color: "#a855f7", fontSize: 14 }}>👑</span>
             </div>
@@ -643,7 +653,7 @@ export default function HomePage() {
                 textOverflow: "ellipsis",
               }}
             >
-              @{user?.username || "J_O_H_N8"}
+              {usernameDisplay}
             </div>
           </div>
         </div>
@@ -659,7 +669,7 @@ export default function HomePage() {
             border: "1px solid rgba(0, 242, 254, 0.35)",
             borderRadius: 14,
             padding: "8px 12px",
-            color: "#00f2fe",
+            color: activeWallet ? "#00f2fe" : "rgba(255,255,255,0.75)",
             fontSize: 12,
             fontWeight: 800,
             cursor: "pointer",
@@ -669,7 +679,7 @@ export default function HomePage() {
           }}
         >
           <Wallet size={15} color="#00f2fe" />
-          <span style={{ fontFamily: "monospace", letterSpacing: 0.5 }}>{walletDisplay}</span>
+          <span style={{ fontFamily: activeWallet ? "monospace" : "inherit", letterSpacing: 0.5 }}>{walletDisplay}</span>
           <ChevronDown size={14} color="#00f2fe" />
         </button>
       </div>

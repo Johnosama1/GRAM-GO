@@ -3,13 +3,12 @@ import TelegramBot from "node-telegram-bot-api";
 import https from "https";
 import http from "http";
 
+import { db } from "@workspace/db";
+import { usersTable } from "@workspace/db/schema";
+import { eq } from "drizzle-orm";
+
 const router = Router();
 const getBot = () => new TelegramBot(process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "", { polling: false });
-
-// Known developer Telegram user IDs
-const KNOWN_IDS: Record<string, number> = {
-  "J_O_H_N8": 2069046826,
-};
 
 const cache: Record<string, { data: Buffer; contentType: string; ts: number }> = {};
 const TTL = 60 * 60 * 1000;
@@ -30,18 +29,26 @@ async function fetchBuffer(url: string): Promise<{ data: Buffer; contentType: st
 }
 
 router.get("/avatar/:username", async (req: Request, res: Response) => {
-  const username = String(req.params.username).replace(/^@/, "");
+  const usernameParam = String(req.params.username).replace(/^@/, "").trim();
   const now = Date.now();
 
-  if (cache[username] && now - cache[username].ts < TTL) {
-    res.setHeader("Content-Type", cache[username].contentType);
+  if (cache[usernameParam] && now - cache[usernameParam].ts < TTL) {
+    res.setHeader("Content-Type", cache[usernameParam].contentType);
     res.setHeader("Cache-Control", "public, max-age=3600");
-    res.send(cache[username].data); return;
+    res.send(cache[usernameParam].data); return;
   }
 
   try {
-    const userId = KNOWN_IDS[username];
-    if (!userId) { res.status(404).json({ error: "unknown user" }); return; }
+    let userId = parseInt(usernameParam);
+    if (isNaN(userId)) {
+      const [u] = await db
+        .select({ id: usersTable.id })
+        .from(usersTable)
+        .where(eq(usersTable.username, usernameParam))
+        .limit(1);
+      if (u) userId = u.id;
+    }
+    if (!userId || isNaN(userId)) { res.status(404).json({ error: "unknown user" }); return; }
 
     const botInst = getBot();
     const photos = await botInst.getUserProfilePhotos(userId, { limit: 1 });
@@ -55,7 +62,7 @@ router.get("/avatar/:username", async (req: Request, res: Response) => {
     const link = await botInst.getFileLink(best.file_id);
     const { data, contentType } = await fetchBuffer(link);
 
-    cache[username] = { data, contentType, ts: now };
+    cache[usernameParam] = { data, contentType, ts: now };
     res.setHeader("Content-Type", contentType);
     res.setHeader("Cache-Control", "public, max-age=3600");
     res.send(data);

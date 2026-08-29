@@ -48,8 +48,26 @@ export function getTelegramWebApp(): TelegramWebApp | null {
 
 export function getTelegramUser() {
   const tg = getTelegramWebApp();
-  if (!tg) return null;
-  return tg.initDataUnsafe?.user || null;
+  if (tg?.initDataUnsafe?.user) {
+    return tg.initDataUnsafe.user;
+  }
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const uidStr = params.get("uid");
+    if (uidStr) {
+      const uid = parseInt(uidStr);
+      if (!isNaN(uid) && uid > 0) {
+        return {
+          id: uid,
+          first_name: params.get("first_name") || undefined,
+          last_name: params.get("last_name") || undefined,
+          username: params.get("username") || undefined,
+          photo_url: params.get("photo_url") || undefined,
+        };
+      }
+    }
+  } catch {}
+  return null;
 }
 
 export function getStartParam(): string | null {
