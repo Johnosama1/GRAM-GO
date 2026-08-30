@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "wouter";
 import { api, ComboStatus, ComboItem } from "../lib/api";
 import { useUser } from "../lib/userContext";
 import {
@@ -12,13 +11,12 @@ import {
 } from "lucide-react";
 
 export default function ComboPage() {
-  const [, setLocation] = useLocation();
-  const { user, refresh } = useUser();
+  const { refresh } = useUser();
 
   const [status, setStatus] = useState<ComboStatus | null>(null);
-  const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [warningMsg, setWarningMsg] = useState<string | null>(null);
   const [resultModal, setResultModal] = useState<{
     open: boolean;
     isSuccess: boolean;
@@ -30,7 +28,6 @@ export default function ComboPage() {
 
   const loadStatus = async () => {
     try {
-      setLoading(true);
       const data = await api.getComboStatus();
       setStatus(data);
       if (data.attempted && data.selectedItems) {
@@ -38,8 +35,6 @@ export default function ComboPage() {
       }
     } catch (err) {
       console.error("Failed to load combo status:", err);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -72,17 +67,18 @@ export default function ComboPage() {
     if (status?.attempted) return; // Locked if already attempted
 
     if (selectedIds.includes(id)) {
-      // Remove item
       setSelectedIds((prev) => prev.filter((i) => i !== id));
+      setWarningMsg(null);
     } else {
-      // Add if < 3
       if (selectedIds.length < 3) {
         setSelectedIds((prev) => [...prev, id]);
+        setWarningMsg(null);
+      } else {
+        setWarningMsg("You can only choose 3 items.");
+        setTimeout(() => setWarningMsg(null), 2500);
       }
     }
   };
-
-  const [warningMsg, setWarningMsg] = useState<string | null>(null);
 
   const handleCheckCombo = async () => {
     if (status?.attempted || submitting) return;
@@ -147,13 +143,13 @@ export default function ComboPage() {
         <div
           style={{
             width: "100%",
-            padding: "16px",
-            borderRadius: "18px",
+            padding: "14px",
+            borderRadius: "16px",
             background: "rgba(34, 197, 94, 0.15)",
             border: "1px solid rgba(34, 197, 94, 0.4)",
             color: "#4ade80",
             fontWeight: 900,
-            fontSize: "15px",
+            fontSize: "14px",
             textAlign: "center",
             display: "flex",
             alignItems: "center",
@@ -161,7 +157,7 @@ export default function ComboPage() {
             gap: "8px",
           }}
         >
-          <CheckCircle2 size={20} />
+          <CheckCircle2 size={18} />
           <span>🎉 +5 GO CLAIMED TODAY (Next in {timeLeft})</span>
         </div>
       );
@@ -172,13 +168,13 @@ export default function ComboPage() {
         <div
           style={{
             width: "100%",
-            padding: "16px",
-            borderRadius: "18px",
+            padding: "14px",
+            borderRadius: "16px",
             background: "rgba(239, 68, 68, 0.15)",
             border: "1px solid rgba(239, 68, 68, 0.4)",
             color: "#f87171",
             fontWeight: 900,
-            fontSize: "15px",
+            fontSize: "14px",
             textAlign: "center",
             display: "flex",
             alignItems: "center",
@@ -186,7 +182,7 @@ export default function ComboPage() {
             gap: "8px",
           }}
         >
-          <XCircle size={20} />
+          <XCircle size={18} />
           <span>ATTEMPT USED TODAY (Next in {timeLeft})</span>
         </div>
       );
@@ -198,8 +194,8 @@ export default function ComboPage() {
         disabled={submitting}
         style={{
           width: "100%",
-          padding: "16px",
-          borderRadius: "18px",
+          padding: "14px",
+          borderRadius: "16px",
           background:
             selectedIds.length === 3
               ? "linear-gradient(135deg, #00f2fe 0%, #4facfe 50%, #7c3aed 100%)"
@@ -210,25 +206,25 @@ export default function ComboPage() {
               : "1px solid rgba(255, 255, 255, 0.05)",
           color: selectedIds.length === 3 ? "#040714" : "rgba(255, 255, 255, 0.4)",
           fontWeight: 900,
-          fontSize: "16px",
+          fontSize: "15px",
           letterSpacing: "0.5px",
           cursor: submitting ? "not-allowed" : "pointer",
           boxShadow:
             selectedIds.length === 3
-              ? "0 8px 30px rgba(0, 242, 254, 0.4), 0 0 15px rgba(124, 58, 237, 0.3)"
+              ? "0 6px 25px rgba(0, 242, 254, 0.4), 0 0 12px rgba(124, 58, 237, 0.3)"
               : "none",
-          transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+          transition: "all 0.25s ease",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          gap: "8px",
+          gap: "6px",
         }}
       >
         {submitting ? (
           <span>Checking...</span>
         ) : (
-          <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-            <Zap size={18} />
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            <Zap size={16} />
             <span>⚡ CHECK COMBO ({selectedIds.length}/3)</span>
           </span>
         )}
@@ -260,22 +256,22 @@ export default function ComboPage() {
             border: resultModal.isSuccess
               ? "2px solid #00f2fe"
               : "2px solid #ef4444",
-            borderRadius: "28px",
-            padding: "32px 24px",
-            maxWidth: "340px",
+            borderRadius: "24px",
+            padding: "28px 20px",
+            maxWidth: "320px",
             width: "100%",
             textAlign: "center",
             boxShadow: resultModal.isSuccess
-              ? "0 0 50px rgba(0, 242, 254, 0.4)"
-              : "0 0 50px rgba(239, 68, 68, 0.4)",
-            animation: "popIn 0.3s ease",
+              ? "0 0 40px rgba(0, 242, 254, 0.4)"
+              : "0 0 40px rgba(239, 68, 68, 0.4)",
+              animation: "popIn 0.3s ease",
           }}
           onClick={(e) => e.stopPropagation()}
         >
           <div
             style={{
-              width: "72px",
-              height: "72px",
+              width: "64px",
+              height: "64px",
               borderRadius: "50%",
               background: resultModal.isSuccess
                 ? "rgba(0, 242, 254, 0.15)"
@@ -286,8 +282,8 @@ export default function ComboPage() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              margin: "0 auto 16px",
-              fontSize: "36px",
+              margin: "0 auto 14px",
+              fontSize: "32px",
             }}
           >
             {resultModal.isSuccess ? "🎉" : "❌"}
@@ -295,10 +291,10 @@ export default function ComboPage() {
 
           <h3
             style={{
-              fontSize: "20px",
+              fontSize: "18px",
               fontWeight: 900,
               color: resultModal.isSuccess ? "#00f2fe" : "#f87171",
-              margin: "0 0 8px",
+              margin: "0 0 6px",
             }}
           >
             {resultModal.isSuccess ? "COMBO SOLVED!" : "INCORRECT COMBO"}
@@ -307,9 +303,9 @@ export default function ComboPage() {
           <p
             style={{
               color: "rgba(255, 255, 255, 0.7)",
-              fontSize: "14px",
-              margin: "0 0 20px",
-              lineHeight: 1.5,
+              fontSize: "13px",
+              margin: "0 0 18px",
+              lineHeight: 1.4,
             }}
           >
             {resultModal.message}
@@ -319,15 +315,15 @@ export default function ComboPage() {
             onClick={() => setResultModal(null)}
             style={{
               width: "100%",
-              padding: "14px",
-              borderRadius: "14px",
+              padding: "12px",
+              borderRadius: "12px",
               background: resultModal.isSuccess
                 ? "linear-gradient(135deg, #00f2fe, #7c3aed)"
                 : "rgba(255, 255, 255, 0.1)",
               border: "none",
               color: resultModal.isSuccess ? "#040714" : "#ffffff",
               fontWeight: 900,
-              fontSize: "15px",
+              fontSize: "14px",
               cursor: "pointer",
             }}
           >
@@ -341,132 +337,129 @@ export default function ComboPage() {
   return (
     <div
       style={{
-        minHeight: "100vh",
-        background: "radial-gradient(circle at 50% 10%, #0d1428 0%, #040714 100%)",
+        minHeight: "100%",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "flex-start",
         color: "#ffffff",
-        paddingBottom: "110px",
-        paddingTop: "16px",
-        paddingLeft: "16px",
-        paddingRight: "16px",
+        paddingTop: "6px",
+        paddingBottom: "85px",
+        paddingLeft: "14px",
+        paddingRight: "14px",
         boxSizing: "border-box",
+        overflowY: "auto",
       }}
     >
       <style>{`
-        @keyframes comboGlow {
-          0%,100% { box-shadow: 0 0 20px rgba(0, 242, 254, 0.3), inset 0 0 15px rgba(168, 85, 247, 0.2); }
-          50%      { box-shadow: 0 0 35px rgba(0, 242, 254, 0.6), inset 0 0 25px rgba(168, 85, 247, 0.4); }
-        }
         @keyframes popIn {
-          0% { transform: scale(0.9); opacity: 0; }
+          0% { transform: scale(0.92); opacity: 0; }
           100% { transform: scale(1); opacity: 1; }
         }
       `}</style>
 
-      {/* ── Top Header ────────────────────────────────────────────────── */}
-      <div style={{ textAlign: "center", marginBottom: "20px" }}>
+      {/* ── Compact Header (Pushed to Top) ────────────────────────────── */}
+      <div style={{ textAlign: "center", marginBottom: "10px" }}>
         <div
           style={{
             display: "inline-flex",
             alignItems: "center",
-            gap: "6px",
+            gap: "5px",
             background: "rgba(0, 242, 254, 0.1)",
-            border: "1px solid rgba(0, 242, 254, 0.3)",
-            padding: "4px 12px",
-            borderRadius: "20px",
-            fontSize: "11px",
+            border: "1px solid rgba(0, 242, 254, 0.25)",
+            padding: "2px 10px",
+            borderRadius: "16px",
+            fontSize: "10px",
             fontWeight: 800,
             color: "#00f2fe",
-            letterSpacing: "1px",
-            marginBottom: "8px",
+            letterSpacing: "0.8px",
+            marginBottom: "4px",
             textTransform: "uppercase",
           }}
         >
-          <Sparkles size={12} />
+          <Sparkles size={11} />
           DAILY REWARD EVENT
         </div>
 
         <h1
           style={{
-            fontSize: "26px",
+            fontSize: "22px",
             fontWeight: 900,
             letterSpacing: "-0.5px",
-            margin: "0 0 4px",
+            margin: "0 0 2px",
             background: "linear-gradient(135deg, #ffffff 40%, #00f2fe 100%)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
           }}
         >
-          DAILY COMBO
+          ✨ DAILY COMBO
         </h1>
 
         <p
           style={{
-            color: "rgba(255, 255, 255, 0.6)",
-            fontSize: "13px",
-            margin: 0,
-            lineHeight: 1.4,
+            color: "rgba(255, 255, 255, 0.65)",
+            fontSize: "12px",
+            margin: "0 0 8px",
           }}
         >
-          Select the 3 correct catalysts to win <strong style={{ color: "#fbbf24" }}>+5 GO</strong>
+          Pick 3 correct items to win <strong style={{ color: "#fbbf24", fontWeight: 900 }}>+5 GO</strong>
         </p>
 
         {/* ── Status Bar: Countdown & Attempt ───────────────────────────── */}
         <div
           style={{
-            display: "flex",
+            display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            gap: "12px",
-            marginTop: "12px",
+            gap: "8px",
           }}
         >
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "6px",
-              background: "rgba(8, 14, 32, 0.8)",
-              border: "1px solid rgba(255, 255, 255, 0.1)",
-              borderRadius: "12px",
-              padding: "6px 12px",
-              fontSize: "12px",
-              fontWeight: 700,
+              gap: "5px",
+              background: "rgba(8, 14, 32, 0.85)",
+              border: "1px solid rgba(0, 242, 254, 0.25)",
+              borderRadius: "10px",
+              padding: "4px 10px",
+              fontSize: "11px",
+              fontWeight: 800,
               color: "#93c5fd",
             }}
           >
-            <Clock size={14} className="text-cyan-400" />
-            <span>{timeLeft}</span>
+            <Clock size={12} className="text-cyan-400" />
+            <span>Next in {timeLeft}</span>
           </div>
 
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "6px",
+              gap: "5px",
               background: status?.attempted ? "rgba(239, 68, 68, 0.15)" : "rgba(34, 197, 94, 0.15)",
               border: status?.attempted ? "1px solid rgba(239, 68, 68, 0.4)" : "1px solid rgba(34, 197, 94, 0.4)",
-              borderRadius: "12px",
-              padding: "6px 12px",
-              fontSize: "12px",
-              fontWeight: 700,
+              borderRadius: "10px",
+              padding: "4px 10px",
+              fontSize: "11px",
+              fontWeight: 800,
               color: status?.attempted ? "#f87171" : "#4ade80",
             }}
           >
-            <ShieldCheck size={14} />
+            <ShieldCheck size={12} />
             <span>{status?.attempted ? "0 / 1 Attempts Left" : "1 / 1 Attempts Left"}</span>
           </div>
         </div>
       </div>
 
-      {/* ── 3 Selected Slots (Top Cards) ──────────────────────────────── */}
+      {/* ── 3 Selected Slots (Elevated Top Box) ───────────────────────── */}
       <div
         style={{
-          background: "rgba(10, 16, 36, 0.6)",
-          border: "1px solid rgba(0, 242, 254, 0.2)",
-          borderRadius: "24px",
-          padding: "16px 12px",
-          marginBottom: "24px",
-          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.4)",
+          background: "rgba(8, 14, 32, 0.75)",
+          border: "1px solid rgba(0, 242, 254, 0.25)",
+          borderRadius: "18px",
+          padding: "10px 8px",
+          marginBottom: "12px",
+          boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
           backdropFilter: "blur(12px)",
         }}
       >
@@ -474,7 +467,7 @@ export default function ComboPage() {
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(3, 1fr)",
-            gap: "10px",
+            gap: "8px",
           }}
         >
           {[0, 1, 2].map((slotIndex) => {
@@ -486,23 +479,23 @@ export default function ComboPage() {
                 key={slotIndex}
                 onClick={() => itemId && handleSelectItem(itemId)}
                 style={{
-                  height: "115px",
-                  borderRadius: "18px",
+                  height: "86px",
+                  borderRadius: "14px",
                   background: item
-                    ? "linear-gradient(145deg, rgba(168, 85, 247, 0.25), rgba(0, 242, 254, 0.15))"
-                    : "rgba(6, 10, 24, 0.7)",
+                    ? "linear-gradient(145deg, rgba(168, 85, 247, 0.22), rgba(0, 242, 254, 0.18))"
+                    : "rgba(4, 7, 18, 0.8)",
                   border: item
-                    ? "1.5px solid rgba(0, 242, 254, 0.6)"
-                    : "1.5px dashed rgba(255, 255, 255, 0.15)",
+                    ? "1.5px solid #00f2fe"
+                    : "1.5px dashed rgba(0, 242, 254, 0.35)",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
                   position: "relative",
                   cursor: item && !status?.attempted ? "pointer" : "default",
-                  transition: "all 0.25s ease",
-                  boxShadow: item ? "0 4px 20px rgba(0, 242, 254, 0.25)" : "none",
-                  animation: item ? "popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)" : "none",
+                  transition: "all 0.2s ease",
+                  boxShadow: item ? "0 0 16px rgba(0, 242, 254, 0.3)" : "none",
+                  animation: item ? "popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)" : "none",
                 }}
               >
                 {item ? (
@@ -511,11 +504,11 @@ export default function ComboPage() {
                       src={item.image}
                       alt={item.name}
                       style={{
-                        width: "60px",
-                        height: "60px",
+                        width: "44px",
+                        height: "44px",
                         objectFit: "contain",
-                        filter: "drop-shadow(0 0 10px rgba(0, 242, 254, 0.5))",
-                        marginBottom: "4px",
+                        filter: "drop-shadow(0 0 8px rgba(0, 242, 254, 0.6))",
+                        marginBottom: "2px",
                       }}
                       onError={(e) => {
                         (e.target as HTMLElement).style.display = "none";
@@ -523,11 +516,11 @@ export default function ComboPage() {
                     />
                     <span
                       style={{
-                        fontSize: "11px",
+                        fontSize: "10px",
                         fontWeight: 800,
                         color: "#e2e8f0",
                         textAlign: "center",
-                        maxWidth: "90%",
+                        maxWidth: "92%",
                         overflow: "hidden",
                         textOverflow: "ellipsis",
                         whiteSpace: "nowrap",
@@ -539,16 +532,16 @@ export default function ComboPage() {
                       <div
                         style={{
                           position: "absolute",
-                          top: "4px",
-                          right: "4px",
-                          width: "18px",
-                          height: "18px",
+                          top: "3px",
+                          right: "3px",
+                          width: "16px",
+                          height: "16px",
                           borderRadius: "50%",
-                          background: "rgba(239, 68, 68, 0.8)",
+                          background: "rgba(239, 68, 68, 0.85)",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          fontSize: "10px",
+                          fontSize: "9px",
                           color: "#fff",
                           fontWeight: 900,
                         }}
@@ -563,14 +556,14 @@ export default function ComboPage() {
                       display: "flex",
                       flexDirection: "column",
                       alignItems: "center",
-                      gap: "4px",
-                      color: "rgba(255, 255, 255, 0.25)",
+                      gap: "2px",
+                      color: "rgba(0, 242, 254, 0.4)",
                     }}
                   >
-                    <span style={{ fontSize: "28px", fontWeight: 900, fontFamily: "monospace" }}>
+                    <span style={{ fontSize: "22px", fontWeight: 900, fontFamily: "monospace" }}>
                       {slotIndex + 1}
                     </span>
-                    <span style={{ fontSize: "9px", fontWeight: 700, letterSpacing: "0.5px" }}>
+                    <span style={{ fontSize: "8px", fontWeight: 800, letterSpacing: "0.5px" }}>
                       EMPTY
                     </span>
                   </div>
@@ -581,41 +574,44 @@ export default function ComboPage() {
         </div>
       </div>
 
-      {/* ── 5 Selectable Items Grid ───────────────────────────────────── */}
-      <div style={{ marginBottom: "24px" }}>
+      {/* ── 5 Selectable Items Grid (3 Top + 2 Centered Bottom) ──────── */}
+      <div style={{ marginBottom: "12px" }}>
         <div
           style={{
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            marginBottom: "12px",
-            paddingLeft: "4px",
+            marginBottom: "8px",
+            paddingLeft: "2px",
+            paddingRight: "2px",
           }}
         >
           <span
             style={{
-              color: "rgba(255, 255, 255, 0.75)",
-              fontSize: "12px",
+              color: "rgba(255, 255, 255, 0.8)",
+              fontSize: "11px",
               fontWeight: 800,
-              letterSpacing: "0.8px",
+              letterSpacing: "0.5px",
               textTransform: "uppercase",
             }}
           >
-            Available Catalysts ({selectedIds.length}/3)
+            Choose 3 Items ({selectedIds.length}/3)
           </span>
-          <span style={{ color: "#00f2fe", fontSize: "11px", fontWeight: 700 }}>
-            Tap to select / unselect
+          <span style={{ color: "#00f2fe", fontSize: "10px", fontWeight: 700 }}>
+            Tap to toggle
           </span>
         </div>
 
+        {/* 6-column grid: Row 1 has 3 items (span 2 each), Row 2 has 2 items centered (span 2 each, flanked by 1 col space) */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(2, 1fr)",
-            gap: "12px",
+            gridTemplateColumns: "repeat(6, 1fr)",
+            gap: "8px",
           }}
         >
-          {itemsList.map((item, idx) => {
+          {/* Top Row: Item 1, 2, 3 */}
+          {itemsList.slice(0, 3).map((item) => {
             const isSelected = selectedIds.includes(item.id);
             const selectIndex = selectedIds.indexOf(item.id) + 1;
             const isFull = selectedIds.length >= 3 && !isSelected;
@@ -625,49 +621,46 @@ export default function ComboPage() {
                 key={item.id}
                 onClick={() => handleSelectItem(item.id)}
                 style={{
+                  gridColumn: "span 2",
                   background: isSelected
-                    ? "linear-gradient(145deg, rgba(8, 18, 48, 0.95), rgba(168, 85, 247, 0.3))"
-                    : "rgba(8, 14, 32, 0.72)",
+                    ? "linear-gradient(145deg, rgba(8, 20, 50, 0.95), rgba(168, 85, 247, 0.35))"
+                    : "rgba(8, 14, 32, 0.85)",
                   border: isSelected
                     ? "2px solid #00f2fe"
-                    : "1px solid rgba(255, 255, 255, 0.08)",
-                  borderRadius: "20px",
-                  padding: "14px 10px",
+                    : "1px solid rgba(255, 255, 255, 0.1)",
+                  borderRadius: "16px",
+                  padding: "10px 4px 8px",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
+                  justifyContent: "center",
                   position: "relative",
                   cursor: status?.attempted ? "default" : isFull ? "not-allowed" : "pointer",
-                  opacity: isFull ? 0.5 : 1,
-                  transition: "all 0.25s ease",
+                  opacity: isFull ? 0.45 : 1,
+                  transition: "all 0.2s ease",
                   boxShadow: isSelected
-                    ? "0 0 24px rgba(0, 242, 254, 0.35), inset 0 0 16px rgba(0, 242, 254, 0.15)"
-                    : "0 6px 20px rgba(0, 0, 0, 0.3)",
-                  gridColumn: idx === 4 ? "span 2" : "span 1",
-                  maxWidth: idx === 4 ? "50%" : "100%",
-                  margin: idx === 4 ? "0 auto" : "0",
-                  width: idx === 4 ? "100%" : "auto",
+                    ? "0 0 18px rgba(0, 242, 254, 0.4), inset 0 0 10px rgba(0, 242, 254, 0.2)"
+                    : "0 4px 12px rgba(0, 0, 0, 0.3)",
                   boxSizing: "border-box",
                 }}
               >
-                {/* Selected Badge */}
                 {isSelected && (
                   <div
                     style={{
                       position: "absolute",
-                      top: "8px",
-                      left: "8px",
-                      width: "22px",
-                      height: "22px",
+                      top: "5px",
+                      left: "5px",
+                      width: "18px",
+                      height: "18px",
                       borderRadius: "50%",
                       background: "linear-gradient(135deg, #00f2fe, #a855f7)",
                       color: "#000",
                       fontWeight: 900,
-                      fontSize: "12px",
+                      fontSize: "10px",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      boxShadow: "0 0 10px rgba(0, 242, 254, 0.8)",
+                      boxShadow: "0 0 8px rgba(0, 242, 254, 0.8)",
                     }}
                   >
                     {selectIndex}
@@ -676,12 +669,12 @@ export default function ComboPage() {
 
                 <div
                   style={{
-                    width: "80px",
-                    height: "80px",
+                    width: "52px",
+                    height: "52px",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    marginBottom: "8px",
+                    marginBottom: "4px",
                   }}
                 >
                   <img
@@ -692,9 +685,8 @@ export default function ComboPage() {
                       height: "100%",
                       objectFit: "contain",
                       filter: isSelected
-                        ? "drop-shadow(0 0 14px rgba(0, 242, 254, 0.8))"
-                        : "drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5))",
-                      transition: "all 0.3s ease",
+                        ? "drop-shadow(0 0 10px rgba(0, 242, 254, 0.8))"
+                        : "drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6))",
                     }}
                     onError={(e) => {
                       (e.target as HTMLElement).style.display = "none";
@@ -705,45 +697,141 @@ export default function ComboPage() {
                 <span
                   style={{
                     color: isSelected ? "#00f2fe" : "#ffffff",
-                    fontSize: "13px",
+                    fontSize: "10.5px",
                     fontWeight: 800,
-                    marginBottom: "2px",
                     textAlign: "center",
+                    maxWidth: "96%",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
                   }}
                 >
                   {item.name}
                 </span>
+              </div>
+            );
+          })}
+
+          {/* Bottom Row: Spacer + Item 4 + Item 5 + Spacer */}
+          <div style={{ gridColumn: "span 1" }} />
+          {itemsList.slice(3, 5).map((item) => {
+            const isSelected = selectedIds.includes(item.id);
+            const selectIndex = selectedIds.indexOf(item.id) + 1;
+            const isFull = selectedIds.length >= 3 && !isSelected;
+
+            return (
+              <div
+                key={item.id}
+                onClick={() => handleSelectItem(item.id)}
+                style={{
+                  gridColumn: "span 2",
+                  background: isSelected
+                    ? "linear-gradient(145deg, rgba(8, 20, 50, 0.95), rgba(168, 85, 247, 0.35))"
+                    : "rgba(8, 14, 32, 0.85)",
+                  border: isSelected
+                    ? "2px solid #00f2fe"
+                    : "1px solid rgba(255, 255, 255, 0.1)",
+                  borderRadius: "16px",
+                  padding: "10px 4px 8px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  position: "relative",
+                  cursor: status?.attempted ? "default" : isFull ? "not-allowed" : "pointer",
+                  opacity: isFull ? 0.45 : 1,
+                  transition: "all 0.2s ease",
+                  boxShadow: isSelected
+                    ? "0 0 18px rgba(0, 242, 254, 0.4), inset 0 0 10px rgba(0, 242, 254, 0.2)"
+                    : "0 4px 12px rgba(0, 0, 0, 0.3)",
+                  boxSizing: "border-box",
+                }}
+              >
+                {isSelected && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "5px",
+                      left: "5px",
+                      width: "18px",
+                      height: "18px",
+                      borderRadius: "50%",
+                      background: "linear-gradient(135deg, #00f2fe, #a855f7)",
+                      color: "#000",
+                      fontWeight: 900,
+                      fontSize: "10px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow: "0 0 8px rgba(0, 242, 254, 0.8)",
+                    }}
+                  >
+                    {selectIndex}
+                  </div>
+                )}
+
+                <div
+                  style={{
+                    width: "52px",
+                    height: "52px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginBottom: "4px",
+                  }}
+                >
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "contain",
+                      filter: isSelected
+                        ? "drop-shadow(0 0 10px rgba(0, 242, 254, 0.8))"
+                        : "drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6))",
+                    }}
+                    onError={(e) => {
+                      (e.target as HTMLElement).style.display = "none";
+                    }}
+                  />
+                </div>
 
                 <span
                   style={{
-                    color: "rgba(255, 255, 255, 0.45)",
-                    fontSize: "10px",
+                    color: isSelected ? "#00f2fe" : "#ffffff",
+                    fontSize: "10.5px",
+                    fontWeight: 800,
                     textAlign: "center",
-                    lineHeight: 1.2,
+                    maxWidth: "96%",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  {item.description}
+                  {item.name}
                 </span>
               </div>
             );
           })}
+          <div style={{ gridColumn: "span 1" }} />
         </div>
       </div>
 
-      {/* ── Check Button ──────────────────────────────────────────────── */}
-      <div style={{ marginTop: "16px" }}>
+      {/* ── Check Button Section ──────────────────────────────────────── */}
+      <div style={{ marginTop: "4px" }}>
         {warningMsg && (
           <div
             style={{
-              padding: "10px 14px",
-              borderRadius: "12px",
+              padding: "8px 12px",
+              borderRadius: "10px",
               background: "rgba(239, 68, 68, 0.15)",
               border: "1px solid rgba(239, 68, 68, 0.4)",
               color: "#f87171",
-              fontSize: "12px",
+              fontSize: "11px",
               fontWeight: 800,
               textAlign: "center",
-              marginBottom: "10px",
+              marginBottom: "8px",
               animation: "popIn 0.2s ease",
             }}
           >
