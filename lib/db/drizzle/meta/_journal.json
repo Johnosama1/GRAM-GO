@@ -22,6 +22,13 @@
       "when": 1788099128251,
       "tag": "0002_loose_psylocke",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788110121489,
+      "tag": "0003_greedy_katie_power",
+      "breakpoints": true
     }
   ]
 }
