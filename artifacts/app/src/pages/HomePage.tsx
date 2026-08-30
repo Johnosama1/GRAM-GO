@@ -7,6 +7,7 @@ import { useTonAddress, useTonConnectUI } from "@tonconnect/ui-react";
 import {
   Wallet,
   ChevronDown,
+  ChevronRight,
   Clock,
   Rocket,
   Loader2,
@@ -695,7 +696,7 @@ export default function HomePage() {
           gap: 10,
         }}
       >
-        {/* Left Card: Rush Points */}
+        {/* Left Card: GO Balance */}
         <div
           style={{
             background: "rgba(8, 14, 32, 0.72)",
@@ -713,7 +714,7 @@ export default function HomePage() {
           <HexagonIcon type="rush" />
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
             <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: 11, fontWeight: 700, letterSpacing: 0.2 }}>
-              Rush Points
+              GO
             </span>
             <span style={{ color: "#ffffff", fontSize: 24, fontWeight: 900, letterSpacing: -0.5, lineHeight: 1.1 }}>
               {rushPoints}
@@ -748,6 +749,80 @@ export default function HomePage() {
               ≈ ${gramUsdValue}
             </span>
           </div>
+        </div>
+      </div>
+
+      {/* ── DAILY COMBO QUICK ENTRY CARD ───────────────────────────────── */}
+      <div
+        onClick={() => setLocation("/combo")}
+        style={{
+          width: "100%",
+          background: "linear-gradient(135deg, rgba(8, 18, 48, 0.85) 0%, rgba(124, 58, 237, 0.25) 100%)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          border: "1px solid rgba(0, 242, 254, 0.35)",
+          borderRadius: 22,
+          padding: "14px 18px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          cursor: "pointer",
+          boxShadow: "0 8px 30px rgba(0, 242, 254, 0.2)",
+          transition: "all 0.25s ease",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div
+            style={{
+              width: 42,
+              height: 42,
+              borderRadius: 14,
+              background: "linear-gradient(135deg, rgba(0, 242, 254, 0.2), rgba(168, 85, 247, 0.3))",
+              border: "1px solid rgba(0, 242, 254, 0.6)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 22,
+              boxShadow: "0 0 15px rgba(0, 242, 254, 0.4)",
+            }}
+          >
+            🧩
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ color: "#ffffff", fontSize: 14, fontWeight: 900, letterSpacing: 0.2 }}>
+                DAILY COMBO
+              </span>
+              <span
+                style={{
+                  background: "linear-gradient(135deg, #00f2fe, #a855f7)",
+                  color: "#000",
+                  fontSize: 10,
+                  fontWeight: 900,
+                  padding: "1px 6px",
+                  borderRadius: 6,
+                }}
+              >
+                +5 GO
+              </span>
+            </div>
+            <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: 11, fontWeight: 600 }}>
+              Pick 3 correct catalysts to earn rewards
+            </span>
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            color: "#00f2fe",
+            fontSize: 12,
+            fontWeight: 800,
+          }}
+        >
+          Play <ChevronRight size={16} />
         </div>
       </div>
 

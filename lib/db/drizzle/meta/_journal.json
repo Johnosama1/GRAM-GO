@@ -15,6 +15,13 @@
       "when": 1788096209491,
       "tag": "0001_ordinary_micromax",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788099128251,
+      "tag": "0002_loose_psylocke",
+      "breakpoints": true
     }
   ]
 }

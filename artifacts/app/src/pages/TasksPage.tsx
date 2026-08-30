@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useUser } from "../lib/userContext";
-import { api, Task, getTasksOnce, getCompletedTasksOnce, invalidateUserCaches } from "../lib/api";
-import { CheckCircle, ExternalLink, Clock, Zap, Sparkles } from "lucide-react";
+import { api, Task, CheckinStatus, getTasksOnce, getCompletedTasksOnce, invalidateUserCaches } from "../lib/api";
+import { CheckCircle, ExternalLink, Clock, Zap, Sparkles, Calendar, Award, Gift } from "lucide-react";
 
 export default function TasksPage() {
   const { user, refresh, initialized, retryInit } = useUser();
@@ -10,8 +10,12 @@ export default function TasksPage() {
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState<number | null>(null);
   const [urlOpened, setUrlOpened] = useState<Set<number>>(new Set());
-  const [message, setMessage] = useState<{ taskId: number; text: string; type: "success" | "error" } | null>(null);
+  const [message, setMessage] = useState<{ taskId: number | string; text: string; type: "success" | "error" } | null>(null);
   const [taskThreshold, setTaskThreshold] = useState(5);
+
+  // Daily Check-in State
+  const [checkin, setCheckin] = useState<CheckinStatus | null>(null);
+  const [claimingCheckin, setClaimingCheckin] = useState(false);
 
   useEffect(() => {
     api.getConfig().then(cfg => {
@@ -19,9 +23,16 @@ export default function TasksPage() {
     }).catch(() => {});
   }, []);
 
+  const loadCheckin = () => {
+    api.getCheckinStatus()
+      .then((data) => setCheckin(data))
+      .catch((err) => console.error("Failed to load checkin:", err));
+  };
+
   useEffect(() => {
     if (!initialized) return;
     if (!user) { setLoading(false); return; }
+    loadCheckin();
     Promise.all([getTasksOnce(), getCompletedTasksOnce(user.id)])
       .then(([t, c]) => {
         setTasks(t);
@@ -60,6 +71,23 @@ export default function TasksPage() {
       await handleVerify(task);
     } else {
       await handleVerify(task);
+    }
+  };
+
+  const handleClaimCheckin = async () => {
+    if (!user || claimingCheckin || !checkin?.canClaim) return;
+    setClaimingCheckin(true);
+    try {
+      const res = await api.claimDailyCheckin();
+      setMessage({ taskId: "checkin", text: res.message, type: "success" });
+      loadCheckin();
+      await refresh();
+    } catch (e: unknown) {
+      const errMsg = e instanceof Error ? e.message : "Failed to claim daily reward";
+      setMessage({ taskId: "checkin", text: errMsg, type: "error" });
+    } finally {
+      setClaimingCheckin(false);
+      setTimeout(() => setMessage(null), 5000);
     }
   };
 
@@ -133,8 +161,182 @@ export default function TasksPage() {
       <div style={{
         flex: 1, overflowY: "auto",
         padding: "4px 12px calc(80px + env(safe-area-inset-bottom, 0px) + 12px)",
-        display: "flex", flexDirection: "column", gap: 8,
+        display: "flex", flexDirection: "column", gap: 12,
       }}>
+
+      {/* ── Toast message if checkin claimed ── */}
+      {message?.taskId === "checkin" && (
+        <div
+          style={{
+            padding: "10px 14px",
+            borderRadius: 14,
+            background: message.type === "success" ? "rgba(34,197,94,0.15)" : "rgba(239,68,68,0.15)",
+            border: message.type === "success" ? "1px solid rgba(34,197,94,0.4)" : "1px solid rgba(239,68,68,0.4)",
+            color: message.type === "success" ? "#4ade80" : "#f87171",
+            fontSize: 12,
+            fontWeight: 800,
+            textAlign: "center",
+          }}
+        >
+          {message.text}
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════
+          1. DAILY CHECK-IN CARD (التسجيل اليومي)
+      ══════════════════════════════════════════════════════════════════ */}
+      {checkin && (
+        <div
+          style={{
+            background: "linear-gradient(165deg, rgba(10, 18, 42, 0.85) 0%, rgba(4, 8, 20, 0.95) 100%)",
+            border: "1px solid rgba(0, 242, 254, 0.25)",
+            borderRadius: 22,
+            padding: "16px 14px",
+            boxShadow: "0 8px 28px rgba(0, 0, 0, 0.4)",
+          }}
+        >
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Calendar size={18} color="#00f2fe" />
+              <div>
+                <span style={{ color: "#ffffff", fontWeight: 900, fontSize: 14 }}>
+                  Daily Check-in
+                </span>
+                <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, marginRight: 6, marginLeft: 6 }}>
+                  • التسجيل اليومي
+                </span>
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: "rgba(251, 191, 36, 0.15)",
+                border: "1px solid rgba(251, 191, 36, 0.4)",
+                borderRadius: 12,
+                padding: "3px 8px",
+                fontSize: 11,
+                fontWeight: 800,
+                color: "#fbbf24",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+              }}
+            >
+              🔥 Day {checkin.currentStreak}/10
+            </div>
+          </div>
+
+          {/* 10 Days Grid */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(5, 1fr)",
+              gap: 6,
+              marginBottom: 14,
+            }}
+          >
+            {checkin.days.map((d) => {
+              const isClaimed = d.status === "claimed";
+              const isAvailable = d.status === "available";
+
+              return (
+                <div
+                  key={d.day}
+                  style={{
+                    background: isAvailable
+                      ? "linear-gradient(135deg, rgba(0, 242, 254, 0.25), rgba(168, 85, 247, 0.25))"
+                      : isClaimed
+                      ? "rgba(34, 197, 94, 0.12)"
+                      : "rgba(255, 255, 255, 0.03)",
+                    border: isAvailable
+                      ? "1.5px solid #00f2fe"
+                      : isClaimed
+                      ? "1px solid rgba(34, 197, 94, 0.4)"
+                      : "1px solid rgba(255, 255, 255, 0.06)",
+                    borderRadius: 12,
+                    padding: "8px 4px",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 3,
+                    boxShadow: isAvailable ? "0 0 12px rgba(0, 242, 254, 0.3)" : "none",
+                  }}
+                >
+                  <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.5)" }}>
+                    Day {d.day}
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 900,
+                      color: isAvailable ? "#00f2fe" : isClaimed ? "#4ade80" : "#ffffff",
+                    }}
+                  >
+                    +{d.reward}
+                  </span>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: "#fbbf24" }}>
+                    GO
+                  </span>
+                  <div style={{ marginTop: 2, fontSize: 10 }}>
+                    {isClaimed ? "✅" : isAvailable ? "🎁" : "🔒"}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Claim Button */}
+          {checkin.canClaim ? (
+            <button
+              onClick={handleClaimCheckin}
+              disabled={claimingCheckin}
+              style={{
+                width: "100%",
+                padding: "12px",
+                borderRadius: 14,
+                background: "linear-gradient(135deg, #00f2fe 0%, #7c3aed 100%)",
+                border: "none",
+                color: "#040714",
+                fontSize: 13,
+                fontWeight: 900,
+                cursor: "pointer",
+                boxShadow: "0 4px 20px rgba(0, 242, 254, 0.4)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+              }}
+            >
+              <Gift size={16} />
+              {claimingCheckin
+                ? "Claiming..."
+                : `Claim Day ${checkin.nextDay} (+${checkin.todayReward} GO)`}
+            </button>
+          ) : (
+            <div
+              style={{
+                width: "100%",
+                padding: "10px",
+                borderRadius: 14,
+                background: "rgba(34, 197, 94, 0.12)",
+                border: "1px solid rgba(34, 197, 94, 0.3)",
+                color: "#4ade80",
+                fontSize: 12,
+                fontWeight: 800,
+                textAlign: "center",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+              }}
+            >
+              <CheckCircle size={14} />
+              Today's check-in completed • Come back tomorrow!
+            </div>
+          )}
+        </div>
+      )}
 
       {/* ── Section title ── */}
       {!loading && activeTasks.length > 0 && (

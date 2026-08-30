@@ -214,6 +214,21 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  getComboStatus: () => apiCall<ComboStatus>("/combo/status"),
+
+  checkCombo: (selectedItems: number[]) =>
+    apiCall<{ ok: boolean; isSuccess: boolean; reward: number; message: string; nextComboAt: string }>("/combo/check", {
+      method: "POST",
+      body: JSON.stringify({ selectedItems }),
+    }),
+
+  getCheckinStatus: () => apiCall<CheckinStatus>("/checkin/status"),
+
+  claimDailyCheckin: () =>
+    apiCall<{ ok: boolean; success: boolean; day: number; rewardAmount: number; goBalance: string; message: string }>("/checkin/claim", {
+      method: "POST",
+    }),
+
   getUserReferrals: (userId: number) => apiCall<ReferralEntry[]>(`/users/${userId}/referrals`),
 
   getLeaderboard: (userId?: number) =>
@@ -305,6 +320,42 @@ export interface ReferralEntry {
   photoUrl: string | null;
   status: "pending" | "approved";
   joinedAt: string;
+}
+
+export interface ComboItem {
+  id: number;
+  name: string;
+  image: string;
+  description: string;
+}
+
+export interface ComboStatus {
+  items: ComboItem[];
+  attempted: boolean;
+  isSuccess: boolean;
+  rewardClaimed: boolean;
+  selectedItems: number[];
+  rewardAmount: number;
+  nextComboAt: string;
+  serverTime: string;
+}
+
+export interface CheckinDay {
+  day: number;
+  reward: number;
+  currency: string;
+  status: "claimed" | "available" | "locked";
+}
+
+export interface CheckinStatus {
+  currentStreak: number;
+  nextDay: number;
+  alreadyClaimedToday: boolean;
+  canClaim: boolean;
+  todayReward: number;
+  days: CheckinDay[];
+  nextClaimAt: string;
+  serverTime: string;
 }
 
 export interface Task {

@@ -16,6 +16,7 @@ const WithdrawPage    = lazy(() => import("./pages/WithdrawPage"));
 const AdminPage       = lazy(() => import("./pages/AdminPage"));
 const LeaderboardPage = lazy(() => import("./pages/LeaderboardPage"));
 const WalletPage      = lazy(() => import("./pages/WalletPage"));
+const ComboPage       = lazy(() => import("./pages/ComboPage"));
 
 const queryClient = new QueryClient();
 
@@ -208,6 +209,7 @@ const PageFallback = () => (
 
 const ROUTES = [
   { path: "/",            Component: HomePage,        lazy: false },
+  { path: "/combo",       Component: ComboPage,       lazy: true  },
   { path: "/tasks",       Component: TasksPage,       lazy: true  },
   { path: "/referral",    Component: ReferralPage,    lazy: true  },
   { path: "/leaderboard", Component: LeaderboardPage, lazy: true  },
