@@ -21,6 +21,7 @@ import {
   dailyCheckinsTable,
   transactionsTable,
   comboItems,
+  AdminPermission,
 } from "@workspace/db/schema";
 import { eq, count, sql, and, or, ilike, desc, asc, sum, gte } from "drizzle-orm";
 import { invalidateTasksCache } from "./tasks";
@@ -28,8 +29,10 @@ import { getBot } from "../bot";
 import { getChannelPhotoUrl } from "../bot/admin";
 import { setBotEnabled, clearBotEnabledCache } from "../bot/control";
 import { clearAllSubCache } from "../bot/subscription";
-import { invalidateSetting } from "../lib/settingsCache";
+import { getSetting, invalidateSetting } from "../lib/settingsCache";
+import { getWalletAddress, isTonConfigured } from "../lib/tonSender";
 import { logger } from "../lib/logger";
+import { getOrCreateTodayCombo, getTodayDateString } from "./combo";
 
 const router = Router();
 
@@ -38,7 +41,7 @@ const OWNER_USERNAME = (process.env.OWNER_USERNAME || "J_O_H_N8").replace(/^@/, 
 
 const adminLimiter = rateLimit({
   windowMs: 60_000,
-  max: 120,
+  max: 180,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "طلبات كثيرة على لوحة الإدارة" },
@@ -46,23 +49,36 @@ const adminLimiter = rateLimit({
 });
 router.use(adminLimiter);
 
-export async function getAdminRecord(userId: number) {
+export interface AdminRecord {
+  id: number;
+  role: string;
+  isOwner: boolean;
+  permissions: string[];
+}
+
+export async function getAdminRecord(userId: number): Promise<AdminRecord | null> {
   if (!userId || isNaN(userId)) return null;
-  if (userId === OWNER_ID) return { role: "owner", isOwner: true, permissions: ["*"] };
-  
+  if (userId === OWNER_ID) return { id: userId, role: "owner", isOwner: true, permissions: ["*"] };
+
   const ownerSetting = await db.select().from(botSettingsTable).where(eq(botSettingsTable.key, "owner_telegram_id")).limit(1);
   if (ownerSetting.length > 0 && parseInt(ownerSetting[0].value) === userId) {
-    return { role: "owner", isOwner: true, permissions: ["*"] };
+    return { id: userId, role: "owner", isOwner: true, permissions: ["*"] };
   }
-  
+
   const [admin] = await db.select().from(adminsTable).where(eq(adminsTable.id, userId)).limit(1);
-  if (admin) return { role: admin.role, isOwner: false, permissions: admin.permissions || [] };
-  
+  if (admin) return { id: userId, role: admin.role, isOwner: false, permissions: admin.permissions || [] };
+
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (user?.username && user.username.replace(/^@/, "").toLowerCase() === OWNER_USERNAME.toLowerCase()) {
-    return { role: "owner", isOwner: true, permissions: ["*"] };
+    return { id: userId, role: "owner", isOwner: true, permissions: ["*"] };
   }
   return null;
+}
+
+export function hasPermission(admin: AdminRecord | undefined, perm: AdminPermission | "*"): boolean {
+  if (!admin) return false;
+  if (admin.isOwner || admin.permissions?.includes("*")) return true;
+  return admin.permissions?.includes(perm);
 }
 
 async function logAudit(adminId: number, action: string, details: Record<string, unknown>, targetUserId?: number) {
@@ -78,13 +94,14 @@ async function logAudit(adminId: number, action: string, details: Record<string,
   }
 }
 
+// ── Authentication & Authorization Gate ──────────────────────────────────────
 router.use(async (req: Request, res: Response, next: NextFunction) => {
   const { requireSession } = await import("../middlewares/requireSession");
   requireSession(req, res, async () => {
     const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
     const userId = sessionReq.sessionUserId;
     if (!userId || isNaN(userId) || userId <= 0) {
-      res.status(403).json({ error: "Forbidden: No valid session" });
+      res.status(401).json({ error: "Unauthorized: No valid session" });
       return;
     }
     const admin = await getAdminRecord(userId);
@@ -92,19 +109,34 @@ router.use(async (req: Request, res: Response, next: NextFunction) => {
       res.status(403).json({ error: "Forbidden: Admin access required" });
       return;
     }
-    (req as unknown as { adminUser: typeof admin }).adminUser = admin;
+    (req as unknown as { adminUser: AdminRecord }).adminUser = admin;
     next();
   });
 });
 
+// Check Admin Status
 router.get("/check", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const admin = await getAdminRecord(sessionReq.sessionUserId || 0);
-  res.json({ isAdmin: true, role: admin?.role, isOwner: admin?.isOwner, permissions: admin?.permissions });
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  res.json({
+    isAdmin: true,
+    role: adminUser.role,
+    isOwner: adminUser.isOwner,
+    permissions: adminUser.permissions,
+  });
 });
 
-// SECTION 1: Stats
-router.get("/stats", async (_req, res) => {
+// ============================================================================
+// SECTION 1 — الإدارة العامة (GENERAL ADMINISTRATION)
+// ============================================================================
+
+// 1. Statistics
+router.get("/stats", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canViewStats")) {
+    res.status(403).json({ error: "Forbidden: Insufficient permissions to view stats" });
+    return;
+  }
+
   try {
     const now = new Date();
     const fifteenMinAgo = new Date(now.getTime() - 15 * 60 * 1000);
@@ -139,9 +171,10 @@ router.get("/stats", async (_req, res) => {
         count: count(),
       })
         .from(deviceFingerprintsTable)
+        .where(sql`time_zone IS NOT NULL AND time_zone != '' AND time_zone != 'Unknown'`)
         .groupBy(deviceFingerprintsTable.timeZone)
         .orderBy(desc(count()))
-        .limit(5),
+        .limit(8),
     ]);
 
     const totalUsers = totalUsersRes[0]?.count || 0;
@@ -180,12 +213,15 @@ router.get("/stats", async (_req, res) => {
   }
 });
 
-// Broadcast Message
+// 2. Broadcast Message
 router.post("/broadcast", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const adminId = sessionReq.sessionUserId || 0;
-  const { message, entities, pin } = req.body;
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canBroadcast")) {
+    res.status(403).json({ error: "Forbidden: No permission to broadcast" });
+    return;
+  }
 
+  const { message, entities, pin } = req.body;
   if (!message || typeof message !== "string" || !message.trim()) {
     res.status(400).json({ error: "Message content is required" });
     return;
@@ -200,7 +236,7 @@ router.post("/broadcast", async (req, res) => {
   const allUsers = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.isVisible, true));
   const total = allUsers.length;
 
-  res.json({ ok: true, queued: true, totalUsers: total, message: "جاري الإرسال إلى " + total + " مستخدم..." });
+  res.json({ ok: true, queued: true, totalUsers: total, message: "جاري إرسال الرسالة إلى " + total + " مستخدم..." });
 
   (async () => {
     let sentCount = 0;
@@ -213,7 +249,7 @@ router.post("/broadcast", async (req, res) => {
         batch.map(async (u) => {
           try {
             const sendOpts: Record<string, unknown> = { parse_mode: "HTML" };
-            if (entities && Array.isArray(entities)) {
+            if (entities && Array.isArray(entities) && entities.length > 0) {
               delete sendOpts.parse_mode;
               sendOpts.entities = entities;
             }
@@ -231,20 +267,20 @@ router.post("/broadcast", async (req, res) => {
           }
         })
       );
-      await new Promise((r) => setTimeout(r, 60));
+      await new Promise((r) => setTimeout(r, 65));
     }
 
-    await logAudit(adminId, "broadcast", {
+    await logAudit(adminUser.id, "broadcast", {
       messagePreview: message.slice(0, 100),
       totalUsers: total,
       sentCount,
       failedCount,
       blockedCount,
     });
-  })().catch((err) => logger.error({ err }, "Broadcast background error"));
+  })().catch((err) => logger.error({ err }, "Broadcast background process error"));
 });
 
-// Settings
+// 3. Settings & Maintenance Mode
 router.get("/settings", async (_req, res) => {
   const rows = await db.select().from(botSettingsTable);
   const settings: Record<string, string> = {};
@@ -253,16 +289,19 @@ router.get("/settings", async (_req, res) => {
 });
 
 router.put("/settings", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const adminId = sessionReq.sessionUserId || 0;
-  const { key, value } = req.body;
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageSettings")) {
+    res.status(403).json({ error: "Forbidden: No permission to manage settings" });
+    return;
+  }
 
+  const { key, value } = req.body;
   if (!key || typeof key !== "string" || key.length > 100) {
     res.status(400).json({ error: "Invalid setting key" });
     return;
   }
 
-  const strVal = String(value);
+  const strVal = String(value ?? "");
 
   await db
     .insert(botSettingsTable)
@@ -279,25 +318,66 @@ router.put("/settings", async (req, res) => {
   }
   invalidateSetting(key);
 
-  await logAudit(adminId, "update_setting", { key, value: strVal });
+  await logAudit(adminUser.id, "update_setting", { key, value: strVal });
 
   res.json({ ok: true, key, value: strVal });
 });
 
-// Admins Management
-router.get("/admins", async (_req, res) => {
+// 4. Welcome Message (Edit & Preview)
+router.get("/welcome-message", async (_req, res) => {
+  const val = await getSetting("welcome_message");
+  res.json({ welcomeMessage: val || "" });
+});
+
+router.put("/welcome-message", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageSettings")) {
+    res.status(403).json({ error: "Forbidden: No permission to update welcome message" });
+    return;
+  }
+
+  const { message } = req.body;
+  const strVal = String(message || "").trim();
+
+  await db
+    .insert(botSettingsTable)
+    .values({ key: "welcome_message", value: strVal })
+    .onConflictDoUpdate({ target: botSettingsTable.key, set: { value: strVal } });
+
+  invalidateSetting("welcome_message");
+  await logAudit(adminUser.id, "update_welcome_message", { messagePreview: strVal.slice(0, 100) });
+
+  res.json({ ok: true, welcomeMessage: strVal });
+});
+
+// 5. Admin / Moderator Management
+router.get("/admins", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageAdmins")) {
+    res.status(403).json({ error: "Forbidden: No permission to view admin list" });
+    return;
+  }
+
   const admins = await db.select().from(adminsTable).orderBy(adminsTable.addedAt);
   res.json(admins);
 });
 
 router.post("/admins", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const callerAdminId = sessionReq.sessionUserId || 0;
-  const { id, username, role, permissions } = req.body;
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageAdmins")) {
+    res.status(403).json({ error: "Forbidden: No permission to add admins" });
+    return;
+  }
 
+  const { id, username, role, permissions } = req.body;
   const numId = parseInt(id);
   if (isNaN(numId) || numId <= 0) {
     res.status(400).json({ error: "Invalid Telegram ID" });
+    return;
+  }
+
+  if (numId === OWNER_ID) {
+    res.status(400).json({ error: "Owner account cannot be modified via admin create" });
     return;
   }
 
@@ -322,16 +402,19 @@ router.post("/admins", async (req, res) => {
     })
     .returning();
 
-  await logAudit(callerAdminId, "add_admin", { targetAdminId: numId, role: adminRole, permissions: perms }, numId);
+  await logAudit(adminUser.id, "add_admin", { targetAdminId: numId, role: adminRole, permissions: perms }, numId);
 
   res.json(admin);
 });
 
 router.put("/admins/:id", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const callerAdminId = sessionReq.sessionUserId || 0;
-  const targetId = parseInt(req.params.id);
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageAdmins")) {
+    res.status(403).json({ error: "Forbidden: No permission to update admins" });
+    return;
+  }
 
+  const targetId = parseInt(req.params.id);
   if (isNaN(targetId) || targetId <= 0) {
     res.status(400).json({ error: "Invalid admin ID" });
     return;
@@ -345,8 +428,8 @@ router.put("/admins/:id", async (req, res) => {
   const { role, permissions } = req.body;
   const perms = Array.isArray(permissions) ? permissions : undefined;
   const updates: Record<string, unknown> = {};
-  if (perms) updates.permissions = perms;
-  if (role) updates.role = role;
+  if (perms !== undefined) updates.permissions = perms;
+  if (role !== undefined) updates.role = role === "owner" ? "admin" : role;
 
   const [updated] = await db.update(adminsTable).set(updates).where(eq(adminsTable.id, targetId)).returning();
   if (!updated) {
@@ -354,15 +437,18 @@ router.put("/admins/:id", async (req, res) => {
     return;
   }
 
-  await logAudit(callerAdminId, "update_admin", { targetAdminId: targetId, updates }, targetId);
+  await logAudit(adminUser.id, "update_admin", { targetAdminId: targetId, updates }, targetId);
   res.json(updated);
 });
 
 router.delete("/admins/:id", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const callerAdminId = sessionReq.sessionUserId || 0;
-  const targetId = parseInt(req.params.id);
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageAdmins")) {
+    res.status(403).json({ error: "Forbidden: No permission to remove admins" });
+    return;
+  }
 
+  const targetId = parseInt(req.params.id);
   if (isNaN(targetId) || targetId <= 0) {
     res.status(400).json({ error: "Invalid admin ID" });
     return;
@@ -374,26 +460,113 @@ router.delete("/admins/:id", async (req, res) => {
   }
 
   await db.delete(adminsTable).where(eq(adminsTable.id, targetId));
-  await logAudit(callerAdminId, "remove_admin", { targetAdminId: targetId }, targetId);
+  await logAudit(adminUser.id, "remove_admin", { targetAdminId: targetId }, targetId);
   res.json({ ok: true, success: true });
 });
 
-// Audit Logs
+// 6. Required Channels Management
+router.get("/channels", async (_req, res) => {
+  const raw = await getSetting("required_channels");
+  try {
+    const list = raw ? JSON.parse(raw) : [];
+    res.json(list);
+  } catch {
+    res.json([]);
+  }
+});
+
+router.post("/channels", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageChannels")) {
+    res.status(403).json({ error: "Forbidden: No permission to manage channels" });
+    return;
+  }
+
+  const { username, title, inviteLink, mandatory } = req.body;
+  if (!username) {
+    res.status(400).json({ error: "Channel username is required" });
+    return;
+  }
+
+  const cleanUser = String(username).replace(/^@/, "").trim();
+  const raw = await getSetting("required_channels");
+  let list: Array<{ username: string; title: string; inviteLink: string; mandatory?: boolean }> = [];
+  try { list = raw ? JSON.parse(raw) : []; } catch { list = []; }
+
+  const existingIdx = list.findIndex((c) => c.username.toLowerCase() === cleanUser.toLowerCase());
+  const newEntry = {
+    username: cleanUser,
+    title: title || cleanUser,
+    inviteLink: inviteLink || `https://t.me/${cleanUser}`,
+    mandatory: mandatory !== false,
+  };
+
+  if (existingIdx >= 0) {
+    list[existingIdx] = newEntry;
+  } else {
+    list.push(newEntry);
+  }
+
+  const jsonStr = JSON.stringify(list);
+  await db.insert(botSettingsTable)
+    .values({ key: "required_channels", value: jsonStr })
+    .onConflictDoUpdate({ target: botSettingsTable.key, set: { value: jsonStr } });
+
+  clearAllSubCache();
+  invalidateSetting("required_channels");
+  await logAudit(adminUser.id, "save_required_channel", { channel: newEntry });
+
+  res.json({ ok: true, channels: list });
+});
+
+router.delete("/channels/:username", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageChannels")) {
+    res.status(403).json({ error: "Forbidden: No permission to manage channels" });
+    return;
+  }
+
+  const cleanUser = String(req.params.username).replace(/^@/, "").trim().toLowerCase();
+  const raw = await getSetting("required_channels");
+  let list: Array<{ username: string; title: string; inviteLink: string; mandatory?: boolean }> = [];
+  try { list = raw ? JSON.parse(raw) : []; } catch { list = []; }
+
+  list = list.filter((c) => c.username.toLowerCase() !== cleanUser);
+  const jsonStr = JSON.stringify(list);
+
+  await db.insert(botSettingsTable)
+    .values({ key: "required_channels", value: jsonStr })
+    .onConflictDoUpdate({ target: botSettingsTable.key, set: { value: jsonStr } });
+
+  clearAllSubCache();
+  invalidateSetting("required_channels");
+  await logAudit(adminUser.id, "remove_required_channel", { channel: cleanUser });
+
+  res.json({ ok: true, channels: list });
+});
+
+// Audit Logs Viewer
 router.get("/audit-logs", async (req, res) => {
-  const limit = Math.min(parseInt(String(req.query.limit)) || 50, 100);
+  const limit = Math.min(parseInt(String(req.query.limit)) || 50, 150);
   const logs = await db.select().from(auditLogsTable).orderBy(desc(auditLogsTable.createdAt)).limit(limit);
   res.json(logs);
 });
 
-// SECTION 2: Mining Rate
-router.post("/mining/rate", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const adminId = sessionReq.sessionUserId || 0;
-  const { rate } = req.body;
+// ============================================================================
+// SECTION 2 — التعدين (MINING RATE)
+// ============================================================================
 
+router.post("/mining/rate", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageSettings")) {
+    res.status(403).json({ error: "Forbidden: No permission to modify mining rate" });
+    return;
+  }
+
+  const { rate } = req.body;
   const numRate = parseFloat(rate);
   if (isNaN(numRate) || numRate <= 0 || numRate > 1.0) {
-    res.status(400).json({ error: "Mining rate must be between 0.001 (0.1%) and 1.00 (100%)" });
+    res.status(400).json({ error: "Mining rate must be a valid positive number between 0.001 (0.1%) and 1.00 (100%)" });
     return;
   }
 
@@ -404,14 +577,28 @@ router.post("/mining/rate", async (req, res) => {
     .onConflictDoUpdate({ target: botSettingsTable.key, set: { value: strRate } });
 
   invalidateSetting("global_mining_rate");
-  await logAudit(adminId, "update_mining_rate", { rate: strRate });
+  await logAudit(adminUser.id, "update_mining_rate", { rate: strRate, percentage: (numRate * 100).toFixed(2) + "%" });
 
   res.json({ ok: true, rate: strRate, percentage: (numRate * 100).toFixed(2) + "%" });
 });
 
-// SECTION 3: Finance & Wallet
-router.get("/withdrawals", async (_req, res) => {
-  const list = await db
+// ============================================================================
+// SECTION 3 — المالية والمحفظة (FINANCE & WALLET)
+// ============================================================================
+
+// 1. Withdrawals
+router.get("/withdrawals", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageWithdrawals")) {
+    res.status(403).json({ error: "Forbidden: No permission to view withdrawals" });
+    return;
+  }
+
+  const status = req.query.status ? String(req.query.status) : undefined;
+  const search = req.query.search ? String(req.query.search).trim() : undefined;
+  const limit = Math.min(parseInt(String(req.query.limit)) || 100, 200);
+
+  let query = db
     .select({
       id: withdrawalsTable.id,
       userId: withdrawalsTable.userId,
@@ -430,15 +617,36 @@ router.get("/withdrawals", async (_req, res) => {
     })
     .from(withdrawalsTable)
     .leftJoin(usersTable, eq(withdrawalsTable.userId, usersTable.id))
-    .orderBy(desc(withdrawalsTable.createdAt))
-    .limit(200);
+    .$dynamic();
 
+  const conditions = [];
+  if (status) {
+    conditions.push(eq(withdrawalsTable.status, status));
+  }
+  if (search) {
+    const num = parseInt(search);
+    if (!isNaN(num)) {
+      conditions.push(or(eq(withdrawalsTable.userId, num), eq(withdrawalsTable.id, num)));
+    } else {
+      conditions.push(or(ilike(usersTable.username, `%${search.replace(/^@/, "")}%`), ilike(withdrawalsTable.walletAddress, `%${search}%`)));
+    }
+  }
+
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions));
+  }
+
+  const list = await query.orderBy(desc(withdrawalsTable.createdAt)).limit(limit);
   res.json(list);
 });
 
 router.post("/withdrawals/:id/action", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const adminId = sessionReq.sessionUserId || 0;
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageWithdrawals")) {
+    res.status(403).json({ error: "Forbidden: No permission to manage withdrawals" });
+    return;
+  }
+
   const wId = parseInt(req.params.id);
   const { action, reason } = req.body;
 
@@ -475,7 +683,7 @@ router.post("/withdrawals/:id/action", async (req, res) => {
         .catch(() => {});
     }
 
-    await logAudit(adminId, "approve_withdrawal", { withdrawalId: wId, amount: wd.amount, currency: wd.currency }, wd.userId);
+    await logAudit(adminUser.id, "approve_withdrawal", { withdrawalId: wId, amount: wd.amount, currency: wd.currency }, wd.userId);
   } else {
     await db.transaction(async (tx) => {
       await tx
@@ -508,15 +716,25 @@ router.post("/withdrawals/:id/action", async (req, res) => {
         .catch(() => {});
     }
 
-    await logAudit(adminId, "reject_withdrawal", { withdrawalId: wId, amount: wd.amount, currency: wd.currency, reason }, wd.userId);
+    await logAudit(adminUser.id, "reject_withdrawal", { withdrawalId: wId, amount: wd.amount, currency: wd.currency, reason }, wd.userId);
   }
 
   res.json({ ok: true, success: true });
 });
 
-// Deposits
-router.get("/deposits", async (_req, res) => {
-  const list = await db
+// 2. Deposits
+router.get("/deposits", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageDeposits")) {
+    res.status(403).json({ error: "Forbidden: No permission to view deposits" });
+    return;
+  }
+
+  const status = req.query.status ? String(req.query.status) : undefined;
+  const search = req.query.search ? String(req.query.search).trim() : undefined;
+  const limit = Math.min(parseInt(String(req.query.limit)) || 100, 200);
+
+  let query = db
     .select({
       id: depositsTable.id,
       userId: depositsTable.userId,
@@ -530,21 +748,115 @@ router.get("/deposits", async (_req, res) => {
       confirmedAt: depositsTable.confirmedAt,
       username: usersTable.username,
       firstName: usersTable.firstName,
+      lastName: usersTable.lastName,
     })
     .from(depositsTable)
     .leftJoin(usersTable, eq(depositsTable.userId, usersTable.id))
-    .orderBy(desc(depositsTable.createdAt))
-    .limit(200);
+    .$dynamic();
 
+  const conditions = [];
+  if (status) {
+    conditions.push(eq(depositsTable.status, status));
+  }
+  if (search) {
+    const num = parseInt(search);
+    if (!isNaN(num)) {
+      conditions.push(eq(depositsTable.userId, num));
+    } else {
+      conditions.push(or(ilike(usersTable.username, `%${search.replace(/^@/, "")}%`), ilike(depositsTable.txHash, `%${search}%`)));
+    }
+  }
+
+  if (conditions.length > 0) {
+    query = query.where(and(...conditions));
+  }
+
+  const list = await query.orderBy(desc(depositsTable.createdAt)).limit(limit);
   res.json(list);
 });
 
-// Reset GO
-router.post("/reset-go-balances", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const adminId = sessionReq.sessionUserId || 0;
-  const { confirm } = req.body;
+// 3. Deposit Wallet Address
+router.put("/deposit-wallet", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageWallet")) {
+    res.status(403).json({ error: "Forbidden: No permission to manage wallet" });
+    return;
+  }
 
+  const { address } = req.body;
+  if (!address || typeof address !== "string" || address.trim().length < 10) {
+    res.status(400).json({ error: "Invalid deposit wallet address" });
+    return;
+  }
+
+  const cleanAddr = address.trim();
+  await db
+    .insert(botSettingsTable)
+    .values({ key: "deposit_wallet_address", value: cleanAddr })
+    .onConflictDoUpdate({ target: botSettingsTable.key, set: { value: cleanAddr } });
+
+  invalidateSetting("deposit_wallet_address");
+  await logAudit(adminUser.id, "update_deposit_wallet_address", { address: cleanAddr });
+
+  res.json({ ok: true, address: cleanAddr });
+});
+
+// 4. Financial Limits
+router.get("/limits", async (_req, res) => {
+  const [minWd, maxWd, dailyWd, minDep, maxDep, dailyDep] = await Promise.all([
+    getSetting("min_withdrawal"),
+    getSetting("max_withdrawal"),
+    getSetting("daily_withdrawal_limit"),
+    getSetting("min_deposit"),
+    getSetting("max_deposit"),
+    getSetting("daily_deposit_limit"),
+  ]);
+
+  res.json({
+    minWithdrawal: minWd || "0.1",
+    maxWithdrawal: maxWd || "10000",
+    dailyWithdrawalLimit: dailyWd || "1000",
+    minDeposit: minDep || "0.1",
+    maxDeposit: maxDep || "50000",
+    dailyDepositLimit: dailyDep || "10000",
+  });
+});
+
+router.put("/limits", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageSettings")) {
+    res.status(403).json({ error: "Forbidden: No permission to manage limits" });
+    return;
+  }
+
+  const { minWithdrawal, maxWithdrawal, dailyWithdrawalLimit, minDeposit, maxDeposit, dailyDepositLimit } = req.body;
+  const updates: Record<string, string> = {
+    min_withdrawal: String(minWithdrawal || "0.1"),
+    max_withdrawal: String(maxWithdrawal || "10000"),
+    daily_withdrawal_limit: String(dailyWithdrawalLimit || "1000"),
+    min_deposit: String(minDeposit || "0.1"),
+    max_deposit: String(maxDeposit || "50000"),
+    daily_deposit_limit: String(dailyDepositLimit || "10000"),
+  };
+
+  for (const [k, v] of Object.entries(updates)) {
+    await db.insert(botSettingsTable).values({ key: k, value: v }).onConflictDoUpdate({ target: botSettingsTable.key, set: { value: v } });
+    invalidateSetting(k);
+  }
+
+  await logAudit(adminUser.id, "update_financial_limits", updates);
+  res.json({ ok: true, limits: updates });
+});
+
+// 5. Reset GO Balances
+router.post("/reset-go-balances", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!adminUser.isOwner) {
+    res.status(403).json({ error: "Forbidden: Only Owner can reset all GO balances" });
+    return;
+  }
+
+  const { confirm } = req.body;
   if (confirm !== "CONFIRM_RESET_ALL_GO") {
     res.status(400).json({ error: "Must confirm with 'CONFIRM_RESET_ALL_GO'" });
     return;
@@ -560,7 +872,7 @@ router.post("/reset-go-balances", async (req, res) => {
     });
 
     await tx.insert(auditLogsTable).values({
-      adminId,
+      adminId: adminUser.id,
       action: "reset_all_go_balances",
       details: { affectedUsers: totalUsers },
     });
@@ -569,12 +881,15 @@ router.post("/reset-go-balances", async (req, res) => {
   res.json({ ok: true, success: true, affectedUsers: totalUsers });
 });
 
-// Reset GRAM
+// 6. Reset GRAM Balances
 router.post("/reset-gram-balances", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const adminId = sessionReq.sessionUserId || 0;
-  const { confirm } = req.body;
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!adminUser.isOwner) {
+    res.status(403).json({ error: "Forbidden: Only Owner can reset all GRAM balances" });
+    return;
+  }
 
+  const { confirm } = req.body;
   if (confirm !== "CONFIRM_RESET_ALL_GRAM") {
     res.status(400).json({ error: "Must confirm with 'CONFIRM_RESET_ALL_GRAM'" });
     return;
@@ -589,7 +904,7 @@ router.post("/reset-gram-balances", async (req, res) => {
     });
 
     await tx.insert(auditLogsTable).values({
-      adminId,
+      adminId: adminUser.id,
       action: "reset_all_gram_balances",
       details: { affectedUsers: totalUsers },
     });
@@ -598,17 +913,24 @@ router.post("/reset-gram-balances", async (req, res) => {
   res.json({ ok: true, success: true, affectedUsers: totalUsers });
 });
 
-// SECTION 4: Tasks & Rewards
+// ============================================================================
+// SECTION 4 — المهام والمكافآت (TASKS & REWARDS)
+// ============================================================================
+
+// 1. Tasks
 router.get("/tasks", async (_req, res) => {
   const tasks = await db.select().from(tasksTable).orderBy(asc(tasksTable.id));
   res.json(tasks);
 });
 
 router.post("/tasks", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const adminId = sessionReq.sessionUserId || 0;
-  const { title, description, url, icon, rewardAmount, rewardCurrency, maxClaims, expiresAt } = req.body;
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageTasks")) {
+    res.status(403).json({ error: "Forbidden: No permission to create tasks" });
+    return;
+  }
 
+  const { title, description, url, icon, rewardAmount, rewardCurrency, maxClaims, expiresAt } = req.body;
   if (!title || typeof title !== "string" || !title.trim()) {
     res.status(400).json({ error: "Task title is required" });
     return;
@@ -642,14 +964,18 @@ router.post("/tasks", async (req, res) => {
     .returning();
 
   invalidateTasksCache();
-  await logAudit(adminId, "create_task", { taskId: task.id, title: task.title });
+  await logAudit(adminUser.id, "create_task", { taskId: task.id, title: task.title });
 
   res.json(task);
 });
 
 router.put("/tasks/:id", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const adminId = sessionReq.sessionUserId || 0;
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageTasks")) {
+    res.status(403).json({ error: "Forbidden: No permission to update tasks" });
+    return;
+  }
+
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid task id" });
@@ -670,14 +996,18 @@ router.put("/tasks/:id", async (req, res) => {
 
   const [task] = await db.update(tasksTable).set(updates).where(eq(tasksTable.id, id)).returning();
   invalidateTasksCache();
-  await logAudit(adminId, "update_task", { taskId: id, updates });
+  await logAudit(adminUser.id, "update_task", { taskId: id, updates });
 
   res.json(task);
 });
 
 router.delete("/tasks/:id", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const adminId = sessionReq.sessionUserId || 0;
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageTasks")) {
+    res.status(403).json({ error: "Forbidden: No permission to delete tasks" });
+    return;
+  }
+
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid task id" });
@@ -686,22 +1016,25 @@ router.delete("/tasks/:id", async (req, res) => {
 
   await db.delete(tasksTable).where(eq(tasksTable.id, id));
   invalidateTasksCache();
-  await logAudit(adminId, "delete_task", { taskId: id });
+  await logAudit(adminUser.id, "delete_task", { taskId: id });
 
   res.json({ ok: true, success: true });
 });
 
-// Contests Management
+// 2. Contests
 router.get("/contests", async (_req, res) => {
   const list = await db.select().from(contestsTable).orderBy(desc(contestsTable.createdAt));
   res.json(list);
 });
 
 router.post("/contests", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const adminId = sessionReq.sessionUserId || 0;
-  const { title, description, rewardType, totalReward, winnerCount, startDate, endDate } = req.body;
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageTasks")) {
+    res.status(403).json({ error: "Forbidden: No permission to create contests" });
+    return;
+  }
 
+  const { title, description, rewardType, totalReward, winnerCount, startDate, endDate } = req.body;
   if (!title || !endDate) {
     res.status(400).json({ error: "Title and End Date are required" });
     return;
@@ -720,15 +1053,18 @@ router.post("/contests", async (req, res) => {
     })
     .returning();
 
-  await logAudit(adminId, "create_contest", { contestId: contest.id, title: contest.title });
+  await logAudit(adminUser.id, "create_contest", { contestId: contest.id, title: contest.title });
   res.json(contest);
 });
 
 router.post("/contests/:id/finalize", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const adminId = sessionReq.sessionUserId || 0;
-  const id = parseInt(req.params.id);
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageTasks")) {
+    res.status(403).json({ error: "Forbidden: No permission to finalize contests" });
+    return;
+  }
 
+  const id = parseInt(req.params.id);
   const [contest] = await db.select().from(contestsTable).where(eq(contestsTable.id, id)).limit(1);
   if (!contest) {
     res.status(404).json({ error: "Contest not found" });
@@ -743,6 +1079,7 @@ router.post("/contests/:id/finalize", async (req, res) => {
   const topUsers = await db
     .select({ id: usersTable.id, referralCount: usersTable.referralCount })
     .from(usersTable)
+    .where(eq(usersTable.isVisible, true))
     .orderBy(desc(usersTable.referralCount))
     .limit(contest.winnerCount);
 
@@ -776,46 +1113,77 @@ router.post("/contests/:id/finalize", async (req, res) => {
       .where(eq(contestsTable.id, id));
   });
 
-  await logAudit(adminId, "finalize_contest", { contestId: id, winnersCount: winnersList.length });
+  await logAudit(adminUser.id, "finalize_contest", { contestId: id, winnersCount: winnersList.length });
   res.json({ ok: true, contestId: id, winners: winnersList });
 });
 
-// Daily Combo Admin Stats
+// 3. Daily Combo Admin
 router.get("/combo/stats", async (_req, res) => {
-  const todayStr = new Date().toISOString().split("T")[0];
-  const [todayCombo] = await db.select().from(dailyCombosTable).where(eq(dailyCombosTable.comboDate, todayStr)).limit(1);
+  const todayStr = getTodayDateString();
+  const todayCombo = await getOrCreateTodayCombo(todayStr);
 
-  const [attemptsRes, successRes] = await Promise.all([
+  const [attemptsRes, successRes, recentAttemptsRows] = await Promise.all([
     db.select({ count: count() }).from(userComboAttemptsTable).where(eq(userComboAttemptsTable.comboDate, todayStr)),
     db.select({ count: count() }).from(userComboAttemptsTable).where(and(eq(userComboAttemptsTable.comboDate, todayStr), eq(userComboAttemptsTable.isSuccess, true))),
+    db
+      .select({
+        id: userComboAttemptsTable.id,
+        userId: userComboAttemptsTable.userId,
+        selectedItems: userComboAttemptsTable.selectedItems,
+        isSuccess: userComboAttemptsTable.isSuccess,
+        rewardAmount: userComboAttemptsTable.rewardAmount,
+        createdAt: userComboAttemptsTable.createdAt,
+        username: usersTable.username,
+        firstName: usersTable.firstName,
+      })
+      .from(userComboAttemptsTable)
+      .leftJoin(usersTable, eq(userComboAttemptsTable.userId, usersTable.id))
+      .where(eq(userComboAttemptsTable.comboDate, todayStr))
+      .orderBy(desc(userComboAttemptsTable.id))
+      .limit(20),
   ]);
 
   const itemsMap: Record<number, typeof comboItems[number]> = {};
   for (const it of comboItems) itemsMap[it.id] = it;
 
+  const tomorrow = new Date();
+  tomorrow.setUTCHours(24, 0, 0, 0);
+
   res.json({
     todayDate: todayStr,
+    startsAt: todayStr + "T00:00:00.000Z",
+    expiresAt: tomorrow.toISOString(),
     combo: todayCombo ? {
-      item1: itemsMap[todayCombo.item1] || { id: todayCombo.item1, name: "Item " + todayCombo.item1 },
-      item2: itemsMap[todayCombo.item2] || { id: todayCombo.item2, name: "Item " + todayCombo.item2 },
-      item3: itemsMap[todayCombo.item3] || { id: todayCombo.item3, name: "Item " + todayCombo.item3 },
-      rewardAmount: todayCombo.rewardAmount,
+      item1: itemsMap[todayCombo.item1] || { id: todayCombo.item1, name: "Item " + todayCombo.item1, image: "/combo/combo_1.png", description: "" },
+      item2: itemsMap[todayCombo.item2] || { id: todayCombo.item2, name: "Item " + todayCombo.item2, image: "/combo/combo_2.png", description: "" },
+      item3: itemsMap[todayCombo.item3] || { id: todayCombo.item3, name: "Item " + todayCombo.item3, image: "/combo/combo_3.png", description: "" },
+      rewardAmount: "5.000000",
     } : null,
     totalAttemptsToday: attemptsRes[0]?.count || 0,
     successfulSolvesToday: successRes[0]?.count || 0,
     totalRewardsDistributed: ((successRes[0]?.count || 0) * 5) + " GO",
     allItems: comboItems,
+    recentAttempts: recentAttemptsRows.map(r => ({
+      id: r.id,
+      userId: r.userId,
+      username: r.username,
+      firstName: r.firstName,
+      selectedItems: r.selectedItems || [],
+      isSuccess: r.isSuccess,
+      rewardAmount: r.rewardAmount,
+      createdAt: r.createdAt.toISOString(),
+    })),
   });
 });
 
-// Daily Check-in Settings
+// 4. Daily Check-in Settings
 router.get("/checkin/settings", async (_req, res) => {
-  const [row] = await db.select().from(botSettingsTable).where(eq(botSettingsTable.key, "daily_checkin_rewards")).limit(1);
+  const row = await getSetting("daily_checkin_rewards");
   const defaultRewards: Record<number, number> = {
     1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 8, 7: 8, 8: 9, 9: 9, 10: 10,
   };
   try {
-    const rewards = row?.value ? JSON.parse(row.value) : defaultRewards;
+    const rewards = row ? JSON.parse(row) : defaultRewards;
     res.json(rewards);
   } catch {
     res.json(defaultRewards);
@@ -823,10 +1191,13 @@ router.get("/checkin/settings", async (_req, res) => {
 });
 
 router.put("/checkin/settings", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const adminId = sessionReq.sessionUserId || 0;
-  const { rewards } = req.body;
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageCheckin")) {
+    res.status(403).json({ error: "Forbidden: No permission to update check-in rewards" });
+    return;
+  }
 
+  const { rewards } = req.body;
   if (!rewards || typeof rewards !== "object") {
     res.status(400).json({ error: "Invalid rewards mapping" });
     return;
@@ -839,26 +1210,36 @@ router.put("/checkin/settings", async (req, res) => {
     .onConflictDoUpdate({ target: botSettingsTable.key, set: { value: jsonStr } });
 
   invalidateSetting("daily_checkin_rewards");
-  await logAudit(adminId, "update_checkin_rewards", { rewards });
+  await logAudit(adminUser.id, "update_checkin_rewards", { rewards });
 
   res.json({ ok: true, rewards });
 });
 
-// SECTION 5: Users & Security
+// ============================================================================
+// SECTION 5 — المستخدمين والأمان (USERS & SECURITY)
+// ============================================================================
+
+// 1. User Management & Search
 router.get("/users", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageUsers")) {
+    res.status(403).json({ error: "Forbidden: No permission to view users" });
+    return;
+  }
+
   const search = req.query.search ? String(req.query.search).trim() : "";
   const limit = Math.min(parseInt(String(req.query.limit)) || 50, 100);
   const offset = Math.max(parseInt(String(req.query.offset)) || 0, 0);
 
-  let query = db.select().from(usersTable);
+  let query = db.select().from(usersTable).$dynamic();
 
   if (search) {
     const num = parseInt(search);
     if (!isNaN(num)) {
-      query = query.where(or(eq(usersTable.id, num), eq(usersTable.referredBy, num))) as typeof query;
+      query = query.where(or(eq(usersTable.id, num), eq(usersTable.referredBy, num)));
     } else {
       const clean = search.replace(/^@/, "");
-      query = query.where(or(ilike(usersTable.username, `%${clean}%`), ilike(usersTable.firstName, `%${clean}%`))) as typeof query;
+      query = query.where(or(ilike(usersTable.username, `%${clean}%`), ilike(usersTable.firstName, `%${clean}%`)));
     }
   }
 
@@ -867,6 +1248,12 @@ router.get("/users", async (req, res) => {
 });
 
 router.get("/users/:id", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageUsers")) {
+    res.status(403).json({ error: "Forbidden: No permission to view user details" });
+    return;
+  }
+
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid user id" });
@@ -880,9 +1267,9 @@ router.get("/users/:id", async (req, res) => {
   }
 
   const [transactions, referrals, withdrawals, userBan] = await Promise.all([
-    db.select().from(transactionsTable).where(eq(transactionsTable.userId, id)).orderBy(desc(transactionsTable.createdAt)).limit(20),
-    db.select().from(referralsTable).where(eq(referralsTable.referrerId, id)).limit(20),
-    db.select().from(withdrawalsTable).where(eq(withdrawalsTable.userId, id)).orderBy(desc(withdrawalsTable.createdAt)).limit(20),
+    db.select().from(transactionsTable).where(eq(transactionsTable.userId, id)).orderBy(desc(transactionsTable.createdAt)).limit(25),
+    db.select().from(referralsTable).where(eq(referralsTable.referrerId, id)).limit(25),
+    db.select().from(withdrawalsTable).where(eq(withdrawalsTable.userId, id)).orderBy(desc(withdrawalsTable.createdAt)).limit(25),
     db.select().from(bansTable).where(and(eq(bansTable.userId, id), eq(bansTable.isActive, true))).limit(1),
   ]);
 
@@ -892,13 +1279,19 @@ router.get("/users/:id", async (req, res) => {
     referralsCount: referrals.length,
     withdrawals,
     isBanned: user.isVisible === false || Boolean(userBan && userBan.length > 0),
+    isWithdrawalBanned: user.isWithdrawalBanned,
     banReason: userBan && userBan[0]?.reason ? userBan[0].reason : null,
   });
 });
 
+// Balance Addition / Deduction / Correction
 router.post("/users/:id/balance", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const adminId = sessionReq.sessionUserId || 0;
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageUsers")) {
+    res.status(403).json({ error: "Forbidden: No permission to adjust balances" });
+    return;
+  }
+
   const targetId = parseInt(req.params.id);
   const { type, currency, amount, reason } = req.body;
 
@@ -941,11 +1334,11 @@ router.post("/users/:id/balance", async (req, res) => {
       type: "admin_" + type + "_balance",
       amount: String(Math.abs(diff)),
       currency: isGo ? "GO" : "Gram",
-      details: { previousBalance: prevBal, newBalance: newBal, reason, adminId },
+      details: { previousBalance: prevBal, newBalance: newBal, reason, adminId: adminUser.id },
     });
 
     await tx.insert(auditLogsTable).values({
-      adminId,
+      adminId: adminUser.id,
       action: "balance_" + type,
       targetUserId: targetId,
       details: { currency, previousBalance: prevBal, newBalance: newBal, diff, reason },
@@ -955,9 +1348,14 @@ router.post("/users/:id/balance", async (req, res) => {
   res.json({ ok: true, success: true, targetId, previousBalance: prevBal, newBalance: newBal, diff });
 });
 
+// Send Message / Warning
 router.post("/users/:id/message", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const adminId = sessionReq.sessionUserId || 0;
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canWarn") && !hasPermission(adminUser, "canManageUsers")) {
+    res.status(403).json({ error: "Forbidden: No permission to message users" });
+    return;
+  }
+
   const targetId = parseInt(req.params.id);
   const { message, isWarning } = req.body;
 
@@ -978,16 +1376,21 @@ router.post("/users/:id/message", async (req, res) => {
 
   try {
     await botInstance.sendMessage(targetId, formattedMsg, { parse_mode: "HTML" });
-    await logAudit(adminId, isWarning ? "send_warning" : "send_message", { targetUserId: targetId, messagePreview: message.slice(0, 80) }, targetId);
+    await logAudit(adminUser.id, isWarning ? "send_warning" : "send_message", { targetUserId: targetId, messagePreview: message.slice(0, 80) }, targetId);
     res.json({ ok: true, success: true });
   } catch (err: unknown) {
     res.status(400).json({ error: "Failed to send message via Telegram: " + (err instanceof Error ? err.message : String(err)) });
   }
 });
 
+// Ban & Unban User
 router.post("/users/:id/ban", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const adminId = sessionReq.sessionUserId || 0;
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canBanUsers")) {
+    res.status(403).json({ error: "Forbidden: No permission to ban users" });
+    return;
+  }
+
   const targetId = parseInt(req.params.id);
   const { reason } = req.body;
 
@@ -996,18 +1399,22 @@ router.post("/users/:id/ban", async (req, res) => {
     await tx.insert(bansTable).values({
       userId: targetId,
       reason: reason || "Banned by administrator",
-      bannedBy: String(adminId),
+      bannedBy: String(adminUser.id),
       isActive: true,
     });
   });
 
-  await logAudit(adminId, "ban_user", { targetUserId: targetId, reason }, targetId);
+  await logAudit(adminUser.id, "ban_user", { targetUserId: targetId, reason }, targetId);
   res.json({ ok: true, banned: true });
 });
 
 router.post("/users/:id/unban", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const adminId = sessionReq.sessionUserId || 0;
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canUnban")) {
+    res.status(403).json({ error: "Forbidden: No permission to unban users" });
+    return;
+  }
+
   const targetId = parseInt(req.params.id);
 
   await db.transaction(async (tx) => {
@@ -1015,10 +1422,73 @@ router.post("/users/:id/unban", async (req, res) => {
     await tx.update(bansTable).set({ isActive: false }).where(eq(bansTable.userId, targetId));
   });
 
-  await logAudit(adminId, "unban_user", { targetUserId: targetId }, targetId);
+  await logAudit(adminUser.id, "unban_user", { targetUserId: targetId }, targetId);
   res.json({ ok: true, unbanned: true });
 });
 
+// Withdrawal Ban & Unban
+router.post("/users/:id/withdrawal-ban", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageWithdrawals")) {
+    res.status(403).json({ error: "Forbidden: No permission to ban withdrawals" });
+    return;
+  }
+
+  const targetId = parseInt(req.params.id);
+  await db.update(usersTable).set({ isWithdrawalBanned: true }).where(eq(usersTable.id, targetId));
+  await logAudit(adminUser.id, "ban_withdrawals", { targetUserId: targetId }, targetId);
+  res.json({ ok: true, isWithdrawalBanned: true });
+});
+
+router.post("/users/:id/withdrawal-unban", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageWithdrawals")) {
+    res.status(403).json({ error: "Forbidden: No permission to unban withdrawals" });
+    return;
+  }
+
+  const targetId = parseInt(req.params.id);
+  await db.update(usersTable).set({ isWithdrawalBanned: false }).where(eq(usersTable.id, targetId));
+  await logAudit(adminUser.id, "unban_withdrawals", { targetUserId: targetId }, targetId);
+  res.json({ ok: true, isWithdrawalBanned: false });
+});
+
+// Delete Account (Safe deletion preserving historical transaction records)
+router.delete("/users/:id", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!adminUser.isOwner) {
+    res.status(403).json({ error: "Forbidden: Only Owner can delete user accounts" });
+    return;
+  }
+
+  const targetId = parseInt(req.params.id);
+  if (isNaN(targetId) || targetId === OWNER_ID) {
+    res.status(400).json({ error: "Invalid target ID" });
+    return;
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.update(usersTable).set({
+      isVisible: false,
+      goBalance: "0.000000",
+      gramBalance: "0.000000",
+      tonBalance: "0.000000",
+      balance: "0.000000",
+    }).where(eq(usersTable.id, targetId));
+
+    await tx.insert(bansTable).values({
+      userId: targetId,
+      reason: "Account deleted by administrator",
+      bannedBy: String(adminUser.id),
+      isActive: true,
+    });
+  });
+
+  await logAudit(adminUser.id, "delete_user_account", { targetUserId: targetId }, targetId);
+  res.json({ ok: true, success: true, targetId });
+});
+
+// 2. Auto Banned Accounts
 router.get("/auto-banned", async (_req, res) => {
   const list = await db
     .select({
@@ -1041,16 +1511,57 @@ router.get("/auto-banned", async (_req, res) => {
   res.json(list);
 });
 
+// 3. Referral & Milestone Settings
+router.get("/referral-settings", async (_req, res) => {
+  const [baseReward, depositPct, threshold] = await Promise.all([
+    getSetting("referral_reward_amount"),
+    getSetting("referral_deposit_percent"),
+    getSetting("referral_threshold"),
+  ]);
+
+  res.json({
+    referralRewardAmount: baseReward || "3",
+    referralDepositPercent: depositPct || "10",
+    referralThreshold: threshold || "5",
+  });
+});
+
+router.put("/referral-settings", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageSettings")) {
+    res.status(403).json({ error: "Forbidden: No permission to update referral settings" });
+    return;
+  }
+
+  const { referralRewardAmount, referralDepositPercent, referralThreshold } = req.body;
+  const updates: Record<string, string> = {
+    referral_reward_amount: String(referralRewardAmount || "3"),
+    referral_deposit_percent: String(referralDepositPercent || "10"),
+    referral_threshold: String(referralThreshold || "5"),
+  };
+
+  for (const [k, v] of Object.entries(updates)) {
+    await db.insert(botSettingsTable).values({ key: k, value: v }).onConflictDoUpdate({ target: botSettingsTable.key, set: { value: v } });
+    invalidateSetting(k);
+  }
+
+  await logAudit(adminUser.id, "update_referral_settings", updates);
+  res.json({ ok: true, settings: updates });
+});
+
 router.get("/milestones", async (_req, res) => {
   const list = await db.select().from(milestonesTable).orderBy(asc(milestonesTable.requiredReferrals));
   res.json(list);
 });
 
 router.post("/milestones", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const adminId = sessionReq.sessionUserId || 0;
-  const { requiredReferrals, rewardAmount, rewardCurrency, isRepeatable } = req.body;
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageSettings")) {
+    res.status(403).json({ error: "Forbidden: No permission to create milestones" });
+    return;
+  }
 
+  const { requiredReferrals, rewardAmount, rewardCurrency, isRepeatable } = req.body;
   const reqRefs = parseInt(requiredReferrals);
   const amt = parseFloat(rewardAmount);
   if (isNaN(reqRefs) || isNaN(amt) || reqRefs <= 0 || amt <= 0) {
@@ -1068,13 +1579,17 @@ router.post("/milestones", async (req, res) => {
     })
     .returning();
 
-  await logAudit(adminId, "create_milestone", { milestoneId: milestone.id, requiredReferrals: reqRefs, rewardAmount: amt });
+  await logAudit(adminUser.id, "create_milestone", { milestoneId: milestone.id, requiredReferrals: reqRefs, rewardAmount: amt });
   res.json(milestone);
 });
 
 router.delete("/milestones/:id", async (req, res) => {
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  const adminId = sessionReq.sessionUserId || 0;
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canManageSettings")) {
+    res.status(403).json({ error: "Forbidden: No permission to delete milestones" });
+    return;
+  }
+
   const id = parseInt(req.params.id);
   if (isNaN(id)) {
     res.status(400).json({ error: "Invalid milestone id" });
@@ -1082,13 +1597,32 @@ router.delete("/milestones/:id", async (req, res) => {
   }
 
   await db.delete(milestonesTable).where(eq(milestonesTable.id, id));
-  await logAudit(adminId, "delete_milestone", { milestoneId: id });
+  await logAudit(adminUser.id, "delete_milestone", { milestoneId: id });
   res.json({ ok: true, success: true });
 });
 
+// 4. Security Events
 router.get("/security/events", async (_req, res) => {
   const events = await db.select().from(securityEventsTable).orderBy(desc(securityEventsTable.createdAt)).limit(50);
   res.json(events);
+});
+
+// 5. Payment Wallet Keys & API Keys (Masked Only)
+router.get("/wallet-keys", async (_req, res) => {
+  const configured = isTonConfigured();
+  const address = await getWalletAddress().catch(() => null);
+
+  const maskedAddress = address
+    ? `${address.slice(0, 6)}...${address.slice(-6)}`
+    : "Not Configured";
+
+  res.json({
+    tonWalletConfigured: configured,
+    maskedWalletAddress: maskedAddress,
+    hasTelegramBotToken: Boolean(process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN),
+    hasNeonDatabaseUrl: Boolean(process.env.DATABASE_URL || process.env.NEON_DATABASE_URL),
+    securityStatus: "SECURE_MASKED",
+  });
 });
 
 export default router;

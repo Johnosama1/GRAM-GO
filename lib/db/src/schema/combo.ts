@@ -1,13 +1,13 @@
-﻿import { pgTable, serial, bigint, integer, text, numeric, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, bigint, integer, text, numeric, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const comboItems = [
-  { id: 1, name: "Gram Crystal", image: "/combo/combo_1.png", description: "High-resonance energy crystal" },
-  { id: 2, name: "Cyber Core", image: "/combo/combo_2.png", description: "Quantum processing cube" },
-  { id: 3, name: "GO Token", image: "/combo/combo_3.png", description: "Pure catalytic gold token" },
-  { id: 4, name: "Mining Standard", image: "/combo/combo_4.png", description: "Guild emblem of endurance" },
-  { id: 5, name: "Plasma Pickaxe", image: "/combo/combo_5.png", description: "Ultra-dense mining implement" },
+  { id: 1, name: "Crystal Shard", image: "/combo/combo_1.png", description: "High-resonance energy crystal" },
+  { id: 2, name: "GRAM Box", image: "/combo/combo_2.png", description: "Quantum storage cube" },
+  { id: 3, name: "GRAM Coins", image: "/combo/combo_3.png", description: "Pure catalytic gold coins" },
+  { id: 4, name: "GRAM Flag", image: "/combo/combo_4.png", description: "Guild banner of victory" },
+  { id: 5, name: "GRAM Pickaxe", image: "/combo/combo_5.png", description: "Ultra-dense mining implement" },
 ] as const;
 
 export const dailyCombosTable = pgTable("daily_combos", {

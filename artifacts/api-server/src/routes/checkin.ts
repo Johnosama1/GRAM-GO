@@ -11,10 +11,12 @@ import { verifyAccessMiddleware } from "../middlewares/verifyAccess";
 
 const router = Router();
 
+import { getSetting } from "../lib/settingsCache";
+
 // Exact required rewards table:
 // Day 1 = 2 GO, Day 2 = 3 GO, Day 3 = 4 GO, Day 4 = 5 GO, Day 5 = 6 GO,
 // Day 6 = 8 GO, Day 7 = 8 GO, Day 8 = 9 GO, Day 9 = 9 GO, Day 10 = 10 GO
-const DAILY_REWARDS_MAP: Record<number, number> = {
+const DEFAULT_DAILY_REWARDS_MAP: Record<number, number> = {
   1: 2,
   2: 3,
   3: 4,
@@ -26,6 +28,25 @@ const DAILY_REWARDS_MAP: Record<number, number> = {
   9: 9,
   10: 10,
 };
+
+async function getDynamicRewardsMap(): Promise<Record<number, number>> {
+  try {
+    const raw = await getSetting("daily_checkin_rewards");
+    if (!raw) return DEFAULT_DAILY_REWARDS_MAP;
+    const parsed = JSON.parse(raw);
+    const map: Record<number, number> = { ...DEFAULT_DAILY_REWARDS_MAP };
+    for (const [k, v] of Object.entries(parsed)) {
+      const numK = parseInt(k);
+      const numV = parseFloat(String(v));
+      if (!isNaN(numK) && !isNaN(numV) && numV >= 0) {
+        map[numK] = numV;
+      }
+    }
+    return map;
+  } catch {
+    return DEFAULT_DAILY_REWARDS_MAP;
+  }
+}
 
 function getTodayDateString(): string {
   const now = new Date();
@@ -84,7 +105,9 @@ router.get("/status", requireSession, async (req, res) => {
   const tomorrow = new Date();
   tomorrow.setUTCHours(24, 0, 0, 0);
 
-  const daysList = Object.entries(DAILY_REWARDS_MAP).map(([dayNumStr, reward]) => {
+  const rewardsMap = await getDynamicRewardsMap();
+
+  const daysList = Object.entries(rewardsMap).map(([dayNumStr, reward]) => {
     const day = Number(dayNumStr);
     let status: "claimed" | "available" | "locked" = "locked";
     if (day < nextDay || (day === nextDay && alreadyClaimedToday)) {
@@ -105,7 +128,7 @@ router.get("/status", requireSession, async (req, res) => {
     nextDay,
     alreadyClaimedToday,
     canClaim: !alreadyClaimedToday,
-    todayReward: DAILY_REWARDS_MAP[nextDay] || 2,
+    todayReward: rewardsMap[nextDay] || 2,
     days: daysList,
     nextClaimAt: tomorrow.toISOString(),
     serverTime: new Date().toISOString(),
@@ -157,7 +180,8 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
     streak = 1;
   }
 
-  const rewardAmount = DAILY_REWARDS_MAP[streak] || 2;
+  const rewardsMap = await getDynamicRewardsMap();
+  const rewardAmount = rewardsMap[streak] || 2;
 
   // Atomic update
   await db

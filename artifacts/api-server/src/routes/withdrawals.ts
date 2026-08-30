@@ -145,17 +145,39 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
     res.status(400).json({ error: "عنوان محفظة TON غير صحيح. يجب أن يبدأ بـ EQ أو UQ ويتكون من 48 حرفاً." }); return;
   }
 
-  const rawMin = await getSetting("min_withdrawal").catch(() => null);
+  const [rawMin, rawMax, rawDailyLimit] = await Promise.all([
+    getSetting("min_withdrawal").catch(() => null),
+    getSetting("max_withdrawal").catch(() => null),
+    getSetting("daily_withdrawal_limit").catch(() => null),
+  ]);
+
   const MIN_WITHDRAWAL = Math.max(0.01, parseFloat(rawMin ?? "0.1") || 0.1);
+  const MAX_WITHDRAWAL_LIMIT = Math.max(MIN_WITHDRAWAL, parseFloat(rawMax ?? "10000") || 10000);
+  const DAILY_LIMIT = rawDailyLimit ? parseFloat(rawDailyLimit) : null;
 
   const amt = parseFloat(String(amount));
-  if (isNaN(amt) || amt < MIN_WITHDRAWAL || amt > MAX_WITHDRAWAL) {
-    res.status(400).json({ error: `المبلغ يجب أن يكون بين ${MIN_WITHDRAWAL} و ${MAX_WITHDRAWAL} TON` }); return;
+  if (isNaN(amt) || amt < MIN_WITHDRAWAL || amt > MAX_WITHDRAWAL_LIMIT) {
+    res.status(400).json({ error: `المبلغ يجب أن يكون بين ${MIN_WITHDRAWAL} و ${MAX_WITHDRAWAL_LIMIT} TON` }); return;
   }
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, numUserId)).limit(1);
   if (!user) { res.status(404).json({ error: "المستخدم غير موجود" }); return; }
   if (user.isVisible === false) { res.status(403).json({ error: "الحساب محظور" }); return; }
+  if (user.isWithdrawalBanned === true) { res.status(403).json({ error: "تم حظر عمليات السحب لهذا الحساب من قبل الإدارة" }); return; }
+
+  // ── Daily withdrawal limit check ───────────────────────────────────
+  if (DAILY_LIMIT && DAILY_LIMIT > 0) {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    const [todaySumRes] = await db
+      .select({ total: sql<string>`coalesce(sum(amount), 0)` })
+      .from(withdrawalsTable)
+      .where(and(eq(withdrawalsTable.userId, numUserId), sql`created_at >= ${today}`));
+    const todayTotal = parseFloat(todaySumRes?.total || "0");
+    if (todayTotal + amt > DAILY_LIMIT) {
+      res.status(400).json({ error: `تجاوزت حد السحب اليومي المسموح به (${DAILY_LIMIT} TON)` }); return;
+    }
+  }
 
   // ── Subscription enforcement: block withdrawal if user left required channels ──
   if (user.isBlockedForLeaving === true) {

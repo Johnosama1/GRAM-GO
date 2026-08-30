@@ -166,6 +166,12 @@ export const api = {
     apiCall<{ ok: boolean; queued: boolean; totalUsers: number; message: string }>("/admin/broadcast", { method: "POST", body: JSON.stringify(data) }),
   adminGetSettings: () => apiCall<Record<string, string>>("/admin/settings"),
   adminUpdateSetting: (key: string, value: string) => apiCall<{ ok: boolean; key: string; value: string }>("/admin/settings", { method: "PUT", body: JSON.stringify({ key, value }) }),
+  adminGetWelcomeMessage: () => apiCall<{ welcomeMessage: string }>("/admin/welcome-message"),
+  adminUpdateWelcomeMessage: (message: string) => apiCall<{ ok: boolean; welcomeMessage: string }>("/admin/welcome-message", { method: "PUT", body: JSON.stringify({ message }) }),
+  adminGetChannels: () => apiCall<Array<{ username: string; title: string; inviteLink: string; mandatory?: boolean }>>("/admin/channels"),
+  adminAddChannel: (data: { username: string; title?: string; inviteLink?: string; mandatory?: boolean }) =>
+    apiCall<{ ok: boolean; channels: Array<{ username: string; title: string; inviteLink: string; mandatory?: boolean }> }>("/admin/channels", { method: "POST", body: JSON.stringify(data) }),
+  adminDeleteChannel: (username: string) => apiCall<{ ok: boolean; channels: Array<{ username: string; title: string; inviteLink: string; mandatory?: boolean }> }>(`/admin/channels/${username}`, { method: "DELETE" }),
   adminGetAdmins: () => apiCall<AdminUser[]>("/admin/admins"),
   adminAddAdmin: (data: { id: number; username?: string; role?: string; permissions: string[] }) =>
     apiCall<AdminUser>("/admin/admins", { method: "POST", body: JSON.stringify(data) }),
@@ -174,10 +180,16 @@ export const api = {
   adminDeleteAdmin: (id: number) => apiCall<{ ok: boolean; success: boolean }>(`/admin/admins/${id}`, { method: "DELETE" }),
   adminGetAuditLogs: (limit?: number) => apiCall<AuditLog[]>(`/admin/audit-logs${limit ? `?limit=${limit}` : ""}`),
   adminUpdateMiningRate: (rate: number) => apiCall<{ ok: boolean; rate: string; percentage: string }>("/admin/mining/rate", { method: "POST", body: JSON.stringify({ rate }) }),
-  adminGetWithdrawals: () => apiCall<WithdrawalItem[]>("/admin/withdrawals"),
+  adminGetWithdrawals: (status?: string, search?: string) =>
+    apiCall<WithdrawalItem[]>(`/admin/withdrawals?${new URLSearchParams({ ...(status ? { status } : {}), ...(search ? { search } : {}) }).toString()}`),
   adminUpdateWithdrawal: (id: number, action: "approve" | "reject", reason?: string) =>
     apiCall<{ ok: boolean; success: boolean }>(`/admin/withdrawals/${id}/action`, { method: "POST", body: JSON.stringify({ action, reason }) }),
-  adminGetDeposits: () => apiCall<DepositItem[]>("/admin/deposits"),
+  adminGetDeposits: (status?: string, search?: string) =>
+    apiCall<DepositItem[]>(`/admin/deposits?${new URLSearchParams({ ...(status ? { status } : {}), ...(search ? { search } : {}) }).toString()}`),
+  adminUpdateDepositWallet: (address: string) => apiCall<{ ok: boolean; address: string }>("/admin/deposit-wallet", { method: "PUT", body: JSON.stringify({ address }) }),
+  adminGetLimits: () => apiCall<{ minWithdrawal: string; maxWithdrawal: string; dailyWithdrawalLimit: string; minDeposit: string; maxDeposit: string; dailyDepositLimit: string }>("/admin/limits"),
+  adminUpdateLimits: (limits: { minWithdrawal?: string; maxWithdrawal?: string; dailyWithdrawalLimit?: string; minDeposit?: string; maxDeposit?: string; dailyDepositLimit?: string }) =>
+    apiCall<{ ok: boolean; limits: Record<string, string> }>("/admin/limits", { method: "PUT", body: JSON.stringify(limits) }),
   adminResetGoBalances: (confirm: string) => apiCall<{ ok: boolean; success: boolean; affectedUsers: number }>("/admin/reset-go-balances", { method: "POST", body: JSON.stringify({ confirm }) }),
   adminResetGramBalances: (confirm: string) => apiCall<{ ok: boolean; success: boolean; affectedUsers: number }>("/admin/reset-gram-balances", { method: "POST", body: JSON.stringify({ confirm }) }),
   adminGetTasks: () => apiCall<Task[]>("/admin/tasks"),
@@ -199,12 +211,19 @@ export const api = {
     apiCall<{ ok: boolean; success: boolean }>(`/admin/users/${id}/message`, { method: "POST", body: JSON.stringify(data) }),
   adminBanUser: (id: number, reason?: string) => apiCall<{ ok: boolean; banned: boolean }>(`/admin/users/${id}/ban`, { method: "POST", body: JSON.stringify({ reason }) }),
   adminUnbanUser: (id: number) => apiCall<{ ok: boolean; unbanned: boolean }>(`/admin/users/${id}/unban`, { method: "POST" }),
+  adminBanWithdrawals: (id: number) => apiCall<{ ok: boolean; isWithdrawalBanned: boolean }>(`/admin/users/${id}/withdrawal-ban`, { method: "POST" }),
+  adminUnbanWithdrawals: (id: number) => apiCall<{ ok: boolean; isWithdrawalBanned: boolean }>(`/admin/users/${id}/withdrawal-unban`, { method: "POST" }),
+  adminDeleteUser: (id: number) => apiCall<{ ok: boolean; success: boolean; targetId: number }>(`/admin/users/${id}`, { method: "DELETE" }),
   adminGetAutoBanned: () => apiCall<AutoBannedItem[]>("/admin/auto-banned"),
+  adminGetReferralSettings: () => apiCall<{ referralRewardAmount: string; referralDepositPercent: string; referralThreshold: string }>("/admin/referral-settings"),
+  adminUpdateReferralSettings: (data: { referralRewardAmount?: string; referralDepositPercent?: string; referralThreshold?: string }) =>
+    apiCall<{ ok: boolean; settings: Record<string, string> }>("/admin/referral-settings", { method: "PUT", body: JSON.stringify(data) }),
   adminGetMilestones: () => apiCall<MilestoneItem[]>("/admin/milestones"),
   adminCreateMilestone: (data: { requiredReferrals: number; rewardAmount: number; rewardCurrency: string; isRepeatable: boolean }) =>
     apiCall<MilestoneItem>("/admin/milestones", { method: "POST", body: JSON.stringify(data) }),
   adminDeleteMilestone: (id: number) => apiCall<{ ok: boolean; success: boolean }>(`/admin/milestones/${id}`, { method: "DELETE" }),
   adminGetSecurityEvents: () => apiCall<SecurityEventItem[]>("/admin/security/events"),
+  adminGetWalletKeys: () => apiCall<{ tonWalletConfigured: boolean; maskedWalletAddress: string; hasTelegramBotToken: boolean; hasNeonDatabaseUrl: boolean; securityStatus: string }>("/admin/wallet-keys"),
 
   saveWallet: (userId: number, walletAddress: string) =>
     apiCall<{ savedWalletAddress: string }>(`/users/${userId}/wallet`, {
@@ -404,7 +423,26 @@ export interface Withdrawal {
   createdAt: string;
 }
 
-export type AdminPermission = "canUnban" | "canWarn" | "canReceiveWithdrawals" | "canEditWheel";
+export type AdminPermission =
+  | "canViewStats"
+  | "canBroadcast"
+  | "canManageUsers"
+  | "canManageWithdrawals"
+  | "canManageDeposits"
+  | "canManageTasks"
+  | "canManageChannels"
+  | "canManageCombo"
+  | "canManageCheckin"
+  | "canManageSettings"
+  | "canManageWallet"
+  | "canManageApiSettings"
+  | "canBanUsers"
+  | "canManageAdmins"
+  | "canUnban"
+  | "canWarn"
+  | "canReceiveWithdrawals"
+  | "canEditWheel"
+  | "*";
 
 export interface AdminUser {
   id: number;
@@ -573,8 +611,21 @@ export interface SecurityEventItem {
   createdAt: string;
 }
 
+export interface ComboAdminAttempt {
+  id: number;
+  userId: number;
+  username: string | null;
+  firstName: string | null;
+  selectedItems: number[];
+  isSuccess: boolean;
+  rewardAmount: string;
+  createdAt: string;
+}
+
 export interface ComboAdminStats {
   todayDate: string;
+  startsAt?: string;
+  expiresAt?: string;
   combo: {
     item1: { id: number; name: string; image?: string };
     item2: { id: number; name: string; image?: string };
@@ -585,6 +636,7 @@ export interface ComboAdminStats {
   successfulSolvesToday: number;
   totalRewardsDistributed: string;
   allItems: Array<{ id: number; name: string; image: string; description: string }>;
+  recentAttempts?: ComboAdminAttempt[];
 }
 
 export interface UserDetailResult {
@@ -600,5 +652,6 @@ export interface UserDetailResult {
   referralsCount: number;
   withdrawals: WithdrawalItem[];
   isBanned: boolean;
+  isWithdrawalBanned?: boolean;
   banReason: string | null;
 }

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { api, ComboStatus, ComboItem } from "../lib/api";
 import { useUser } from "../lib/userContext";
@@ -82,10 +82,19 @@ export default function ComboPage() {
     }
   };
 
+  const [warningMsg, setWarningMsg] = useState<string | null>(null);
+
   const handleCheckCombo = async () => {
-    if (selectedIds.length !== 3 || status?.attempted || submitting) return;
+    if (status?.attempted || submitting) return;
+
+    if (selectedIds.length !== 3) {
+      setWarningMsg("Please select 3 items first.");
+      setTimeout(() => setWarningMsg(null), 3000);
+      return;
+    }
 
     setSubmitting(true);
+    setWarningMsg(null);
     try {
       const res = await api.checkCombo(selectedIds);
       setStatus((prev) =>
@@ -125,11 +134,11 @@ export default function ComboPage() {
   };
 
   const itemsList: ComboItem[] = status?.items || [
-    { id: 1, name: "Gram Crystal", image: "/combo/combo_1.png", description: "High-resonance energy crystal" },
-    { id: 2, name: "Cyber Core", image: "/combo/combo_2.png", description: "Quantum processing cube" },
-    { id: 3, name: "GO Token", image: "/combo/combo_3.png", description: "Pure catalytic gold token" },
-    { id: 4, name: "Mining Standard", image: "/combo/combo_4.png", description: "Guild emblem of endurance" },
-    { id: 5, name: "Plasma Pickaxe", image: "/combo/combo_5.png", description: "Ultra-dense mining implement" },
+    { id: 1, name: "Crystal Shard", image: "/combo/combo_1.png", description: "High-resonance energy crystal" },
+    { id: 2, name: "GRAM Box", image: "/combo/combo_2.png", description: "Quantum storage cube" },
+    { id: 3, name: "GRAM Coins", image: "/combo/combo_3.png", description: "Pure catalytic gold coins" },
+    { id: 4, name: "GRAM Flag", image: "/combo/combo_4.png", description: "Guild banner of victory" },
+    { id: 5, name: "GRAM Pickaxe", image: "/combo/combo_5.png", description: "Ultra-dense mining implement" },
   ];
 
   return (
@@ -524,8 +533,25 @@ export default function ComboPage() {
         </div>
       </div>
 
-      {/* ── Check Button ──────────────────────────────────────────────── */}
-      <div style={{ marginTop: "16px" }}>
+        {warningMsg && (
+          <div
+            style={{
+              padding: "10px 14px",
+              borderRadius: "12px",
+              background: "rgba(239, 68, 68, 0.15)",
+              border: "1px solid rgba(239, 68, 68, 0.4)",
+              color: "#f87171",
+              fontSize: "12px",
+              fontWeight: 800,
+              textAlign: "center",
+              marginBottom: "10px",
+              animation: "popIn 0.2s ease",
+            }}
+          >
+            ⚠️ {warningMsg}
+          </div>
+        )}
+
         {status?.rewardClaimed ? (
           <div
             style={{
@@ -571,7 +597,7 @@ export default function ComboPage() {
         ) : (
           <button
             onClick={handleCheckCombo}
-            disabled={selectedIds.length !== 3 || submitting}
+            disabled={submitting}
             style={{
               width: "100%",
               padding: "16px",
@@ -584,11 +610,11 @@ export default function ComboPage() {
                 selectedIds.length === 3
                   ? "1px solid rgba(0, 242, 254, 0.6)"
                   : "1px solid rgba(255, 255, 255, 0.05)",
-              color: selectedIds.length === 3 ? "#040714" : "rgba(255, 255, 255, 0.3)",
+              color: selectedIds.length === 3 ? "#040714" : "rgba(255, 255, 255, 0.4)",
               fontWeight: 900,
               fontSize: "16px",
               letterSpacing: "0.5px",
-              cursor: selectedIds.length === 3 && !submitting ? "pointer" : "not-allowed",
+              cursor: submitting ? "not-allowed" : "pointer",
               boxShadow:
                 selectedIds.length === 3
                   ? "0 8px 30px rgba(0, 242, 254, 0.4), 0 0 15px rgba(124, 58, 237, 0.3)"
@@ -601,11 +627,11 @@ export default function ComboPage() {
             }}
           >
             {submitting ? (
-              <span>Verifying catalysts...</span>
+              <span>Checking...</span>
             ) : (
               <>
                 <Zap size={18} />
-                <span>CHECK COMBO ({selectedIds.length}/3)</span>
+                <span>⚡ CHECK COMBO ({selectedIds.length}/3)</span>
               </>
             )}
           </button>

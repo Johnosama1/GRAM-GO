@@ -14,12 +14,12 @@ import crypto from "crypto";
 
 const router = Router();
 
-function getTodayDateString(): string {
+export function getTodayDateString(): string {
   const now = new Date();
   return now.toISOString().split("T")[0];
 }
 
-async function getOrCreateTodayCombo(dateStr: string): Promise<{ item1: number; item2: number; item3: number }> {
+export async function getOrCreateTodayCombo(dateStr: string): Promise<{ item1: number; item2: number; item3: number }> {
   const [existing] = await db
     .select()
     .from(dailyCombosTable)
@@ -30,6 +30,7 @@ async function getOrCreateTodayCombo(dateStr: string): Promise<{ item1: number; 
     return { item1: existing.item1, item2: existing.item2, item3: existing.item3 };
   }
 
+  // Deterministic daily combination using SHA-256 hash
   const hash = crypto.createHash("sha256").update("combo_salt_" + dateStr).digest("hex");
   const indices = [1, 2, 3, 4, 5];
   for (let i = indices.length - 1; i > 0; i--) {
@@ -47,7 +48,9 @@ async function getOrCreateTodayCombo(dateStr: string): Promise<{ item1: number; 
       item3,
       rewardAmount: "5.000000",
     }).onConflictDoNothing();
-  } catch {}
+  } catch (err) {
+    console.error("[DailyCombo] Error creating combo for date:", dateStr, err);
+  }
 
   return { item1, item2, item3 };
 }
@@ -107,84 +110,107 @@ router.post("/check", requireSession, verifyAccessMiddleware, async (req, res) =
   const { selectedItems } = req.body as { selectedItems?: number[] };
 
   if (!Array.isArray(selectedItems) || selectedItems.length !== 3) {
-    res.status(400).json({ error: "Must select exactly 3 items" });
+    res.status(400).json({ error: "Please select 3 items first." });
     return;
   }
 
   const unique = Array.from(new Set(selectedItems)).filter(id => id >= 1 && id <= 5);
   if (unique.length !== 3) {
-    res.status(400).json({ error: "Selected items must be 3 unique valid item IDs (1-5)" });
+    res.status(400).json({ error: "Selected items must be 3 unique valid item IDs (1-5)." });
     return;
   }
 
   const todayStr = getTodayDateString();
 
-  const [existingAttempt] = await db
-    .select()
-    .from(userComboAttemptsTable)
-    .where(
-      and(
-        eq(userComboAttemptsTable.userId, userId),
-        eq(userComboAttemptsTable.comboDate, todayStr),
-      )
-    )
-    .limit(1);
-
-  if (existingAttempt) {
-    res.status(400).json({
-      error: "You have already used your daily combo attempt for today",
-      attempted: true,
-      isSuccess: existingAttempt.isSuccess,
-    });
-    return;
-  }
-
+  // Server-side check for active combo
   const correctCombo = await getOrCreateTodayCombo(todayStr);
   const correctSet = new Set([correctCombo.item1, correctCombo.item2, correctCombo.item3]);
   const isMatch = unique.every(id => correctSet.has(id));
-
-  const reward = isMatch ? "5.000000" : "0.000000";
-
-  await db.insert(userComboAttemptsTable).values({
-    userId,
-    comboDate: todayStr,
-    selectedItems: unique,
-    isSuccess: isMatch,
-    rewardClaimed: isMatch,
-    rewardAmount: reward,
-  });
-
-  if (isMatch) {
-    await db
-      .update(usersTable)
-      .set({
-        goBalance: sql`go_balance + 5`,
-        balance: sql`balance + 5`,
-      })
-      .where(eq(usersTable.id, userId));
-
-    await db.insert(transactionsTable).values({
-      userId,
-      type: "daily_combo",
-      amount: "5.000000",
-      currency: "GO",
-      details: { comboDate: todayStr, selectedItems: unique },
-    }).catch(() => {});
-  }
+  const rewardFixed = isMatch ? "5.000000" : "0.000000";
 
   const tomorrow = new Date();
   tomorrow.setUTCHours(24, 0, 0, 0);
 
-  res.json({
-    ok: true,
-    isSuccess: isMatch,
-    reward: isMatch ? 5 : 0,
-    selectedItems: unique,
-    nextComboAt: tomorrow.toISOString(),
-    message: isMatch
-      ? "🎉 Success! You solved the Daily Combo and earned +5 GO!"
-      : "❌ Incorrect combination. Better luck tomorrow!",
-  });
+  try {
+    // Database Transaction for safety & anti-duplicate protection
+    const result = await db.transaction(async (tx) => {
+      // 1. Check existing attempt inside transaction
+      const [existingAttempt] = await tx
+        .select()
+        .from(userComboAttemptsTable)
+        .where(
+          and(
+            eq(userComboAttemptsTable.userId, userId),
+            eq(userComboAttemptsTable.comboDate, todayStr),
+          )
+        )
+        .limit(1);
+
+      if (existingAttempt) {
+        return {
+          alreadyAttempted: true,
+          isSuccess: existingAttempt.isSuccess,
+        };
+      }
+
+      // 2. Insert attempt record
+      await tx.insert(userComboAttemptsTable).values({
+        userId,
+        comboDate: todayStr,
+        selectedItems: unique,
+        isSuccess: isMatch,
+        rewardClaimed: isMatch,
+        rewardAmount: rewardFixed,
+      });
+
+      // 3. If correct, update balance and log transaction atomically
+      if (isMatch) {
+        await tx
+          .update(usersTable)
+          .set({
+            goBalance: sql`COALESCE(go_balance, 0) + 5`,
+            balance: sql`COALESCE(balance, 0) + 5`,
+          })
+          .where(eq(usersTable.id, userId));
+
+        await tx.insert(transactionsTable).values({
+          userId,
+          type: "daily_combo",
+          amount: "5.000000",
+          currency: "GO",
+          details: { comboDate: todayStr, selectedItems: unique },
+        }).catch(() => {});
+      }
+
+      return {
+        alreadyAttempted: false,
+        isSuccess: isMatch,
+      };
+    });
+
+    if (result.alreadyAttempted) {
+      res.status(400).json({
+        error: "You have already used your daily combo attempt for today.",
+        attempted: true,
+        isSuccess: result.isSuccess,
+      });
+      return;
+    }
+
+    res.json({
+      ok: true,
+      isSuccess: isMatch,
+      reward: isMatch ? 5 : 0,
+      selectedItems: unique,
+      nextComboAt: tomorrow.toISOString(),
+      message: isMatch
+        ? "🎉 Combo Completed! You earned: +5 GO"
+        : "❌ Wrong Combo. You didn't complete today's combo. Come back tomorrow!",
+    });
+  } catch (err) {
+    console.error("[DailyCombo] Transaction error during combo check:", err);
+    res.status(500).json({ error: "Failed to process combo attempt. Please try again." });
+  }
 });
 
 export default router;

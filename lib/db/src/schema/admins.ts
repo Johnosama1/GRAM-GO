@@ -14,6 +14,7 @@ export type AdminPermission =
   | "canManageCheckin"
   | "canManageSettings"
   | "canManageWallet"
+  | "canManageApiSettings"
   | "canBanUsers"
   | "canManageAdmins"
   | "canUnban"

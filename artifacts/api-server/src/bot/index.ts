@@ -458,7 +458,9 @@ export async function sendWelcomeMessage(chatId: number, userId?: number, firstN
     (vercelDomain ? `https://${vercelDomain}/` : "") ||
     "https://gram-go-ivory.vercel.app/";
 
-  const welcomeText =
+  const customWelcome = await getSetting("welcome_message").catch(() => null);
+
+  const welcomeText = customWelcome?.trim() ||
 `🚀 Welcome to GramGo!
 
 ⛏️ Mine Gram. Earn rewards. Grow your balance.
@@ -468,6 +470,7 @@ Start mining, complete tasks, invite friends, and earn Gram rewards directly thr
 Press the button below to open the app 👇`;
 
   await bot.sendMessage(chatId, welcomeText, {
+    parse_mode: "HTML",
     reply_markup: {
       inline_keyboard: [
         [
@@ -849,10 +852,14 @@ function setupBotHandlers() {
     const [u] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
     if (!u) return;
 
+    const rawRate = await getSetting("global_mining_rate").catch(() => null);
+    const globalRate = rawRate ? parseFloat(rawRate) : 0.02;
+
     const goBal = Math.max(0, parseFloat(u.goBalance ?? u.balance ?? "0") || 0);
     const gramBal = Math.max(0, parseFloat(u.gramBalance ?? "0") || 0);
-    const rate = Math.max(0, parseFloat(u.miningRate ?? "0.0300") || 0.03);
+    const rate = Math.max(0, parseFloat(String(globalRate ?? u.miningRate ?? "0.0200")) || globalRate);
     const dailyYield = (goBal * rate).toFixed(4);
+    const ratePercent = (rate * 100).toFixed(1);
 
     const vercelDomain = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
     const MINI_APP_URL =
@@ -864,7 +871,7 @@ function setupBotHandlers() {
       `⛏️ <b>محطة التعدين الخاصة بك</b>\n\n` +
       `🪙 رصيد عملة Go: <b>${goBal.toFixed(2)} Go</b>\n` +
       `💎 رصيد الجرام المُعدّن: <b>${gramBal.toFixed(6)} Gram</b>\n` +
-      `⚡ معدل التعدين: <b>3% يومياً</b>\n` +
+      `⚡ معدل التعدين: <b>${ratePercent}% يومياً</b>\n` +
       `📈 الإنتاج المتوقع: <b>+${dailyYield} Gram / يوم</b>\n` +
       `🟢 الحالة: <b>${goBal > 0 ? "تعدين نشط ويعمل لحظياً" : "في انتظار عملات Go"}</b>\n\n` +
       `اضغط على الزر أدناه لجمع الأرباح وإدارة التعدين:`;

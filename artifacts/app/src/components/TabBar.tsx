@@ -135,7 +135,55 @@ export default function TabBar() {
           )}
         </button>
 
-        {/* 2. Combo */}
+        {/* 2. Tasks */}
+        <button
+          onClick={() => handleTabClick("/tasks")}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            flex: 1,
+            height: 50,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            position: "relative",
+          }}
+        >
+          <ClipboardList
+            size={20}
+            color={isTasks && !activeModal ? "#00f2fe" : "rgba(255,255,255,0.45)"}
+            strokeWidth={isTasks && !activeModal ? 2.4 : 1.8}
+            style={{ filter: isTasks && !activeModal ? "drop-shadow(0 0 8px rgba(0,242,254,0.8))" : "none" }}
+          />
+          <span
+            style={{
+              fontSize: 10,
+              fontWeight: 800,
+              marginTop: 3,
+              color: isTasks && !activeModal ? "#00f2fe" : "rgba(255,255,255,0.45)",
+              letterSpacing: 0.2,
+            }}
+          >
+            Tasks
+          </span>
+          {isTasks && !activeModal && (
+            <div
+              style={{
+                position: "absolute",
+                bottom: 0,
+                width: 24,
+                height: 2.5,
+                borderRadius: 999,
+                background: "#00f2fe",
+                boxShadow: "0 0 8px #00f2fe",
+              }}
+            />
+          )}
+        </button>
+
+        {/* 3. Combo */}
         <button
           onClick={() => handleTabClick("/combo")}
           style={{
@@ -184,54 +232,6 @@ export default function TabBar() {
             Combo
           </span>
           {isCombo && !activeModal && (
-            <div
-              style={{
-                position: "absolute",
-                bottom: 0,
-                width: 24,
-                height: 2.5,
-                borderRadius: 999,
-                background: "#00f2fe",
-                boxShadow: "0 0 8px #00f2fe",
-              }}
-            />
-          )}
-        </button>
-
-        {/* 3. Tasks */}
-        <button
-          onClick={() => handleTabClick("/tasks")}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            flex: 1,
-            height: 50,
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            position: "relative",
-          }}
-        >
-          <ClipboardList
-            size={20}
-            color={isTasks && !activeModal ? "#00f2fe" : "rgba(255,255,255,0.45)"}
-            strokeWidth={isTasks && !activeModal ? 2.4 : 1.8}
-            style={{ filter: isTasks && !activeModal ? "drop-shadow(0 0 8px rgba(0,242,254,0.8))" : "none" }}
-          />
-          <span
-            style={{
-              fontSize: 10,
-              fontWeight: 800,
-              marginTop: 3,
-              color: isTasks && !activeModal ? "#00f2fe" : "rgba(255,255,255,0.45)",
-              letterSpacing: 0.2,
-            }}
-          >
-            Tasks
-          </span>
-          {isTasks && !activeModal && (
             <div
               style={{
                 position: "absolute",

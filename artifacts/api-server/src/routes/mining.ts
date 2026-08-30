@@ -7,23 +7,29 @@ import { verifyAccessMiddleware } from "../middlewares/verifyAccess";
 
 const router = Router();
 
+import { getSetting } from "../lib/settingsCache";
+
 // Helper to calculate mining yield in real-time
-export function calculateUserMining(user: {
-  goBalance?: string | null;
-  balance?: string | null;
-  gramBalance?: string | null;
-  miningRate?: string | null;
-  lastMiningAt?: Date | null;
-}) {
+export function calculateUserMining(
+  user: {
+    goBalance?: string | null;
+    balance?: string | null;
+    gramBalance?: string | null;
+    miningRate?: string | null;
+    lastMiningAt?: Date | null;
+  },
+  globalMiningRate?: number
+) {
   const goBal = Math.max(0, parseFloat(user.goBalance ?? user.balance ?? "0") || 0);
   const gramBal = Math.max(0, parseFloat(user.gramBalance ?? "0") || 0);
-  const rate = Math.max(0, parseFloat(user.miningRate ?? "0.0300") || 0.03); // 3%
+  const defaultRate = globalMiningRate ?? 0.02; // 2%
+  const rate = Math.max(0, parseFloat(String(globalMiningRate ?? user.miningRate ?? "0.0200")) || defaultRate);
   
   const lastAt = user.lastMiningAt ? new Date(user.lastMiningAt).getTime() : Date.now();
   const now = Date.now();
   const elapsedSec = Math.max(0, (now - lastAt) / 1000);
 
-  const dailyYield = goBal * rate; // 3% per 24 hours
+  const dailyYield = goBal * rate; // Daily yield based on mining rate
   const perSecondYield = dailyYield / 86400; // per second
   const unclaimedGram = elapsedSec * perSecondYield;
   const isMining = goBal > 0;
@@ -51,13 +57,16 @@ router.get("/status", requireSession, async (req, res) => {
   }
 
   try {
+    const rawRate = await getSetting("global_mining_rate").catch(() => null);
+    const globalRate = rawRate ? parseFloat(rawRate) : 0.02;
+
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;
     }
 
-    const calc = calculateUserMining(user);
+    const calc = calculateUserMining(user, globalRate);
 
     res.setHeader("Cache-Control", "no-store");
     res.json({
@@ -86,6 +95,9 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
   }
 
   try {
+    const rawRate = await getSetting("global_mining_rate").catch(() => null);
+    const globalRate = rawRate ? parseFloat(rawRate) : 0.02;
+
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
     if (!user) {
       res.status(404).json({ error: "User not found" });
@@ -96,7 +108,7 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
       return;
     }
 
-    const calc = calculateUserMining(user);
+    const calc = calculateUserMining(user, globalRate);
     if (calc.unclaimedGram < 0.000001) {
       res.status(400).json({ error: "لا توجد أرباح كافية للتجميع حالياً" });
       return;
@@ -132,6 +144,9 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
 // ── GET /api/mining/stats ───────────────────────────────────────────────────
 router.get("/stats", async (_req, res) => {
   try {
+    const rawRate = await getSetting("global_mining_rate").catch(() => null);
+    const globalRate = rawRate ? parseFloat(rawRate) : 0.02;
+
     const [usersStats] = await db.select({
       totalUsers: sql<number>`count(*)`,
       totalGo: sql<string>`coalesce(sum(coalesce(go_balance, balance)), 0)`,
@@ -145,8 +160,8 @@ router.get("/stats", async (_req, res) => {
       totalMiners: Number(usersStats?.totalUsers || 0),
       totalGoCirculation: totalGoNum.toFixed(2),
       totalGramMined: totalGramNum.toFixed(4),
-      dailyNetworkYield: (totalGoNum * 0.03).toFixed(4),
-      defaultRatePercent: 3.0,
+      dailyNetworkYield: (totalGoNum * globalRate).toFixed(4),
+      defaultRatePercent: parseFloat((globalRate * 100).toFixed(2)),
     });
   } catch {
     res.json({
@@ -154,7 +169,7 @@ router.get("/stats", async (_req, res) => {
       totalGoCirculation: "0.00",
       totalGramMined: "0.0000",
       dailyNetworkYield: "0.0000",
-      defaultRatePercent: 3.0,
+      defaultRatePercent: 2.0,
     });
   }
 });
