@@ -203,6 +203,17 @@ export const api = {
       body: JSON.stringify({ deviceId }),
     }),
 
+  getVerificationToken: () =>
+    apiCall<{ token: string }>("/verification/get-token", {
+      method: "POST",
+    }),
+
+  sendFingerprint: (payload: { fingerprint: string; meta: Record<string, unknown>; user_id?: number; fp_token?: string }) =>
+    apiCall<{ ok?: boolean; success?: boolean; verified?: boolean; banned?: boolean; error?: string }>("/fingerprint", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
   getUserReferrals: (userId: number) => apiCall<ReferralEntry[]>(`/users/${userId}/referrals`),
 
   getLeaderboard: (userId?: number) =>

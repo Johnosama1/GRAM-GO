@@ -9,6 +9,8 @@ import {
   adminsTable,
   botSettingsTable,
   withdrawalsTable,
+  bansTable,
+  securityEventsTable,
 } from "@workspace/db/schema";
 import { eq, count, sql, and, ne } from "drizzle-orm";
 import { invalidateWheelCache } from "./wheel";
@@ -527,13 +529,95 @@ router.put("/withdrawals/:id", async (req, res) => {
 router.put("/users/:id/ban", async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
-  const { banned } = req.body;
+  const { banned, reason } = req.body;
+  const isBanned = banned === true;
   const [updated] = await db.update(usersTable)
-    .set({ isVisible: banned === true ? false : true })
+    .set({ isVisible: !isBanned })
     .where(eq(usersTable.id, id))
     .returning();
   if (!updated) { res.status(404).json({ error: "User not found" }); return; }
+
+  if (isBanned) {
+    await db.insert(bansTable).values({
+      userId: id,
+      reason: reason || "manual_admin",
+      bannedAt: new Date(),
+      bannedBy: "admin",
+      isActive: true,
+    }).catch(() => {});
+  } else {
+    await db.update(bansTable)
+      .set({ isActive: false })
+      .where(eq(bansTable.userId, id))
+      .catch(() => {});
+  }
+
   res.json({ success: true, user: updated });
+});
+
+// ── GET /api/admin/bans — List all banned accounts ─────────────────────
+router.get("/bans", async (_req, res) => {
+  try {
+    const bans = await db
+      .select({
+        id: bansTable.id,
+        userId: bansTable.userId,
+        reason: bansTable.reason,
+        matchedUserId: bansTable.matchedUserId,
+        matchedSignals: bansTable.matchedSignals,
+        bannedAt: bansTable.bannedAt,
+        bannedBy: bansTable.bannedBy,
+        isActive: bansTable.isActive,
+        username: usersTable.username,
+        firstName: usersTable.firstName,
+      })
+      .from(bansTable)
+      .leftJoin(usersTable, eq(bansTable.userId, usersTable.id))
+      .orderBy(sql`${bansTable.bannedAt} DESC`)
+      .limit(100);
+
+    res.json(bans);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch bans" });
+  }
+});
+
+// ── POST /api/admin/unban/:id — Unban a user manually ─────────────────
+router.post("/unban/:id", async (req, res) => {
+  const userId = parseInt(req.params.id);
+  if (isNaN(userId)) { res.status(400).json({ error: "Invalid userId" }); return; }
+
+  await db.update(usersTable)
+    .set({ isVisible: true, ipSuspicious: false })
+    .where(eq(usersTable.id, userId));
+
+  await db.update(bansTable)
+    .set({ isActive: false })
+    .where(eq(bansTable.userId, userId));
+
+  await db.insert(securityEventsTable).values({
+    userId,
+    eventType: "unbanned",
+    details: { by: "admin" },
+    createdAt: new Date(),
+  }).catch(() => {});
+
+  res.json({ success: true, message: "User unbanned successfully" });
+});
+
+// ── GET /api/admin/security-events — View security audit log ──────────
+router.get("/security-events", async (_req, res) => {
+  try {
+    const events = await db
+      .select()
+      .from(securityEventsTable)
+      .orderBy(sql`${securityEventsTable.createdAt} DESC`)
+      .limit(100);
+
+    res.json(events);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch security events" });
+  }
 });
 
 export default router;

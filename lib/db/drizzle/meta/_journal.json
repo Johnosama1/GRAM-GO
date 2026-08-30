@@ -8,6 +8,13 @@
       "when": 1788028738572,
       "tag": "0000_wild_typhoid_mary",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788096209491,
+      "tag": "0001_ordinary_micromax",
+      "breakpoints": true
     }
   ]
 }

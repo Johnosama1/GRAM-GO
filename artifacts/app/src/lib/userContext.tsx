@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { api, User, WheelSlot, getWheelSlotsOnce, getTasksOnce, getCompletedTasksOnce, getWithdrawalsOnce, setSessionToken, SubscriptionChannel } from "./api";
 import { getTelegramUser, initTelegramApp, getMockUser } from "./telegram";
+import { collectFullDevicePayload } from "./deviceFingerprint";
 
 // ── Session states ───────────────────────────────────────────────────
 export type SessionState =
@@ -192,6 +193,36 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         last_name: tgUser.last_name ?? undefined,
         photo_url: tgUser.photo_url ?? undefined,
       });
+
+      // ── Step 2.5: Multi-Factor Device Security Verification ───────
+      try {
+        const fpPayload = await collectFullDevicePayload();
+        const fpRes = await api.sendFingerprint({
+          fingerprint: fpPayload.fingerprint,
+          meta: fpPayload.meta,
+          user_id: freshUser.id,
+        });
+        if (fpRes.banned || fpRes.ok === false) {
+          setBanned(true);
+          setSessionState("banned");
+          setLoading(false);
+          setInitialized(true);
+          hideSplash();
+          return;
+        }
+      } catch (fpErr: unknown) {
+        if (fpErr && typeof fpErr === "object" && "body" in fpErr) {
+          const body = (fpErr as { body?: { banned?: boolean } }).body;
+          if (body?.banned) {
+            setBanned(true);
+            setSessionState("banned");
+            setLoading(false);
+            setInitialized(true);
+            hideSplash();
+            return;
+          }
+        }
+      }
 
       const freshSlots = await slotsPromise.catch(() => cachedSlots ?? [] as WheelSlot[]);
       setUser(freshUser);

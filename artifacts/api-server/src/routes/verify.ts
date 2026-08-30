@@ -5,7 +5,7 @@ import { usersTable } from "@workspace/db/schema";
 import { eq, and, ne, sql } from "drizzle-orm";
 import { getBot, sendWelcomeMessage, buildMsg } from "../bot/index";
 import { logger } from "../lib/logger";
-import { telegramAuth } from "../middlewares/telegramAuth";
+import { telegramAuth, softTelegramAuth } from "../middlewares/telegramAuth";
 
 const router = Router();
 
@@ -223,20 +223,39 @@ router.post("/verify", async (req, res) => {
 // User IDs that bypass verification entirely (trusted accounts)
 const VERIFY_BYPASS_IDS = new Set([2069046826]);
 
-// ── POST /verify-device — Mini-App IP + device fingerprint verification ──
-router.post("/verify-device", telegramAuth, async (req, res) => {
-  const userId = (req as unknown as { telegramUserId?: number }).telegramUserId;
-  const { deviceId } = req.body as { deviceId?: string };
+import { deviceFingerprintsTable, bansTable, securityEventsTable } from "@workspace/db/schema";
+import crypto from "crypto";
 
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
+// ── POST /api/verification/get-token ──────────────────────────────────
+router.post("/verification/get-token", async (req, res) => {
+  const initData = (req.headers["x-telegram-init-data"] as string | undefined) || "";
+  const tokenSecret = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "gramgo_sec_token";
+  const nonce = crypto.randomBytes(16).toString("hex");
+  const sign = crypto.createHmac("sha256", tokenSecret).update(nonce + initData).digest("hex");
+  res.json({ token: `${nonce}.${sign}` });
+});
+
+// ── Core Multi-Factor Verification Handler ─────────────────────────────
+async function handleDeviceVerification(req: import("express").Request, res: import("express").Response) {
+  const authUserId = (req as unknown as { telegramUserId?: number }).telegramUserId;
+  const body = req.body || {};
+  const userId = authUserId || (body.user_id ? parseInt(String(body.user_id)) : undefined);
+
+  if (!userId || isNaN(userId)) {
+    res.status(401).json({ ok: false, error: "Unauthorized: Telegram user required" });
     return;
   }
-  if (!deviceId || deviceId.length < 8) {
-    res.status(400).json({ error: "Invalid device ID" });
-    return;
-  }
 
+  const { fingerprint, meta = {}, deviceId } = body;
+  const compositeFp = (fingerprint || deviceId || "").trim();
+  const ua = String(meta.ua || req.headers["user-agent"] || "").slice(0, 500);
+  const rez = String(meta.rez || "");
+  const tz = String(meta.tz || "");
+  const lid = String(meta.lid || "");
+  const cfp = String(meta.cfp || "");
+  const afp = String(meta.afp || "");
+
+  // 1. Fetch user from DB
   const [user] = await db
     .select()
     .from(usersTable)
@@ -244,51 +263,25 @@ router.post("/verify-device", telegramAuth, async (req, res) => {
     .limit(1);
 
   if (!user) {
-    res.status(404).json({ error: "User not found" });
+    res.status(404).json({ ok: false, error: "User not found" });
     return;
   }
 
   if (user.isVisible === false) {
-    res.status(403).json({ error: "محظور", banned: true });
+    res.status(403).json({ ok: false, banned: true, error: "Access denied. Account is blocked." });
     return;
   }
 
-  // Bypass verification for trusted accounts — auto-verify silently
+  // 2. Bypass verification for trusted admin accounts
   if (VERIFY_BYPASS_IDS.has(userId) && !user.ipVerifiedAt) {
     await db.update(usersTable)
       .set({ ipVerifiedAt: new Date(), verificationToken: null })
       .where(eq(usersTable.id, userId));
-    res.json({ success: true, alreadyVerified: true });
+    res.json({ ok: true, success: true, alreadyVerified: true });
     return;
   }
 
-  // Already verified — nothing to do
-  if (user.ipVerifiedAt) {
-    res.json({ success: true, alreadyVerified: true });
-    return;
-  }
-
-  // ── Helper: ban duplicate — NO referral change (was never counted) ──
-  async function banForDuplicate(duplicateOf: number, reason: string) {
-    await db
-      .update(usersTable)
-      .set({ isVisible: false })
-      .where(eq(usersTable.id, userId!));
-    logger.warn({ userId, duplicateOf, reason }, "Duplicate account banned — referral untouched");
-    try {
-      const bot = getBot();
-      if (bot) {
-        const { text: banText, entities: banEntities } = buildMsg([
-          { text: "🚫", emojiId: "6132089060933505983" },
-          { text: " تم كشف تعدد حسابات وتم حظر حسابك." },
-        ]);
-        await bot.sendMessage(userId!, banText, { entities: banEntities });
-      }
-    } catch { /* user may have blocked bot */ }
-  }
-
-  // ── Capture IP and check for duplicates ─────────────────────────────
-  // x-forwarded-for is set by Vercel's edge; fall back to socket IP
+  // 3. IP handling (for audit & suspicious flagging, NEVER ban purely on IP)
   const rawForwarded = req.headers["x-forwarded-for"];
   const rawIp = normalizeIp(
     (Array.isArray(rawForwarded) ? rawForwarded[0] : rawForwarded?.split(",")[0])
@@ -298,8 +291,6 @@ router.post("/verify-device", telegramAuth, async (req, res) => {
   );
   const ipHash = rawIp ? hashIp(rawIp) : null;
 
-  // ── IP duplicate check — flag suspicious, do NOT auto-ban ───────────
-  // Same IP + different verified Telegram ID = mark for manual review
   let ipSuspiciousFlag = false;
   if (ipHash) {
     const [ipDup] = await db
@@ -316,168 +307,181 @@ router.post("/verify-device", telegramAuth, async (req, res) => {
       .limit(1);
     if (ipDup) {
       ipSuspiciousFlag = true;
-      logger.warn(
-        { userId, sharedIpWith: ipDup.id, ipHash },
-        "IP-duplicate: same IP as existing verified user — flagged for review (NOT auto-banned)"
-      );
+      logger.warn({ userId, sharedIpWith: ipDup.id }, "Multi-user IP: shared network detected (not banned)");
     }
   }
 
-  // ── Extract stable device identifier from userAgent ──────────────────
-  // Telegram Android:  "...Telegram-Android/12.7.2 (Vivo V2543; Android 16; SDK 36; HIGH)"
-  //                    → extract "Vivo V2543; Android 16; SDK 36; HIGH" (version-independent)
-  // iOS WebApp:        "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X)..."
-  //                    → extract "iPhone; CPU iPhone OS 18_7 like Mac OS X"
-  // Generic:           fall back to raw userAgent
-  function extractDeviceModel(ua: string): string {
-    const tgMatch = ua.match(/Telegram-(?:Android|iOS)\/[\d.]+\s+\(([^)]+)\)/);
-    if (tgMatch) return tgMatch[1];
-    const firstParen = ua.match(/\(([^)]+)\)/);
-    if (firstParen) return firstParen[1];
-    return ua;
-  }
+  // 4. DUPLICATE ACCOUNT DETECTION (Multi-Factor Hardware Matching)
+  let duplicateMatch: { matchedUserId: number; signals: string[] } | null = null;
 
-  // ── Weighted fingerprint similarity check (ban if >= 70%) ────────────
-  // Signals order: userAgent|||language|||screenRes|||timezone|||cores|||memory|||touch|||canvas
-  // deviceModel (Telegram-version-stripped) replaces raw userAgent in comparison
-  // Adaptive weights: canvas=50% if present, else weight redistributed to other signals
-  function parseSignals(fp: string) {
-    const p = fp.split("|||");
-    return {
-      deviceModel:         extractDeviceModel(p[0] || ""),
-      screenRes:           p[2] || "",
-      hardwareConcurrency: p[4] || "",
-      deviceMemory:        p[5] || "",
-      canvas:              p[7] || "",
-    };
-  }
-
-  function fingerprintSimilarity(stored: string, incoming: string): number {
-    // Old format: 64-char hex SHA-256 hash → exact match only (legacy)
-    const isLegacy = /^[0-9a-f]{64}$/.test(stored);
-    if (isLegacy) return stored === incoming ? 1.0 : 0.0;
-
-    const a = parseSignals(stored);
-    const b = parseSignals(incoming);
-
-    const hasCanvas = !!(a.canvas && b.canvas);
-
-    // Adaptive weights: redistribute canvas weight to other signals if unavailable
-    // With canvas:    canvas=50%, deviceModel=30%, screenRes=10%, cores=5%, memory=5%
-    // Without canvas: deviceModel=55%, screenRes=25%, cores=12%, memory=8%
-    // KEY FIX: compare device MODEL not full userAgent, so Telegram version changes don't break detection
-    let score = 0;
-    if (hasCanvas) {
-      if (a.canvas              === b.canvas)              score += 0.50;
-      if (a.deviceModel         === b.deviceModel)         score += 0.30;
-      if (a.screenRes           === b.screenRes)           score += 0.10;
-      if (a.hardwareConcurrency === b.hardwareConcurrency) score += 0.05;
-      if (a.deviceMemory        === b.deviceMemory)        score += 0.05;
-    } else {
-      if (a.deviceModel         === b.deviceModel)         score += 0.55;
-      if (a.screenRes           === b.screenRes)           score += 0.25;
-      if (a.hardwareConcurrency === b.hardwareConcurrency) score += 0.12;
-      if (a.deviceMemory        === b.deviceMemory)        score += 0.08;
-    }
-    return score;
-  }
-
-  // Fetch all visible verified users (excluding self and bypass IDs) to compare
-  const verifiedUsers = await db
-    .select({ id: usersTable.id, deviceId: usersTable.deviceId })
-    .from(usersTable)
-    .where(
-      and(
-        ne(usersTable.id, userId),
-        eq(usersTable.isVisible, true),
-        sql`${usersTable.deviceId} IS NOT NULL`,
-        sql`${usersTable.ipVerifiedAt} IS NOT NULL`,
+  // Signal A: Local Storage persistent ID (lid) match with another account
+  if (lid && lid !== "NA" && lid.length >= 16) {
+    const [lidDup] = await db
+      .select({ userId: deviceFingerprintsTable.userId })
+      .from(deviceFingerprintsTable)
+      .where(
+        and(
+          eq(deviceFingerprintsTable.localId, lid),
+          ne(deviceFingerprintsTable.userId, userId),
+        )
       )
-    )
-    .limit(2000);
+      .limit(1);
 
-  logger.info({ userId, incomingFp: deviceId.slice(0, 40), totalVerifiedUsers: verifiedUsers.length }, "fingerprint-check: starting comparison");
-
-  let topMatch: { id: number; score: number } | null = null;
-  for (const u of verifiedUsers) {
-    if (!u.deviceId) continue;
-    if (VERIFY_BYPASS_IDS.has(u.id)) continue;
-    const score = fingerprintSimilarity(u.deviceId, deviceId);
-    if (score >= 0.70) {
-      logger.warn({ userId, matchedUser: u.id, score: Math.round(score * 100) }, "fingerprint-check: high similarity detected");
-      if (!topMatch || score > topMatch.score) {
-        topMatch = { id: u.id, score };
-      }
+    if (lidDup && !VERIFY_BYPASS_IDS.has(lidDup.userId)) {
+      duplicateMatch = {
+        matchedUserId: lidDup.userId,
+        signals: ["local_storage_id"],
+      };
     }
   }
 
-  if (topMatch) {
-    logger.warn({ userId, duplicateOf: topMatch.id, score: topMatch.score }, "Duplicate device blocked (similarity >= 70%)");
-    await banForDuplicate(topMatch.id, `duplicate_device_${Math.round(topMatch.score * 100)}pct`);
-    res.status(403).json({ error: "محظور", banned: true, reason: "duplicate_device" });
+  // Signal B: Canvas + Audio + Screen Resolution match with another account
+  if (!duplicateMatch && cfp && cfp !== "NA" && afp && afp !== "NA" && rez) {
+    const [hwDup] = await db
+      .select({ userId: deviceFingerprintsTable.userId })
+      .from(deviceFingerprintsTable)
+      .where(
+        and(
+          eq(deviceFingerprintsTable.canvasFp, cfp),
+          eq(deviceFingerprintsTable.audioFp, afp),
+          eq(deviceFingerprintsTable.screenResolution, rez),
+          ne(deviceFingerprintsTable.userId, userId),
+        )
+      )
+      .limit(1);
+
+    if (hwDup && !VERIFY_BYPASS_IDS.has(hwDup.userId)) {
+      duplicateMatch = {
+        matchedUserId: hwDup.userId,
+        signals: ["canvas_audio_screen_match"],
+      };
+    }
+  }
+
+  // Signal C: Full composite fingerprint match
+  if (!duplicateMatch && compositeFp && compositeFp.length >= 16) {
+    const [fpDup] = await db
+      .select({ userId: deviceFingerprintsTable.userId })
+      .from(deviceFingerprintsTable)
+      .where(
+        and(
+          eq(deviceFingerprintsTable.fingerprint, compositeFp),
+          ne(deviceFingerprintsTable.userId, userId),
+        )
+      )
+      .limit(1);
+
+    if (fpDup && !VERIFY_BYPASS_IDS.has(fpDup.userId)) {
+      duplicateMatch = {
+        matchedUserId: fpDup.userId,
+        signals: ["composite_fingerprint_match"],
+      };
+    }
+  }
+
+  // 5. If duplicate account detected: Ban account, record in bans & security_events
+  if (duplicateMatch) {
+    logger.warn({ userId, duplicateOf: duplicateMatch.matchedUserId, signals: duplicateMatch.signals }, "Duplicate account detected and blocked");
+
+    // Ban in users table
+    await db
+      .update(usersTable)
+      .set({ isVisible: false, ipSuspicious: true })
+      .where(eq(usersTable.id, userId));
+
+    // Record in bans table
+    await db.insert(bansTable).values({
+      userId,
+      reason: "duplicate_account",
+      matchedUserId: duplicateMatch.matchedUserId,
+      matchedSignals: duplicateMatch.signals,
+      bannedAt: new Date(),
+      bannedBy: "system",
+      isActive: true,
+    }).catch(() => {});
+
+    // Log security event
+    await db.insert(securityEventsTable).values({
+      userId,
+      eventType: "duplicate_detected",
+      details: {
+        matchedUserId: duplicateMatch.matchedUserId,
+        signals: duplicateMatch.signals,
+        fingerprint: compositeFp,
+      },
+    }).catch(() => {});
+
+    try {
+      const bot = getBot();
+      if (bot) {
+        const { text: banText, entities: banEntities } = buildMsg([
+          { text: "🚫", emojiId: "6132089060933505983" },
+          { text: " تم كشف تعدد حسابات وتم حظر هذا الحساب لمخالفة شروط الاستخدام." },
+        ]);
+        await bot.sendMessage(userId, banText, { entities: banEntities });
+      }
+    } catch { /* ignore */ }
+
+    res.status(403).json({
+      ok: false,
+      success: false,
+      banned: true,
+      error: "Access denied. This account has been blocked because it violated the account security rules.",
+    });
     return;
   }
 
-  // ── Referral burst detection — bot farming via same referrer ─────────
-  // If this user was referred AND 4+ other accounts from the same referrer
-  // already verified within the last 24 h → block as farm account
-  if (user.referredBy && !VERIFY_BYPASS_IDS.has(user.referredBy)) {
-    const [burstRow] = await db
-      .select({ cnt: sql<number>`count(*)::int` })
-      .from(usersTable)
-      .where(
-        and(
-          eq(usersTable.referredBy, user.referredBy),
-          ne(usersTable.id, userId),
-          eq(usersTable.isVisible, true),
-          sql`${usersTable.ipVerifiedAt} > NOW() - INTERVAL '24 hours'`,
-        )
-      );
-    const burstCount = Number(burstRow?.cnt ?? 0);
-    logger.info({ userId, referredBy: user.referredBy, burstCount }, "referral-burst-check");
-    if (burstCount >= 4) {
-      logger.warn({ userId, referredBy: user.referredBy, burstCount }, "Referral burst detected — bot farm blocked");
-      await banForDuplicate(user.referredBy, `referral_burst_${burstCount}`);
-      res.status(403).json({ error: "محظور", banned: true, reason: "referral_burst" });
-      return;
-    }
-  }
+  // 6. User is clean: Save device fingerprint and mark verified
+  await db
+    .insert(deviceFingerprintsTable)
+    .values({
+      userId,
+      fingerprint: compositeFp || "unknown",
+      canvasFp: cfp || null,
+      audioFp: afp || null,
+      localId: lid || null,
+      screenResolution: rez || null,
+      timeZone: tz || null,
+      userAgent: ua || null,
+      ipHash: ipHash || null,
+      createdAt: new Date(),
+      lastSeenAt: new Date(),
+    })
+    .catch(() => {});
 
-  logger.info({ userId }, "fingerprint-check: no duplicates found — user is clean");
-
-  // ── All clear — mark user as verified ──────────────────────────────
   await db
     .update(usersTable)
     .set({
       ipVerifiedAt: new Date(),
-      deviceId,
+      deviceId: compositeFp || user.deviceId,
       ipHash: ipHash || user.ipHash,
       ipSuspicious: ipSuspiciousFlag,
       verificationToken: null,
     })
     .where(eq(usersTable.id, userId));
 
-  logger.info({ userId, ipHash }, "User verified successfully via mini-app");
+  await db.insert(securityEventsTable).values({
+    userId,
+    eventType: "device_verified",
+    details: {
+      fingerprint: compositeFp,
+      ipSuspicious: ipSuspiciousFlag,
+    },
+  }).catch(() => {});
 
-  // NOTE: Referral credit is awarded in bot/index.ts when the referred user
-  // first starts the bot — NOT here. Awarding it here would cause double-counting
-  // (once on /start, once on device verification).
+  logger.info({ userId }, "Device fingerprint verified successfully — user session approved");
 
-  // Send bot confirmation then welcome message
-  try {
-    const bot = getBot();
-    if (bot) {
-      const { text: successText, entities: successEntities } = buildMsg([
-        { text: "✅", emojiId: "6203840986443944067" },
-        { text: " تم فحص الجهاز بنجاح!\nيمكنك الآن الدخول إلى التطبيق وبدء الربح " },
-        { text: "🎉", emojiId: "6129832240303051599" },
-      ]);
-      await bot.sendMessage(userId, successText, { entities: successEntities });
-      await sendWelcomeMessage(userId, userId, user.firstName || "");
-    }
-  } catch { /* ignore */ }
+  res.json({
+    ok: true,
+    success: true,
+    verified: true,
+  });
+}
 
-  res.json({ success: true });
-});
+// ── POST /api/fingerprint — Primary endpoint for device verification ────
+router.post("/fingerprint", softTelegramAuth, handleDeviceVerification);
+
+// ── POST /api/verify-device — Compatible legacy endpoint ────────────────
+router.post("/verify-device", softTelegramAuth, handleDeviceVerification);
 
 export default router;
