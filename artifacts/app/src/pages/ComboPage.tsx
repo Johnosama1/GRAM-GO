@@ -528,27 +528,6 @@ export default function ComboPage() {
                     >
                       {item.name}
                     </span>
-                    {!status?.attempted && (
-                      <div
-                        style={{
-                          position: "absolute",
-                          top: "3px",
-                          right: "3px",
-                          width: "16px",
-                          height: "16px",
-                          borderRadius: "50%",
-                          background: "rgba(239, 68, 68, 0.85)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "9px",
-                          color: "#fff",
-                          fontWeight: 900,
-                        }}
-                      >
-                        ✕
-                      </div>
-                    )}
                   </>
                 ) : (
                   <div
@@ -575,7 +554,7 @@ export default function ComboPage() {
       </div>
 
       {/* ── 5 Selectable Items Grid (3 Top + 2 Centered Bottom) ──────── */}
-      <div style={{ marginBottom: "12px" }}>
+      <div style={{ marginBottom: "14px" }}>
         <div
           style={{
             display: "flex",
@@ -595,10 +574,10 @@ export default function ComboPage() {
               textTransform: "uppercase",
             }}
           >
-            Choose 3 Items ({selectedIds.length}/3)
+            اختر 3 عناصر ({selectedIds.length}/3)
           </span>
           <span style={{ color: "#00f2fe", fontSize: "10px", fontWeight: 700 }}>
-            Tap to toggle
+            اضغط للاختيار
           </span>
         </div>
 
@@ -819,7 +798,7 @@ export default function ComboPage() {
       </div>
 
       {/* ── Check Button Section ──────────────────────────────────────── */}
-      <div style={{ marginTop: "4px" }}>
+      <div style={{ marginTop: "4px", marginBottom: "16px" }}>
         {warningMsg && (
           <div
             style={{
