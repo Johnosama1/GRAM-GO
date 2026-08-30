@@ -45,10 +45,10 @@ function BannedScreen() {
         boxShadow: "0 12px 36px rgba(0,0,0,0.6)",
       }}>
         <h2 style={{ color: "#f87171", fontWeight: 800, fontSize: 22, margin: "0 0 14px", letterSpacing: "0.3px" }}>
-          Access denied
+          الحساب معطل
         </h2>
-        <p style={{ color: "rgba(231,236,242,0.85)", fontSize: 14, margin: 0, lineHeight: 1.7 }}>
-          This account has been blocked because it violated the account security rules.
+        <p style={{ color: "rgba(231,236,242,0.85)", fontSize: 14, margin: 0, lineHeight: 1.7, direction: "rtl" }}>
+          تم حظر هذا الحساب لمخالفة شروط وسياسات الاستخدام.
         </p>
       </div>
     </div>
@@ -143,66 +143,6 @@ function MaintenanceScreen() {
   );
 }
 
-function SessionIssuingScreen() {
-  return (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 9998,
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      background: "radial-gradient(circle at 50% 40%, #151a24 0%, #0a0c10 100%)",
-      padding: "24px",
-    }}>
-      <style>{`
-        @keyframes secPulse {
-          0%,100% { transform: scale(1); box-shadow: 0 0 30px rgba(91,139,255,0.3), 0 0 60px rgba(168,85,247,0.2); }
-          50%      { transform: scale(1.05); box-shadow: 0 0 50px rgba(91,139,255,0.6), 0 0 80px rgba(168,85,247,0.4); }
-        }
-        @keyframes secDot {
-          0%,80%,100% { opacity:0.3; transform:scale(0.8); }
-          40%         { opacity:1;   transform:scale(1.2); }
-        }
-      `}</style>
-
-      <div style={{
-        width: 100, height: 100, borderRadius: "50%",
-        background: "linear-gradient(135deg, rgba(91,139,255,0.2), rgba(168,85,247,0.2))",
-        border: "2px solid rgba(91,139,255,0.5)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: 44,
-        animation: "secPulse 2s ease-in-out infinite",
-        marginBottom: 28,
-      }}>
-        🔐
-      </div>
-
-      <div style={{ textAlign: "center", marginBottom: 20 }}>
-        <h3 style={{
-          color: "#e7ecf2", fontSize: 18, fontWeight: 700, margin: "0 0 8px",
-          letterSpacing: "0.2px",
-        }}>
-          Checking account...
-        </h3>
-        <p style={{
-          color: "rgba(147,197,253,0.8)", fontSize: 13, margin: 0,
-          fontWeight: 500,
-        }}>
-          Securing your session...
-        </p>
-      </div>
-
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        {[0, 1, 2].map(i => (
-          <div key={i} style={{
-            width: 8, height: 8, borderRadius: "50%",
-            background: i === 1 ? "#c084fc" : "#60a5fa",
-            animation: "secDot 1.2s ease-in-out infinite",
-            animationDelay: `${i * 0.2}s`,
-          }} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 const PageFallback = () => (
   <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }} />
 );
@@ -220,16 +160,13 @@ const ROUTES = [
 
 function PersistentRouter() {
   const [location] = useLocation();
-  const { banned, user, loading, initialized, refresh, sessionState, blockedInfo, recheckSession } = useUser();
+  const { banned, user, refresh, sessionState, blockedInfo, recheckSession } = useUser();
 
   // ── 1. Banned ─────────────────────────────────────────────────────
   if (banned || sessionState === "banned") return <BannedScreen />;
 
   // ── 2. Maintenance mode ───────────────────────────────────────────
   if (sessionState === "maintenance") return <MaintenanceScreen />;
-
-  // ── 3. Session gate: issuing token ────────────────────────────────
-  if (sessionState === "issuing") return <SessionIssuingScreen />;
 
   // ── 3. Subscription blocked ───────────────────────────────────────
   if (sessionState === "blocked" && blockedInfo) {

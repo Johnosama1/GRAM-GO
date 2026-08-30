@@ -67,19 +67,12 @@ function writeCache(key: string, data: unknown) {
 }
 
 // ────────────────────────────────────────────────────────────────────
-const SPLASH_START = Date.now();
-const MIN_SPLASH_MS = 400;
-
 const hideSplash = () => {
-  const elapsed = Date.now() - SPLASH_START;
-  const delay = Math.max(0, MIN_SPLASH_MS - elapsed);
-  setTimeout(() => {
-    const splash = document.getElementById("splash");
-    if (splash && !splash.classList.contains("hidden")) {
-      splash.classList.add("hidden");
-      setTimeout(() => splash.remove(), 600);
-    }
-  }, delay);
+  const splash = document.getElementById("splash");
+  if (splash && !splash.classList.contains("hidden")) {
+    splash.classList.add("hidden");
+    setTimeout(() => splash.remove(), 400);
+  }
 };
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
@@ -93,8 +86,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [isAdminState, setIsAdminState] = useState(false);
 
   // ── Issue (or re-issue) session token ─────────────────────────────
-  const doIssueSession = async (userId: number, retryCount = 0) => {
-    setSessionState("issuing");
+  const doIssueSession = async (userId: number, retryCount = 0): Promise<void> => {
     try {
       const result = await api.issueSession(userId);
       setSessionToken(result.token);
@@ -116,17 +108,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           setSessionState("blocked");
         }
       } else if (err?.status === 401 && err.body?.error === "invalid_auth" && retryCount < 2) {
-        // initData might not be ready yet — retry after a short delay
-        console.warn(`Session auth failed (invalid_auth), retry #${retryCount + 1} in 800ms…`);
-        await new Promise(r => setTimeout(r, 800));
+        await new Promise(r => setTimeout(r, 600));
         return doIssueSession(userId, retryCount + 1);
-      } else if (err?.status === 0) {
-        // Network error — fail open (server unreachable)
-        console.warn("Session issue: network error — fail open", e);
-        setSessionState("ready");
       } else {
-        // Other unexpected error — fail open to avoid locking out users
-        console.warn("Session issue failed (fail-open):", err?.body?.error ?? e);
+        // Fail open for non-blocking network issues
         setSessionState("ready");
       }
     }
@@ -135,7 +120,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   // ── Re-check after user says they rejoined ─────────────────────────
   const recheckSession = async () => {
     if (!user) return;
-    setSessionState("issuing");
     try {
       const result = await api.recheckSession(user.id);
       setSessionToken(result.token);
@@ -152,7 +136,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         });
         setSessionState("blocked");
       } else {
-        // Fail open
         setSessionState("ready");
       }
     }
@@ -161,7 +144,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const init = async () => {
     try {
       // ── Clear storage on version bump ──────────────────────────────
-      const APP_VER = "3.1";
+      const APP_VER = "3.2";
       const VER_KEY = "jjx_app_ver";
       if (localStorage.getItem(VER_KEY) !== APP_VER) {
         localStorage.clear();
@@ -172,37 +155,63 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       initTelegramApp();
       const tgUser = getTelegramUser() ?? getMockUser();
 
-      // ── Step 1: Show cached data INSTANTLY ────────────────────────
+      // ── Step 1: Show cached data immediately ───────────────────────
       const cachedUser = readCache<User>(`user:${tgUser.id}`);
       const cachedSlots = readCache<WheelSlot[]>("slots");
-      if (cachedUser && cachedSlots) {
+      if (cachedUser) {
         setUser(cachedUser);
-        setSlots(cachedSlots);
         setLoading(false);
+      }
+      if (cachedSlots) {
+        setSlots(cachedSlots);
       }
       hideSplash();
 
-      // ── Step 2: Init user + slots in parallel ─────────────────────
-      const slotsPromise = getWheelSlotsOnce();
-      getTasksOnce().catch(() => {});
+      // ── Step 2: Parallel background verification & data fetch ──────
+      const [initRes, fpRes, slotsRes] = await Promise.allSettled([
+        // 1. Backend user init
+        api.initUser({
+          id: tgUser.id,
+          username: tgUser.username ?? undefined,
+          first_name: tgUser.first_name ?? undefined,
+          last_name: tgUser.last_name ?? undefined,
+          photo_url: tgUser.photo_url ?? undefined,
+        }),
+        // 2. Silent Multi-Factor Security Verification
+        (async () => {
+          try {
+            const fpPayload = await collectFullDevicePayload();
+            return await api.sendFingerprint({
+              fingerprint: fpPayload.fingerprint,
+              meta: fpPayload.meta,
+              user_id: tgUser.id,
+            });
+          } catch (fpErr: unknown) {
+            if (fpErr && typeof fpErr === "object" && "body" in fpErr) {
+              const body = (fpErr as { body?: { banned?: boolean } }).body;
+              if (body?.banned) return { banned: true, ok: false };
+            }
+            return null;
+          }
+        })(),
+        // 3. Wheel slots
+        getWheelSlotsOnce().catch(() => cachedSlots ?? [] as WheelSlot[]),
+      ]);
 
-      const freshUser = await api.initUser({
-        id: tgUser.id,
-        username: tgUser.username ?? undefined,
-        first_name: tgUser.first_name ?? undefined,
-        last_name: tgUser.last_name ?? undefined,
-        photo_url: tgUser.photo_url ?? undefined,
-      });
+      // Check for ban from device fingerprinting
+      if (fpRes.status === "fulfilled" && fpRes.value && (fpRes.value.banned || fpRes.value.ok === false)) {
+        setBanned(true);
+        setSessionState("banned");
+        setLoading(false);
+        setInitialized(true);
+        hideSplash();
+        return;
+      }
 
-      // ── Step 2.5: Multi-Factor Device Security Verification ───────
-      try {
-        const fpPayload = await collectFullDevicePayload();
-        const fpRes = await api.sendFingerprint({
-          fingerprint: fpPayload.fingerprint,
-          meta: fpPayload.meta,
-          user_id: freshUser.id,
-        });
-        if (fpRes.banned || fpRes.ok === false) {
+      // Check for ban / failure from user init
+      if (initRes.status === "rejected") {
+        const err = initRes.reason;
+        if (err instanceof Error && (err.message === "محظور" || err.message.includes("banned"))) {
           setBanned(true);
           setSessionState("banned");
           setLoading(false);
@@ -210,40 +219,42 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           hideSplash();
           return;
         }
-      } catch (fpErr: unknown) {
-        if (fpErr && typeof fpErr === "object" && "body" in fpErr) {
-          const body = (fpErr as { body?: { banned?: boolean } }).body;
-          if (body?.banned) {
-            setBanned(true);
-            setSessionState("banned");
-            setLoading(false);
-            setInitialized(true);
-            hideSplash();
-            return;
-          }
-        }
       }
 
-      const freshSlots = await slotsPromise.catch(() => cachedSlots ?? [] as WheelSlot[]);
-      setUser(freshUser);
-      setSlots(freshSlots as WheelSlot[]);
-      writeCache(`user:${freshUser.id}`, freshUser);
-      writeCache("slots", freshSlots);
-      hideSplash();
+      if (initRes.status === "fulfilled" && initRes.value) {
+        const freshUser = initRes.value;
+        if (freshUser.isVisible === false) {
+          setBanned(true);
+          setSessionState("banned");
+          setLoading(false);
+          setInitialized(true);
+          hideSplash();
+          return;
+        }
+
+        const freshSlots = (slotsRes.status === "fulfilled" ? slotsRes.value : cachedSlots ?? []) as WheelSlot[];
+        setUser(freshUser);
+        setSlots(freshSlots);
+        writeCache(`user:${freshUser.id}`, freshUser);
+        writeCache("slots", freshSlots);
+
+        // Step 3: Issue session token in background
+        await doIssueSession(freshUser.id);
+
+        // Step 4: Check admin status
+        api.adminCheck(freshUser.id)
+          .then((res) => setIsAdminState(res.isAdmin))
+          .catch(() => setIsAdminState(false));
+
+        // Step 5: Pre-warm secondary caches silently
+        getTasksOnce().catch(() => {});
+        getCompletedTasksOnce(freshUser.id).catch(() => {});
+        getWithdrawalsOnce(freshUser.id).catch(() => {});
+      }
+
       setLoading(false);
       setInitialized(true);
-
-      // ── Step 3: Issue session token (central gate) ────────────────
-      await doIssueSession(freshUser.id);
-
-      // ── Step 4: Check admin status ────────────────────────────────
-      api.adminCheck(freshUser.id)
-        .then((res) => setIsAdminState(res.isAdmin))
-        .catch(() => setIsAdminState(false));
-
-      // ── Step 5: Pre-warm secondary caches ─────────────────────────
-      getCompletedTasksOnce(freshUser.id).catch(() => {});
-      getWithdrawalsOnce(freshUser.id).catch(() => {});
+      hideSplash();
 
     } catch (e: unknown) {
       if (e instanceof Error && e.message === "محظور") {
@@ -253,35 +264,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setInitialized(true);
         hideSplash();
       } else {
-        console.warn("Failed to init user — retrying in 4s:", e);
-        // Auto-retry once after 4 seconds (handles Neon DB cold start)
-        setTimeout(async () => {
-          try {
-            initTelegramApp();
-            const tgUser = getTelegramUser() ?? getMockUser();
-            const freshUser = await api.initUser({
-              id: tgUser.id,
-              username: tgUser.username ?? undefined,
-              first_name: tgUser.first_name ?? undefined,
-              last_name: tgUser.last_name ?? undefined,
-              photo_url: tgUser.photo_url ?? undefined,
-            });
-            const freshSlots = await getWheelSlotsOnce().catch(() => [] as WheelSlot[]);
-            setUser(freshUser);
-            setSlots(freshSlots as WheelSlot[]);
-            writeCache(`user:${freshUser.id}`, freshUser);
-            writeCache("slots", freshSlots);
-            await doIssueSession(freshUser.id);
-          } catch (retryErr) {
-            console.error("Retry also failed:", retryErr);
-          } finally {
-            setLoading(false);
-            setInitialized(true);
-            hideSplash();
-            setSessionState((prev) => prev === "pending" ? "ready" : prev);
-          }
-        }, 4000);
-        return; // don't set initialized yet — let retry handle it
+        console.warn("User initialization note:", e);
+        setLoading(false);
+        setInitialized(true);
+        hideSplash();
       }
     }
   };

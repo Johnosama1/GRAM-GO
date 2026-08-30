@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useUser } from "../lib/userContext";
 import { api, MiningStatus } from "../lib/api";
-import { collectDeviceFingerprint } from "../lib/deviceFingerprint";
 import { useTonAddress, useTonConnectUI } from "@tonconnect/ui-react";
 import {
   Wallet,
@@ -13,79 +12,6 @@ import {
   Loader2,
   CheckCircle,
 } from "lucide-react";
-
-// ── Security Overlay (device verification) ────────────────────────────
-function SecurityOverlay({ state }: { state: "checking" | "banned" }) {
-  if (state === "banned") {
-    return (
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 99999,
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "radial-gradient(ellipse at 50% 0%, #1a0404 0%, #0a0202 100%)",
-          padding: "32px 24px",
-          textAlign: "center",
-          pointerEvents: "all",
-        }}
-      >
-        <div style={{ fontSize: 72, marginBottom: 20 }}>🚫</div>
-        <div
-          style={{
-            background: "rgba(239,68,68,0.10)",
-            border: "1px solid rgba(239,68,68,0.30)",
-            borderRadius: 22,
-            padding: "28px 24px",
-            maxWidth: 320,
-          }}
-        >
-          <h2 style={{ color: "#f87171", fontWeight: 900, fontSize: 20, margin: "0 0 14px" }}>
-            Account Banned
-          </h2>
-          <p style={{ color: "rgba(255,255,255,0.62)", fontSize: 14, lineHeight: 1.8, margin: 0 }}>
-            Multiple accounts detected on this device.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 99999,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "rgba(3,6,18,0.92)",
-        backdropFilter: "blur(14px)",
-        pointerEvents: "all",
-      }}
-    >
-      <div
-        style={{
-          width: 48,
-          height: 48,
-          borderRadius: "50%",
-          border: "3px solid rgba(0,242,254,0.15)",
-          borderTopColor: "#00f2fe",
-          animation: "spinSlow 0.85s linear infinite",
-          marginBottom: 16,
-        }}
-      />
-      <p style={{ color: "rgba(255,255,255,0.65)", fontSize: 13, margin: 0, fontWeight: 700 }}>
-        Initializing GRAMGO mining station...
-      </p>
-    </div>
-  );
-}
 
 // ── Hexagon Container with Glow ────────────────────────────────────────
 function HexagonIcon({
@@ -283,9 +209,6 @@ export default function HomePage() {
   // Mining Countdown timer (seconds remaining in cycle)
   const [timerSeconds, setTimerSeconds] = useState<number>(5101); // 01:25:01
 
-  const [overlayState, setOverlayState] = useState<"idle" | "checking" | "banned">("idle");
-  const verifyStarted = useRef(false);
-
   // Status fetch timestamp & initial values
   const lastFetchRef = useRef<{ ts: number; baseUnclaimed: number; perSec: number }>({
     ts: Date.now(),
@@ -312,35 +235,6 @@ export default function HomePage() {
         .catch(() => {});
     }
   }, [connectedAddress, user?.id, user?.savedWalletAddress]);
-
-  // ── Device security check ──────────────────────────────────────────
-  useEffect(() => {
-    if (!initialized || !user || verifyStarted.current) return;
-    if (user.isVerified) return;
-
-    verifyStarted.current = true;
-    setOverlayState("checking");
-
-    const run = async () => {
-      try {
-        const deviceId = await collectDeviceFingerprint();
-        await Promise.all([
-          api.verifyDevice(deviceId),
-          new Promise<void>((r) => setTimeout(r, 1400)),
-        ]);
-        await refresh();
-        setOverlayState("idle");
-      } catch (e: unknown) {
-        const msg = e instanceof Error ? e.message : "";
-        if (msg === "محظور") {
-          setOverlayState("banned");
-        } else {
-          setOverlayState("idle");
-        }
-      }
-    };
-    run();
-  }, [initialized, user?.id, user?.isVerified]);
 
   // ── Fetch Mining Status ───────────────────────────────────────────
   const fetchMining = async () => {
@@ -473,8 +367,6 @@ export default function HomePage() {
         userSelect: "none",
       }}
     >
-      {overlayState !== "idle" && <SecurityOverlay state={overlayState} />}
-
       <style>{`
         @keyframes spinClockwise {
           from { transform: rotate(0deg); }
