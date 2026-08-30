@@ -141,6 +141,203 @@ export default function ComboPage() {
     { id: 5, name: "GRAM Pickaxe", image: "/combo/combo_5.png", description: "Ultra-dense mining implement" },
   ];
 
+  const renderActionButton = () => {
+    if (status?.rewardClaimed) {
+      return (
+        <div
+          style={{
+            width: "100%",
+            padding: "16px",
+            borderRadius: "18px",
+            background: "rgba(34, 197, 94, 0.15)",
+            border: "1px solid rgba(34, 197, 94, 0.4)",
+            color: "#4ade80",
+            fontWeight: 900,
+            fontSize: "15px",
+            textAlign: "center",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+          }}
+        >
+          <CheckCircle2 size={20} />
+          <span>🎉 +5 GO CLAIMED TODAY (Next in {timeLeft})</span>
+        </div>
+      );
+    }
+
+    if (status?.attempted) {
+      return (
+        <div
+          style={{
+            width: "100%",
+            padding: "16px",
+            borderRadius: "18px",
+            background: "rgba(239, 68, 68, 0.15)",
+            border: "1px solid rgba(239, 68, 68, 0.4)",
+            color: "#f87171",
+            fontWeight: 900,
+            fontSize: "15px",
+            textAlign: "center",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+          }}
+        >
+          <XCircle size={20} />
+          <span>ATTEMPT USED TODAY (Next in {timeLeft})</span>
+        </div>
+      );
+    }
+
+    return (
+      <button
+        onClick={handleCheckCombo}
+        disabled={submitting}
+        style={{
+          width: "100%",
+          padding: "16px",
+          borderRadius: "18px",
+          background:
+            selectedIds.length === 3
+              ? "linear-gradient(135deg, #00f2fe 0%, #4facfe 50%, #7c3aed 100%)"
+              : "rgba(255, 255, 255, 0.08)",
+          border:
+            selectedIds.length === 3
+              ? "1px solid rgba(0, 242, 254, 0.6)"
+              : "1px solid rgba(255, 255, 255, 0.05)",
+          color: selectedIds.length === 3 ? "#040714" : "rgba(255, 255, 255, 0.4)",
+          fontWeight: 900,
+          fontSize: "16px",
+          letterSpacing: "0.5px",
+          cursor: submitting ? "not-allowed" : "pointer",
+          boxShadow:
+            selectedIds.length === 3
+              ? "0 8px 30px rgba(0, 242, 254, 0.4), 0 0 15px rgba(124, 58, 237, 0.3)"
+              : "none",
+          transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "8px",
+        }}
+      >
+        {submitting ? (
+          <span>Checking...</span>
+        ) : (
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+            <Zap size={18} />
+            <span>⚡ CHECK COMBO ({selectedIds.length}/3)</span>
+          </span>
+        )}
+      </button>
+    );
+  };
+
+  const renderResultModal = () => {
+    if (!resultModal || !resultModal.open) return null;
+
+    return (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 100,
+          background: "rgba(0, 0, 0, 0.8)",
+          backdropFilter: "blur(10px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "20px",
+        }}
+        onClick={() => setResultModal(null)}
+      >
+        <div
+          style={{
+            background: "rgba(10, 16, 36, 0.95)",
+            border: resultModal.isSuccess
+              ? "2px solid #00f2fe"
+              : "2px solid #ef4444",
+            borderRadius: "28px",
+            padding: "32px 24px",
+            maxWidth: "340px",
+            width: "100%",
+            textAlign: "center",
+            boxShadow: resultModal.isSuccess
+              ? "0 0 50px rgba(0, 242, 254, 0.4)"
+              : "0 0 50px rgba(239, 68, 68, 0.4)",
+            animation: "popIn 0.3s ease",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            style={{
+              width: "72px",
+              height: "72px",
+              borderRadius: "50%",
+              background: resultModal.isSuccess
+                ? "rgba(0, 242, 254, 0.15)"
+                : "rgba(239, 68, 68, 0.15)",
+              border: resultModal.isSuccess
+                ? "2px solid #00f2fe"
+                : "2px solid #ef4444",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 16px",
+              fontSize: "36px",
+            }}
+          >
+            {resultModal.isSuccess ? "🎉" : "❌"}
+          </div>
+
+          <h3
+            style={{
+              fontSize: "20px",
+              fontWeight: 900,
+              color: resultModal.isSuccess ? "#00f2fe" : "#f87171",
+              margin: "0 0 8px",
+            }}
+          >
+            {resultModal.isSuccess ? "COMBO SOLVED!" : "INCORRECT COMBO"}
+          </h3>
+
+          <p
+            style={{
+              color: "rgba(255, 255, 255, 0.7)",
+              fontSize: "14px",
+              margin: "0 0 20px",
+              lineHeight: 1.5,
+            }}
+          >
+            {resultModal.message}
+          </p>
+
+          <button
+            onClick={() => setResultModal(null)}
+            style={{
+              width: "100%",
+              padding: "14px",
+              borderRadius: "14px",
+              background: resultModal.isSuccess
+                ? "linear-gradient(135deg, #00f2fe, #7c3aed)"
+                : "rgba(255, 255, 255, 0.1)",
+              border: "none",
+              color: resultModal.isSuccess ? "#040714" : "#ffffff",
+              fontWeight: 900,
+              fontSize: "15px",
+              cursor: "pointer",
+            }}
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
       style={{
@@ -533,6 +730,8 @@ export default function ComboPage() {
         </div>
       </div>
 
+      {/* ── Check Button ──────────────────────────────────────────────── */}
+      <div style={{ marginTop: "16px" }}>
         {warningMsg && (
           <div
             style={{
@@ -552,190 +751,11 @@ export default function ComboPage() {
           </div>
         )}
 
-        {status?.rewardClaimed ? (
-          <div
-            style={{
-              width: "100%",
-              padding: "16px",
-              borderRadius: "18px",
-              background: "rgba(34, 197, 94, 0.15)",
-              border: "1px solid rgba(34, 197, 94, 0.4)",
-              color: "#4ade80",
-              fontWeight: 900,
-              fontSize: "15px",
-              textAlign: "center",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-            }}
-          >
-            <CheckCircle2 size={20} />
-            🎉 +5 GO CLAIMED TODAY (Next in {timeLeft})
-          </div>
-        ) : status?.attempted ? (
-          <div
-            style={{
-              width: "100%",
-              padding: "16px",
-              borderRadius: "18px",
-              background: "rgba(239, 68, 68, 0.15)",
-              border: "1px solid rgba(239, 68, 68, 0.4)",
-              color: "#f87171",
-              fontWeight: 900,
-              fontSize: "15px",
-              textAlign: "center",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-            }}
-          >
-            <XCircle size={20} />
-            ATTEMPT USED TODAY (Next in {timeLeft})
-          </div>
-        ) : (
-          <button
-            onClick={handleCheckCombo}
-            disabled={submitting}
-            style={{
-              width: "100%",
-              padding: "16px",
-              borderRadius: "18px",
-              background:
-                selectedIds.length === 3
-                  ? "linear-gradient(135deg, #00f2fe 0%, #4facfe 50%, #7c3aed 100%)"
-                  : "rgba(255, 255, 255, 0.08)",
-              border:
-                selectedIds.length === 3
-                  ? "1px solid rgba(0, 242, 254, 0.6)"
-                  : "1px solid rgba(255, 255, 255, 0.05)",
-              color: selectedIds.length === 3 ? "#040714" : "rgba(255, 255, 255, 0.4)",
-              fontWeight: 900,
-              fontSize: "16px",
-              letterSpacing: "0.5px",
-              cursor: submitting ? "not-allowed" : "pointer",
-              boxShadow:
-                selectedIds.length === 3
-                  ? "0 8px 30px rgba(0, 242, 254, 0.4), 0 0 15px rgba(124, 58, 237, 0.3)"
-                  : "none",
-              transition: "all 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-            }}
-          >
-            {submitting ? (
-              <span>Checking...</span>
-            ) : (
-              <>
-                <Zap size={18} />
-                <span>⚡ CHECK COMBO ({selectedIds.length}/3)</span>
-              </>
-            )}
-          </button>
-        )}
+        {renderActionButton()}
       </div>
 
       {/* ── Result Modal ──────────────────────────────────────────────── */}
-      {resultModal?.open && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 100,
-            background: "rgba(0, 0, 0, 0.8)",
-            backdropFilter: "blur(10px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px",
-          }}
-          onClick={() => setResultModal(null)}
-        >
-          <div
-            style={{
-              background: "rgba(10, 16, 36, 0.95)",
-              border: resultModal.isSuccess
-                ? "2px solid #00f2fe"
-                : "2px solid #ef4444",
-              borderRadius: "28px",
-              padding: "32px 24px",
-              maxWidth: "340px",
-              width: "100%",
-              textAlign: "center",
-              boxShadow: resultModal.isSuccess
-                ? "0 0 50px rgba(0, 242, 254, 0.4)"
-                : "0 0 50px rgba(239, 68, 68, 0.4)",
-              animation: "popIn 0.3s ease",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                width: "72px",
-                height: "72px",
-                borderRadius: "50%",
-                background: resultModal.isSuccess
-                  ? "rgba(0, 242, 254, 0.15)"
-                  : "rgba(239, 68, 68, 0.15)",
-                border: resultModal.isSuccess
-                  ? "2px solid #00f2fe"
-                  : "2px solid #ef4444",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                margin: "0 auto 16px",
-                fontSize: "36px",
-              }}
-            >
-              {resultModal.isSuccess ? "🎉" : "❌"}
-            </div>
-
-            <h3
-              style={{
-                fontSize: "20px",
-                fontWeight: 900,
-                color: resultModal.isSuccess ? "#00f2fe" : "#f87171",
-                margin: "0 0 8px",
-              }}
-            >
-              {resultModal.isSuccess ? "COMBO SOLVED!" : "INCORRECT COMBO"}
-            </h3>
-
-            <p
-              style={{
-                color: "rgba(255, 255, 255, 0.7)",
-                fontSize: "14px",
-                margin: "0 0 20px",
-                lineHeight: 1.5,
-              }}
-            >
-              {resultModal.message}
-            </p>
-
-            <button
-              onClick={() => setResultModal(null)}
-              style={{
-                width: "100%",
-                padding: "14px",
-                borderRadius: "14px",
-                background: resultModal.isSuccess
-                  ? "linear-gradient(135deg, #00f2fe, #7c3aed)"
-                  : "rgba(255, 255, 255, 0.1)",
-                border: "none",
-                color: resultModal.isSuccess ? "#040714" : "#ffffff",
-                fontWeight: 900,
-                fontSize: "15px",
-                cursor: "pointer",
-              }}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+      {renderResultModal()}
     </div>
   );
 }
