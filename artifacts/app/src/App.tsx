@@ -183,7 +183,7 @@ function PersistentRouter() {
     );
   }
 
-  const hideTopBar = location === "/referral" || location === "/leaderboard" || location === "/wallet";
+  const hideTopBar = location === "/referral" || location === "/leaderboard" || location === "/wallet" || location === "/admin";
 
   return (
     <>

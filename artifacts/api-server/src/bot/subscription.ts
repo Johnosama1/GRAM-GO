@@ -294,23 +294,38 @@ export async function handleSubRecheckCallback(
         (vercelDomain ? `https://${vercelDomain}/` : "") ||
         "https://gram-go-ivory.vercel.app/";
 
-      const welcomeText =
-`🚀 Welcome to GramGo!
+      const customWelcome = await (async () => {
+        try {
+          const [row] = await db
+            .select()
+            .from(botSettingsTable)
+            .where(eq(botSettingsTable.key, "welcome_message"))
+            .limit(1);
+          return row?.value ?? null;
+        } catch {
+          return null;
+        }
+      })();
 
-⛏️ Mine Gram. Earn rewards. Grow your balance.
+      const welcomeText = customWelcome?.trim() ||
+`<tg-emoji emoji-id="5920174652994362278">💎</tg-emoji> Welcome to GramGo!
 
-Start mining, complete tasks, invite friends, and earn Gram rewards directly through GramGo.
+<tg-emoji emoji-id="5424950874927537581">🏎</tg-emoji> Mine Gram. Earn rewards. Grow your balance.
 
-Press the button below to open the app 👇`;
+<tg-emoji emoji-id="5213306719215577669">🧩</tg-emoji> Start mining, complete tasks, invite friends, and earn Gram rewards directly through GramGo.
+
+<tg-emoji emoji-id="5316948721064232978">⬇️</tg-emoji> Press the button below to open the app`;
 
       await bot.sendMessage(chatId, welcomeText, {
+        parse_mode: "HTML",
         reply_markup: {
           inline_keyboard: [
             [
               {
-                text: "🚀 Open GramGo",
+                text: "Open GramGo",
+                icon_custom_emoji_id: "5278752052187512542",
                 web_app: { url: MINI_APP_URL },
-              },
+              } as any,
             ],
           ],
         },

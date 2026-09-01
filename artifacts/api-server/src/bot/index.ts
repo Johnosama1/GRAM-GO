@@ -461,13 +461,13 @@ export async function sendWelcomeMessage(chatId: number, userId?: number, firstN
   const customWelcome = await getSetting("welcome_message").catch(() => null);
 
   const welcomeText = customWelcome?.trim() ||
-`🚀 Welcome to GramGo!
+`<tg-emoji emoji-id="5920174652994362278">💎</tg-emoji> Welcome to GramGo!
 
-⛏️ Mine Gram. Earn rewards. Grow your balance.
+<tg-emoji emoji-id="5424950874927537581">🏎</tg-emoji> Mine Gram. Earn rewards. Grow your balance.
 
-Start mining, complete tasks, invite friends, and earn Gram rewards directly through GramGo.
+<tg-emoji emoji-id="5213306719215577669">🧩</tg-emoji> Start mining, complete tasks, invite friends, and earn Gram rewards directly through GramGo.
 
-Press the button below to open the app 👇`;
+<tg-emoji emoji-id="5316948721064232978">⬇️</tg-emoji> Press the button below to open the app`;
 
   await bot.sendMessage(chatId, welcomeText, {
     parse_mode: "HTML",
@@ -475,9 +475,10 @@ Press the button below to open the app 👇`;
       inline_keyboard: [
         [
           {
-            text: "🚀 Open GramGo",
+            text: "Open GramGo",
+            icon_custom_emoji_id: "5278752052187512542",
             web_app: { url: MINI_APP_URL },
-          },
+          } as any,
         ],
       ],
     },
@@ -880,7 +881,7 @@ function setupBotHandlers() {
       parse_mode: "HTML",
       reply_markup: {
         inline_keyboard: [
-          [{ text: "🚀 Open GramGo", web_app: { url: MINI_APP_URL } }],
+          [{ text: "Open GramGo", icon_custom_emoji_id: "5278752052187512542", web_app: { url: MINI_APP_URL } } as any],
         ],
       },
     });

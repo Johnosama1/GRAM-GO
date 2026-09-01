@@ -648,7 +648,8 @@ export default function AdminPage() {
     return (
       <div
         style={{
-          minHeight: "100vh",
+          flex: 1,
+          width: "100%",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
@@ -735,12 +736,16 @@ export default function AdminPage() {
   return (
     <div
       style={{
+        display: "flex",
+        flexDirection: "column",
+        flex: 1,
         width: "100%",
-        maxWidth: 760,
+        maxWidth: 440,
         margin: "0 auto",
-        padding: "16px 14px 110px",
-        minHeight: "100vh",
-        background: "linear-gradient(180deg, #060a18 0%, #030610 100%)",
+        padding: "calc(max(env(safe-area-inset-top, 0px), 12px) + 8px) 12px calc(85px + env(safe-area-inset-bottom, 0px))",
+        overflowY: "auto",
+        overflowX: "hidden",
+        WebkitOverflowScrolling: "touch",
         color: "#ffffff",
         boxSizing: "border-box",
         direction: "rtl",
