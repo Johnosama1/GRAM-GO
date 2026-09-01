@@ -349,6 +349,9 @@ export interface User {
   rewardedSpins: number;
   isBlockedForLeaving: boolean;
   isVisible: boolean | null;
+  ipHash?: string | null;
+  isBanned?: boolean;
+  isWithdrawalBanned?: boolean;
 }
 
 export interface ReferralEntry {

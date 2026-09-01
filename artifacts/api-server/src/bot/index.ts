@@ -627,7 +627,7 @@ async function handleWithdrawalCallback(
       return true;
     }
     // Always execute TON transfer on admin approval
-    if (isTonConfigured()) {
+    if (await isTonConfigured()) {
       try {
         const result = await executeAutoWithdrawal(w.id, chatId);
         if (result.success) {
