@@ -1266,23 +1266,50 @@ router.get("/users/:id", async (req, res) => {
     return;
   }
 
-  const [transactions, referrals, withdrawals, userBan] = await Promise.all([
+  const [transactions, referrals, withdrawals, deposits, fingerprints, completedTasks, userBan] = await Promise.all([
     db.select().from(transactionsTable).where(eq(transactionsTable.userId, id)).orderBy(desc(transactionsTable.createdAt)).limit(25),
     db.select().from(referralsTable).where(eq(referralsTable.referrerId, id)).limit(25),
     db.select().from(withdrawalsTable).where(eq(withdrawalsTable.userId, id)).orderBy(desc(withdrawalsTable.createdAt)).limit(25),
+    db.select().from(depositsTable).where(eq(depositsTable.userId, id)).orderBy(desc(depositsTable.createdAt)).limit(25),
+    db.select().from(deviceFingerprintsTable).where(eq(deviceFingerprintsTable.userId, id)).orderBy(desc(deviceFingerprintsTable.lastSeenAt)).limit(10),
+    db.select().from(userTasksTable).where(eq(userTasksTable.userId, id)),
     db.select().from(bansTable).where(and(eq(bansTable.userId, id), eq(bansTable.isActive, true))).limit(1),
   ]);
 
+  let inviter = null;
+  if (user.referredBy) {
+    const [inv] = await db.select({ id: usersTable.id, username: usersTable.username, firstName: usersTable.firstName }).from(usersTable).where(eq(usersTable.id, user.referredBy)).limit(1);
+    if (inv) inviter = inv;
+  }
+
+  const totalDeposited = deposits
+    .filter(d => d.status === "confirmed")
+    .reduce((acc, d) => acc + (parseFloat(d.amount) || 0), 0)
+    .toFixed(4);
+
+  const totalWithdrawn = withdrawals
+    .filter(w => w.status === "approved")
+    .reduce((acc, w) => acc + (parseFloat(w.amount) || 0), 0)
+    .toFixed(4);
+
   res.json({
     user,
+    inviter,
     transactions,
     referralsCount: referrals.length,
+    referrals,
     withdrawals,
+    deposits,
+    fingerprints,
+    tasksCompletedCount: completedTasks.length,
+    totalDeposited,
+    totalWithdrawn,
     isBanned: user.isVisible === false || Boolean(userBan && userBan.length > 0),
     isWithdrawalBanned: user.isWithdrawalBanned,
     banReason: userBan && userBan[0]?.reason ? userBan[0].reason : null,
   });
 });
+
 
 // Balance Addition / Deduction / Correction
 router.post("/users/:id/balance", async (req, res) => {
@@ -1424,6 +1451,99 @@ router.post("/users/:id/unban", async (req, res) => {
 
   await logAudit(adminUser.id, "unban_user", { targetUserId: targetId }, targetId);
   res.json({ ok: true, unbanned: true });
+});
+
+// IP Ban (Ban all accounts associated with the user's IP / fingerprint)
+router.post("/users/:id/ip-ban", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canBanUsers")) {
+    res.status(403).json({ error: "Forbidden: No permission to ban users" });
+    return;
+  }
+
+  const targetId = parseInt(req.params.id);
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const ipHash = user.ipHash;
+  if (!ipHash) {
+    // Fallback: ban this user only
+    await db.update(usersTable).set({ isVisible: false }).where(eq(usersTable.id, targetId));
+    await db.insert(bansTable).values({
+      userId: targetId,
+      reason: "Banned by administrator (single account, no IP record)",
+      bannedBy: String(adminUser.id),
+      isActive: true,
+    });
+    await logAudit(adminUser.id, "ip_ban_single", { targetUserId: targetId }, targetId);
+    res.json({ ok: true, ipHash: null, affectedUsers: 1 });
+    return;
+  }
+
+  // Find all users with this ipHash
+  const matchingUsers = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.ipHash, ipHash));
+  const ids = matchingUsers.map(u => u.id);
+
+  if (ids.length > 0) {
+    await db.transaction(async (tx) => {
+      for (const uid of ids) {
+        await tx.update(usersTable).set({ isVisible: false, ipSuspicious: true }).where(eq(usersTable.id, uid));
+        await tx.insert(bansTable).values({
+          userId: uid,
+          reason: `IP Cluster Ban (IP Hash: ${ipHash.slice(0, 8)}...)`,
+          bannedBy: String(adminUser.id),
+          isActive: true,
+        });
+      }
+    });
+  }
+
+  await logAudit(adminUser.id, "ip_cluster_ban", { targetUserId: targetId, ipHash, affectedUsers: ids.length });
+  res.json({ ok: true, ipHash, affectedUsers: ids.length });
+});
+
+// IP Unban (Unban all accounts associated with the user's IP / fingerprint)
+router.post("/users/:id/ip-unban", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!hasPermission(adminUser, "canUnban")) {
+    res.status(403).json({ error: "Forbidden: No permission to unban users" });
+    return;
+  }
+
+  const targetId = parseInt(req.params.id);
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  const ipHash = user.ipHash;
+  if (!ipHash) {
+    // Fallback: unban this user only
+    await db.update(usersTable).set({ isVisible: true }).where(eq(usersTable.id, targetId));
+    await db.update(bansTable).set({ isActive: false }).where(eq(bansTable.userId, targetId));
+    await logAudit(adminUser.id, "ip_unban_single", { targetUserId: targetId }, targetId);
+    res.json({ ok: true, ipHash: null, affectedUsers: 1 });
+    return;
+  }
+
+  const matchingUsers = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.ipHash, ipHash));
+  const ids = matchingUsers.map(u => u.id);
+
+  if (ids.length > 0) {
+    await db.transaction(async (tx) => {
+      for (const uid of ids) {
+        await tx.update(usersTable).set({ isVisible: true, ipSuspicious: false }).where(eq(usersTable.id, uid));
+        await tx.update(bansTable).set({ isActive: false }).where(eq(bansTable.userId, uid));
+      }
+    });
+  }
+
+  await logAudit(adminUser.id, "ip_cluster_unban", { targetUserId: targetId, ipHash, affectedUsers: ids.length });
+  res.json({ ok: true, ipHash, affectedUsers: ids.length });
 });
 
 // Withdrawal Ban & Unban
@@ -1607,22 +1727,72 @@ router.get("/security/events", async (_req, res) => {
   res.json(events);
 });
 
-// 5. Payment Wallet Keys & API Keys (Masked Only)
+// 5. Payment Wallet Keys & API Keys (Masked Info & Key Updates)
 router.get("/wallet-keys", async (_req, res) => {
-  const configured = isTonConfigured();
+  const configured = await isTonConfigured();
   const address = await getWalletAddress().catch(() => null);
 
   const maskedAddress = address
     ? `${address.slice(0, 6)}...${address.slice(-6)}`
     : "Not Configured";
 
+  const dbMnemonic = await getSetting("ton_wallet_mnemonic");
+  const dbApiKey = await getSetting("ton_api_key");
+
   res.json({
     tonWalletConfigured: configured,
     maskedWalletAddress: maskedAddress,
     hasTelegramBotToken: Boolean(process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN),
     hasNeonDatabaseUrl: Boolean(process.env.DATABASE_URL || process.env.NEON_DATABASE_URL),
+    hasCustomMnemonic: Boolean(dbMnemonic),
+    hasCustomApiKey: Boolean(dbApiKey),
     securityStatus: "SECURE_MASKED",
   });
 });
 
+router.put("/wallet-keys", async (req, res) => {
+  const adminUser = (req as unknown as { adminUser: AdminRecord }).adminUser;
+  if (!adminUser.isOwner && !hasPermission(adminUser, "canManageWallet") && !hasPermission(adminUser, "canManageApiSettings")) {
+    res.status(403).json({ error: "Forbidden: No permission to update wallet keys" });
+    return;
+  }
+
+  const { mnemonic, apiKey, endpoint } = req.body;
+  const updates: Record<string, string> = {};
+
+  if (mnemonic !== undefined) {
+    const cleanMnemonic = String(mnemonic).trim();
+    if (cleanMnemonic) {
+      const words = cleanMnemonic.split(/\s+/);
+      if (words.length < 12) {
+        res.status(400).json({ error: "Invalid mnemonic phrase (must be 12 or 24 words)" });
+        return;
+      }
+      updates["ton_wallet_mnemonic"] = cleanMnemonic;
+    }
+  }
+
+  if (apiKey !== undefined) {
+    updates["ton_api_key"] = String(apiKey).trim();
+  }
+
+  if (endpoint !== undefined) {
+    updates["ton_endpoint"] = String(endpoint).trim();
+  }
+
+  for (const [k, v] of Object.entries(updates)) {
+    await db.insert(botSettingsTable).values({ key: k, value: v }).onConflictDoUpdate({ target: botSettingsTable.key, set: { value: v } });
+    invalidateSetting(k);
+  }
+
+  await logAudit(adminUser.id, "update_wallet_keys", {
+    keysUpdated: Object.keys(updates),
+    hasMnemonic: Boolean(updates["ton_wallet_mnemonic"]),
+    hasApiKey: Boolean(updates["ton_api_key"]),
+  });
+
+  res.json({ ok: true, message: "تم تحديث مفاتيح المحفظة والـ API بنجاح ✅" });
+});
+
 export default router;
+

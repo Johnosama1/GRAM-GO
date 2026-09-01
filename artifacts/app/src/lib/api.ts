@@ -211,6 +211,8 @@ export const api = {
     apiCall<{ ok: boolean; success: boolean }>(`/admin/users/${id}/message`, { method: "POST", body: JSON.stringify(data) }),
   adminBanUser: (id: number, reason?: string) => apiCall<{ ok: boolean; banned: boolean }>(`/admin/users/${id}/ban`, { method: "POST", body: JSON.stringify({ reason }) }),
   adminUnbanUser: (id: number) => apiCall<{ ok: boolean; unbanned: boolean }>(`/admin/users/${id}/unban`, { method: "POST" }),
+  adminIpBanUser: (id: number) => apiCall<{ ok: boolean; ipHash: string | null; affectedUsers: number }>(`/admin/users/${id}/ip-ban`, { method: "POST" }),
+  adminIpUnbanUser: (id: number) => apiCall<{ ok: boolean; ipHash: string | null; affectedUsers: number }>(`/admin/users/${id}/ip-unban`, { method: "POST" }),
   adminBanWithdrawals: (id: number) => apiCall<{ ok: boolean; isWithdrawalBanned: boolean }>(`/admin/users/${id}/withdrawal-ban`, { method: "POST" }),
   adminUnbanWithdrawals: (id: number) => apiCall<{ ok: boolean; isWithdrawalBanned: boolean }>(`/admin/users/${id}/withdrawal-unban`, { method: "POST" }),
   adminDeleteUser: (id: number) => apiCall<{ ok: boolean; success: boolean; targetId: number }>(`/admin/users/${id}`, { method: "DELETE" }),
@@ -223,7 +225,9 @@ export const api = {
     apiCall<MilestoneItem>("/admin/milestones", { method: "POST", body: JSON.stringify(data) }),
   adminDeleteMilestone: (id: number) => apiCall<{ ok: boolean; success: boolean }>(`/admin/milestones/${id}`, { method: "DELETE" }),
   adminGetSecurityEvents: () => apiCall<SecurityEventItem[]>("/admin/security/events"),
-  adminGetWalletKeys: () => apiCall<{ tonWalletConfigured: boolean; maskedWalletAddress: string; hasTelegramBotToken: boolean; hasNeonDatabaseUrl: boolean; securityStatus: string }>("/admin/wallet-keys"),
+  adminGetWalletKeys: () => apiCall<{ tonWalletConfigured: boolean; maskedWalletAddress: string; hasTelegramBotToken: boolean; hasNeonDatabaseUrl: boolean; hasCustomMnemonic?: boolean; hasCustomApiKey?: boolean; securityStatus: string }>("/admin/wallet-keys"),
+  adminUpdateWalletKeys: (data: { mnemonic?: string; apiKey?: string; endpoint?: string }) =>
+    apiCall<{ ok: boolean; message: string }>("/admin/wallet-keys", { method: "PUT", body: JSON.stringify(data) }),
 
   saveWallet: (userId: number, walletAddress: string) =>
     apiCall<{ savedWalletAddress: string }>(`/users/${userId}/wallet`, {
@@ -639,8 +643,21 @@ export interface ComboAdminStats {
   recentAttempts?: ComboAdminAttempt[];
 }
 
+export interface DeviceFingerprintItem {
+  id: number;
+  userId: number;
+  fingerprint: string;
+  screenResolution?: string | null;
+  timeZone?: string | null;
+  userAgent?: string | null;
+  ipHash?: string | null;
+  createdAt: string;
+  lastSeenAt: string;
+}
+
 export interface UserDetailResult {
   user: User;
+  inviter?: { id: number; username: string | null; firstName: string | null } | null;
   transactions: Array<{
     id: number;
     type: string;
@@ -650,8 +667,15 @@ export interface UserDetailResult {
     createdAt: string;
   }>;
   referralsCount: number;
+  referrals?: Array<{ id: number; refereeId?: number; createdAt?: string }>;
   withdrawals: WithdrawalItem[];
+  deposits?: DepositItem[];
+  fingerprints?: DeviceFingerprintItem[];
+  tasksCompletedCount?: number;
+  totalDeposited?: string;
+  totalWithdrawn?: string;
   isBanned: boolean;
   isWithdrawalBanned?: boolean;
   banReason: string | null;
 }
+

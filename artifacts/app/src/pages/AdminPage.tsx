@@ -36,8 +36,6 @@ import {
   CheckCircle,
   XCircle,
   Key,
-  Lock,
-  Unlock,
   Radio,
   Sliders,
   Award,
@@ -56,12 +54,12 @@ const ALL_PERMISSIONS: { key: AdminPermission; label: string }[] = [
   { key: "canManageCombo", label: "إدارة Daily Combo" },
   { key: "canManageCheckin", label: "إدارة تسجيل الدخول اليومي" },
   { key: "canManageSettings", label: "إدارة الإعدادات العامة (Settings)" },
-  { key: "canManageWallet", label: "إدارة محفظة الإيداع (Wallet)" },
-  { key: "canManageApiSettings", label: "إدارة إعدادات API" },
+  { key: "canManageWallet", label: "إدارة محفظة الإيداع والدفع (Wallet)" },
+  { key: "canManageApiSettings", label: "إدارة إعدادات API والمفاتيح" },
   { key: "canBanUsers", label: "حظر المستخدمين (Ban)" },
   { key: "canManageAdmins", label: "إدارة المشرفين (Admins)" },
   { key: "canUnban", label: "فك الحظر (Unban)" },
-  { key: "canWarn", label: "إرسال تحذيرات (Warn)" },
+  { key: "canWarn", label: "إرسال تحذيرات ورسائل (Warn/Message)" },
 ];
 
 export default function AdminPage() {
@@ -108,6 +106,7 @@ export default function AdminPage() {
   const [usersList, setUsersList] = useState<User[]>([]);
   const [userSearch, setUserSearch] = useState("");
   const [autoBannedList, setAutoBannedList] = useState<AutoBannedItem[]>([]);
+  const [autoBannedSearch, setAutoBannedSearch] = useState("");
   const [securityEvents, setSecurityEvents] = useState<SecurityEventItem[]>([]);
   const [milestones, setMilestones] = useState<MilestoneItem[]>([]);
   const [referralSettings, setReferralSettings] = useState({
@@ -120,6 +119,8 @@ export default function AdminPage() {
     maskedWalletAddress: string;
     hasTelegramBotToken: boolean;
     hasNeonDatabaseUrl: boolean;
+    hasCustomMnemonic?: boolean;
+    hasCustomApiKey?: boolean;
     securityStatus: string;
   } | null>(null);
 
@@ -162,6 +163,16 @@ export default function AdminPage() {
     winnerCount: "3",
     endDate: "",
   });
+
+  const [newMilestoneModal, setNewMilestoneModal] = useState(false);
+  const [newMilestoneRefs, setNewMilestoneRefs] = useState("5");
+  const [newMilestoneReward, setNewMilestoneReward] = useState("3");
+  const [newMilestoneCurrency, setNewMilestoneCurrency] = useState("GO");
+  const [newMilestoneRepeat, setNewMilestoneRepeat] = useState(false);
+
+  const [walletKeysModal, setWalletKeysModal] = useState(false);
+  const [newMnemonic, setNewMnemonic] = useState("");
+  const [newApiKey, setNewApiKey] = useState("");
 
   const [selectedUserDetail, setSelectedUserDetail] = useState<UserDetailResult | null>(null);
   const [balanceAdjustModal, setBalanceAdjustModal] = useState<{ open: boolean; userId?: number; userName?: string }>({ open: false });
@@ -231,7 +242,7 @@ export default function AdminPage() {
       if (keys) setWalletKeys(keys);
     } catch (e) {
       console.error(e);
-      flash("Error loading admin data", "err");
+      flash("خطأ في تحميل بيانات الإدارة", "err");
     } finally {
       setLoading(false);
     }
@@ -331,7 +342,7 @@ export default function AdminPage() {
     if (isNaN(rate) || rate <= 0 || rate > 1) { flash("النسبة يجب أن تكون بين 0.001 (0.1%) و 1.0 (100%)", "err"); return; }
     try {
       const res = await api.adminUpdateMiningRate(rate);
-      flash("تم تحديث معدل التعدين إلى " + res.percentage + " ✅");
+      flash("تم تحديث معدل التعدين إلى " + res.percentage + " وتفعيله فوراً لجميع المستخدمين ✅");
       loadAll();
     } catch {
       flash("فشل تحديث معدل التعدين", "err");
@@ -343,17 +354,17 @@ export default function AdminPage() {
     const reason = action === "reject" ? prompt("سبب الرفض (سيتم إرساله للمستخدم وإعادة الرصيد):") || undefined : undefined;
     try {
       await api.adminUpdateWithdrawal(id, action, reason);
-      flash(action === "approve" ? "تمت الموافقة على السحب ✅" : "تم رفض السحب وإعادة الرصيد ✅");
+      flash(action === "approve" ? "تمت الموافقة على السحب بنجاح ✅" : "تم رفض السحب وإعادة الرصيد للمستخدم ✅");
       loadAll();
     } catch {
-      flash("فشل تنفيذ الإجراء", "err");
+      flash("فشل تنفيذ إجراء السحب", "err");
     }
   };
 
   const handleSaveLimits = async () => {
     try {
       await api.adminUpdateLimits(limits);
-      flash("تم حفظ الحدود المالية بنجاح ✅");
+      flash("تم حفظ الحدود المالية وتطبيقها على السيرفر بنجاح ✅");
     } catch {
       flash("فشل حفظ الحدود المالية", "err");
     }
@@ -362,7 +373,7 @@ export default function AdminPage() {
   const handleResetBalances = async (currency: "GO" | "GRAM") => {
     const required = currency === "GO" ? "CONFIRM_RESET_ALL_GO" : "CONFIRM_RESET_ALL_GRAM";
     if (resetConfirmText !== required) {
-      flash("يجب كتابة العبارة التالية بدقة: " + required, "err");
+      flash("يجب كتابة العبارة التالية بدقة للتأكيد: " + required, "err");
       return;
     }
     try {
@@ -430,7 +441,7 @@ export default function AdminPage() {
   };
 
   const handleFinalizeContest = async (id: number) => {
-    if (!confirm("إنهاء المسابقة وتوزيع الجوائز على الفائزين الآن؟")) return;
+    if (!confirm("إنهاء المسابقة وتوزيع الجوائز على الفائزين الآن تلقائياً؟")) return;
     try {
       const res = await api.adminFinalizeContest(id);
       flash("تم إنهاء المسابقة وتوزيع الجوائز على " + res.winners.length + " فائز بنجاح! 🏆");
@@ -525,11 +536,29 @@ export default function AdminPage() {
     }
   };
 
+  const handleIpBanUser = async (id: number, ban: boolean) => {
+    try {
+      if (ban) {
+        const res = await api.adminIpBanUser(id);
+        flash(`تم حظر IP لـ ${res.affectedUsers} حساب مرتبطة بنفس البصمة/الـ IP 🌐🚫`);
+      } else {
+        const res = await api.adminIpUnbanUser(id);
+        flash(`تم فك حظر IP لـ ${res.affectedUsers} حساب ✅`);
+      }
+      if (selectedUserDetail?.user.id === id) {
+        handleOpenUserDetail(id);
+      }
+      loadAll();
+    } catch {
+      flash("فشل إجراء حظر/فك حظر الـ IP", "err");
+    }
+  };
+
   const handleToggleWithdrawalBan = async (id: number, currentBanned: boolean) => {
     try {
       if (currentBanned) {
         await api.adminUnbanWithdrawals(id);
-        flash("تم السماح بالسحب للمستخدم #" + id + " ✅");
+        flash("تم السماح بالسحب للمستخدم #" + id + " 🔓");
       } else {
         await api.adminBanWithdrawals(id);
         flash("تم حظر السحب للمستخدم #" + id + " 🔒");
@@ -565,11 +594,107 @@ export default function AdminPage() {
     }
   };
 
+  const handleCreateMilestone = async () => {
+    const reqRefs = parseInt(newMilestoneRefs);
+    const amt = parseFloat(newMilestoneReward);
+    if (isNaN(reqRefs) || isNaN(amt) || reqRefs <= 0 || amt <= 0) {
+      flash("يرجى إدخال عدد إحالات ومكافأة صحيحة", "err");
+      return;
+    }
+    try {
+      await api.adminCreateMilestone({
+        requiredReferrals: reqRefs,
+        rewardAmount: amt,
+        rewardCurrency: newMilestoneCurrency,
+        isRepeatable: newMilestoneRepeat,
+      });
+      flash("تمت إضافة محطة الإحالة بنجاح 🎯");
+      setNewMilestoneModal(false);
+      loadAll();
+    } catch {
+      flash("فشل إضافة المحطة", "err");
+    }
+  };
+
+  const handleDeleteMilestone = async (id: number) => {
+    if (!confirm("هل أنت متأكد من حذف هذه المحطة؟")) return;
+    try {
+      await api.adminDeleteMilestone(id);
+      flash("تم حذف المحطة ✅");
+      loadAll();
+    } catch {
+      flash("فشل حذف المحطة", "err");
+    }
+  };
+
+  const handleUpdateWalletKeys = async () => {
+    try {
+      await api.adminUpdateWalletKeys({
+        mnemonic: newMnemonic.trim() || undefined,
+        apiKey: newApiKey.trim() || undefined,
+      });
+      flash("تم تحديث مفاتيح المحفظة والـ API بنجاح ✅");
+      setWalletKeysModal(false);
+      setNewMnemonic("");
+      setNewApiKey("");
+      loadAll();
+    } catch (e: unknown) {
+      flash(e instanceof Error ? e.message : "فشل تحديث المفاتيح", "err");
+    }
+  };
+
+  // If not admin, show Unauthorized Access screen
   if (!isAdmin) {
     return (
-      <div style={{ padding: 40, textAlign: "center", color: "#f87171" }}>
-        <h2>⛔ غير مصرح بالوصول (Unauthorized Access)</h2>
-        <p>لا تملك صلاحيات إدارية لفتح لوحة التحكم.</p>
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 24,
+          background: "radial-gradient(circle at 50% 30%, #1a1024 0%, #0a0b10 100%)",
+          color: "#fff",
+          textAlign: "center",
+          direction: "rtl",
+        }}
+      >
+        <div
+          style={{
+            width: 80,
+            height: 80,
+            borderRadius: "50%",
+            background: "rgba(239, 68, 68, 0.15)",
+            border: "2px solid rgba(239, 68, 68, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 36,
+            marginBottom: 20,
+            boxShadow: "0 0 30px rgba(239, 68, 68, 0.3)",
+          }}
+        >
+          ⛔
+        </div>
+        <div
+          style={{
+            background: "rgba(20, 24, 33, 0.85)",
+            border: "1px solid rgba(239, 68, 68, 0.3)",
+            borderRadius: 24,
+            padding: "24px 20px",
+            maxWidth: 360,
+            width: "100%",
+            boxShadow: "0 12px 36px rgba(0,0,0,0.6)",
+          }}
+        >
+          <h2 style={{ color: "#f87171", fontWeight: 800, fontSize: 20, margin: "0 0 12px" }}>
+            غير مصرح بالوصول (Unauthorized)
+          </h2>
+          <p style={{ color: "rgba(231,236,242,0.8)", fontSize: 13, margin: 0, lineHeight: 1.7 }}>
+            لوحة الإدارة مخصصة فقط للمسؤولين والمالك. لا تملك الصلاحية لفتح هذه الصفحة.
+          </p>
+        </div>
       </div>
     );
   }
@@ -577,7 +702,6 @@ export default function AdminPage() {
   const isMaintenance = settings["maintenance_mode"] === "true";
   const isSecurityActive = settings["security_system_enabled"] !== "false";
 
-  // Filtered withdrawals & deposits
   const filteredWithdrawals = withdrawals.filter((w) => {
     if (withdrawalFilter !== "all" && w.status !== withdrawalFilter) return false;
     if (withdrawalSearch) {
@@ -600,6 +724,12 @@ export default function AdminPage() {
       return matchId || matchUser || matchHash;
     }
     return true;
+  });
+
+  const filteredAutoBanned = autoBannedList.filter((b) => {
+    if (!autoBannedSearch) return true;
+    const q = autoBannedSearch.toLowerCase();
+    return String(b.userId).includes(q) || b.username?.toLowerCase().includes(q) || b.reason.toLowerCase().includes(q);
   });
 
   return (
@@ -736,7 +866,7 @@ export default function AdminPage() {
       </div>
 
       {/* ==================================================================== */}
-      {/* SECTION 1: General Administration */}
+      {/* SECTION 1: General Administration (الإدارة العامة) */}
       {/* ==================================================================== */}
       {activeSection === "general" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -787,7 +917,7 @@ export default function AdminPage() {
           {/* Real Database Statistics Grid */}
           <div style={{ background: "rgba(10, 18, 42, 0.8)", border: "1px solid rgba(0, 242, 254, 0.2)", borderRadius: 20, padding: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 900, color: "#00f2fe", marginBottom: 12 }}>
-              📊 إحصائيات البوت الحقيقية (Neon PostgreSQL Live Data)
+              📊 إحصائيات البوت الحقيقية (PostgreSQL Live Data)
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10 }}>
@@ -837,20 +967,22 @@ export default function AdminPage() {
               </div>
             </div>
 
+            {/* Geo / Timezone Breakdown */}
             <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "#93c5fd", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
-                <Globe size={14} /> توزيع المستخدمين حسب الدولة / المنطقة الزمنية:
+              <div style={{ fontSize: 12, fontWeight: 800, color: "#93c5fd", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                <Globe size={14} /> توزيع المستخدمين حسب الدولة / نقطة الاتصال:
               </div>
               {stats?.countries && stats.countries.length > 0 ? (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   {stats.countries.map((c, i) => (
-                    <div key={i} style={{ background: "rgba(0, 242, 254, 0.1)", border: "1px solid rgba(0, 242, 254, 0.3)", borderRadius: 8, padding: "4px 8px", fontSize: 11 }}>
-                      {c.region}: <strong>{c.count}</strong> ({c.percentage}%)
+                    <div key={i} style={{ background: "rgba(0, 242, 254, 0.05)", border: "1px solid rgba(0, 242, 254, 0.2)", borderRadius: 8, padding: "6px 10px", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11 }}>
+                      <span style={{ color: "#fff", fontWeight: 700 }}>📍 {c.region}</span>
+                      <span style={{ color: "#00f2fe", fontWeight: 900 }}>{c.count} مستخدم ({c.percentage}%)</span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>غير متاح (Not Available — لا تتوفر بيانات جغرافية رسمية حالياً)</div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>يتم جمع وتحليل بيانات الاتصال تلقائياً عند فتح المستخدمين للتطبيق.</div>
               )}
             </div>
           </div>
@@ -864,7 +996,7 @@ export default function AdminPage() {
               rows={4}
               value={settings["welcome_message"] || ""}
               onChange={(e) => setSettings({ ...settings, welcome_message: e.target.value })}
-              placeholder="اكتب رسالة الترحيب هنا (يدعم HTML tags مثل <b> و <i> و <code>)..."
+              placeholder="اكتب رسالة الترحيب هنا (يدعم HTML مثل <b> و <i> و Custom Telegram Emojis)..."
               style={{ width: "100%", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: 10, color: "#fff", fontSize: 12, boxSizing: "border-box", marginBottom: 10 }}
             />
             <button
@@ -976,7 +1108,7 @@ export default function AdminPage() {
       )}
 
       {/* ==================================================================== */}
-      {/* SECTION 2: Mining Configuration */}
+      {/* SECTION 2: Mining Configuration (التعدين) */}
       {/* ==================================================================== */}
       {activeSection === "mining" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -986,7 +1118,7 @@ export default function AdminPage() {
             </div>
 
             <div style={{ background: "rgba(0, 242, 254, 0.08)", border: "1px solid rgba(0, 242, 254, 0.3)", borderRadius: 14, padding: 14, marginBottom: 16 }}>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>المعدل العالمي الحالي:</div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>المعدل العالمي المطبق حالياً:</div>
               <div style={{ fontSize: 28, fontWeight: 900, color: "#00f2fe" }}>
                 {(parseFloat(settings["global_mining_rate"] || "0.0200") * 100).toFixed(2)}% يومياً
               </div>
@@ -995,12 +1127,18 @@ export default function AdminPage() {
               </div>
             </div>
 
+            {/* Interactive Simulation Calculator */}
             <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: 12, marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "#fbbf24", marginBottom: 6 }}>
-                💡 محاكاة الإنتاج عند النسبة المحددة:
+              <div style={{ fontSize: 12, fontWeight: 800, color: "#fbbf24", marginBottom: 8 }}>
+                💡 محاكاة الإنتاج عند النسبة المدخلة:
               </div>
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.7)" }}>
-                حساب يمتلك 100 GO سينتج: <strong>+{(100 * (parseFloat(miningRateInput) || 0.02)).toFixed(4)} GRAM / يوم</strong>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <div style={{ background: "rgba(0,0,0,0.3)", padding: 8, borderRadius: 8, fontSize: 11 }}>
+                  رصيد 100 GO ينتج: <strong style={{ color: "#00f2fe" }}>+{(100 * (parseFloat(miningRateInput) || 0.02)).toFixed(4)} GRAM / يوم</strong>
+                </div>
+                <div style={{ background: "rgba(0,0,0,0.3)", padding: 8, borderRadius: 8, fontSize: 11 }}>
+                  رصيد 500 GO ينتج: <strong style={{ color: "#00f2fe" }}>+{(500 * (parseFloat(miningRateInput) || 0.02)).toFixed(4)} GRAM / يوم</strong>
+                </div>
               </div>
             </div>
 
@@ -1027,7 +1165,7 @@ export default function AdminPage() {
       )}
 
       {/* ==================================================================== */}
-      {/* SECTION 3: Finance & Wallet */}
+      {/* SECTION 3: Finance & Wallet (المالية والمحفظة) */}
       {/* ==================================================================== */}
       {activeSection === "finance" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1078,7 +1216,7 @@ export default function AdminPage() {
           <div style={{ background: "rgba(10, 18, 42, 0.8)", border: "1px solid rgba(0, 242, 254, 0.2)", borderRadius: 20, padding: 16 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
               <div style={{ fontSize: 13, fontWeight: 900, color: "#00f2fe", display: "flex", alignItems: "center", gap: 6 }}>
-                <Sliders size={16} /> حدود السحب والإيداع (Limits)
+                <Sliders size={16} /> حدود السحب والإيداع (Financial Limits)
               </div>
               <button
                 onClick={handleSaveLimits}
@@ -1171,7 +1309,7 @@ export default function AdminPage() {
                   <div key={w.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 12, display: "flex", flexDirection: "column", gap: 6 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                       <div style={{ fontWeight: 800, fontSize: 13 }}>
-                        {w.firstName || w.username || ("مستخدم #" + w.userId)} • <strong>{parseFloat(w.amount).toFixed(4)} {w.currency}</strong>
+                        {w.firstName || w.username || ("مستخدم #" + w.userId)} • <strong style={{ color: "#00f2fe" }}>{parseFloat(w.amount).toFixed(4)} {w.currency}</strong>
                       </div>
                       <span
                         style={{
@@ -1189,6 +1327,10 @@ export default function AdminPage() {
 
                     <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", wordBreak: "break-all" }}>
                       📍 {w.walletAddress}
+                    </div>
+
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>
+                      🕒 {new Date(w.createdAt).toLocaleString("ar-EG")}
                     </div>
 
                     {w.status === "pending" && (
@@ -1251,6 +1393,7 @@ export default function AdminPage() {
                       <span style={{ color: "#4ade80" }}>+{parseFloat(d.amount).toFixed(4)} {d.currency}</span>
                     </div>
                     {d.txHash && <div style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", marginTop: 2, wordBreak: "break-all" }}>Hash: {d.txHash}</div>}
+                    {d.reason && <div style={{ fontSize: 9, color: "#f87171", marginTop: 2 }}>السبب: {d.reason}</div>}
                   </div>
                 ))
               )}
@@ -1260,7 +1403,7 @@ export default function AdminPage() {
       )}
 
       {/* ==================================================================== */}
-      {/* SECTION 4: Tasks & Rewards */}
+      {/* SECTION 4: Tasks & Rewards (المهام والمكافآت) */}
       {/* ==================================================================== */}
       {activeSection === "tasks" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1268,7 +1411,7 @@ export default function AdminPage() {
           <div style={{ background: "rgba(10, 18, 42, 0.8)", border: "1px solid rgba(0, 242, 254, 0.2)", borderRadius: 20, padding: 16 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
               <div style={{ fontSize: 13, fontWeight: 900, color: "#00f2fe" }}>
-                📋 إدارة المهام ({tasks.length})
+                📋 إدارة المهام والقنوات ({tasks.length})
               </div>
               <button
                 onClick={() => setTaskModal(true)}
@@ -1281,9 +1424,18 @@ export default function AdminPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {tasks.map((t) => (
                 <div key={t.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div>
-                    <div style={{ fontWeight: 800, fontSize: 13 }}>{t.icon} {t.title}</div>
-                    <div style={{ fontSize: 11, color: "#fbbf24" }}>+{t.rewardAmount || 5} {t.rewardCurrency || "GO"} • {t.url || "No link"}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    {t.channelPhotoUrl ? (
+                      <img src={t.channelPhotoUrl} alt="task" style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover" }} />
+                    ) : (
+                      <span style={{ fontSize: 20 }}>{t.icon || "⭐"}</span>
+                    )}
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: 13 }}>{t.title}</div>
+                      <div style={{ fontSize: 11, color: "#fbbf24" }}>
+                        +{t.rewardAmount || 5} {t.rewardCurrency || "GO"} • {t.maxClaims ? `حد: ${t.maxClaims} مستخدم` : "دائم (مفتوح)"}
+                      </div>
+                    </div>
                   </div>
                   <button
                     onClick={() => handleDeleteTask(t.id)}
@@ -1296,7 +1448,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Daily Combo Stats & Items Pool */}
+          {/* Daily Combo Stats */}
           <div style={{ background: "rgba(10, 18, 42, 0.8)", border: "1px solid rgba(0, 242, 254, 0.2)", borderRadius: 20, padding: 16 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
               <div style={{ fontSize: 13, fontWeight: 900, color: "#00f2fe" }}>
@@ -1327,7 +1479,7 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* 3 Metric Cards */}
+            {/* Metrics */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 12 }}>
               <div style={{ background: "rgba(255,255,255,0.03)", padding: 10, borderRadius: 12, textAlign: "center" }}>
                 <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>المحاولات اليوم</div>
@@ -1342,53 +1494,6 @@ export default function AdminPage() {
                 <div style={{ fontSize: 16, fontWeight: 900, color: "#fbbf24", marginTop: 2 }}>{comboStats?.totalRewardsDistributed ?? "0 GO"}</div>
               </div>
             </div>
-
-            {/* Recent Attempts List */}
-            {comboStats?.recentAttempts && comboStats.recentAttempts.length > 0 && (
-              <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 10 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.7)", marginBottom: 6 }}>
-                  📋 آخر محاولات اليوم ({comboStats.recentAttempts.length}):
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 180, overflowY: "auto" }}>
-                  {comboStats.recentAttempts.map((att) => (
-                    <div
-                      key={att.id}
-                      style={{
-                        background: "rgba(255,255,255,0.02)",
-                        border: "1px solid rgba(255,255,255,0.05)",
-                        borderRadius: 8,
-                        padding: "6px 10px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        fontSize: 11,
-                      }}
-                    >
-                      <div>
-                        <span style={{ color: "#fff", fontWeight: 700 }}>
-                          {att.firstName || att.username || `User ${att.userId}`}
-                        </span>
-                        <span style={{ color: "rgba(255,255,255,0.4)", marginLeft: 6 }}>ID: {att.userId}</span>
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ color: "rgba(255,255,255,0.5)", fontSize: 10 }}>
-                          [{att.selectedItems.join(", ")}]
-                        </span>
-                        {att.isSuccess ? (
-                          <span style={{ color: "#4ade80", fontWeight: 900, background: "rgba(74, 222, 128, 0.15)", padding: "1px 6px", borderRadius: 4 }}>
-                            +5 GO
-                          </span>
-                        ) : (
-                          <span style={{ color: "#f87171", fontWeight: 700, background: "rgba(239, 68, 68, 0.15)", padding: "1px 6px", borderRadius: 4 }}>
-                            Failed
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Daily Check-in Rewards */}
@@ -1453,7 +1558,7 @@ export default function AdminPage() {
       )}
 
       {/* ==================================================================== */}
-      {/* SECTION 5: Users & Security */}
+      {/* SECTION 5: Users & Security (المستخدمين والأمان) */}
       {/* ==================================================================== */}
       {activeSection === "users" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1475,7 +1580,7 @@ export default function AdminPage() {
             </button>
           </div>
 
-          {/* User Search */}
+          {/* User Search & Profile View */}
           <div style={{ background: "rgba(10, 18, 42, 0.8)", border: "1px solid rgba(0, 242, 254, 0.2)", borderRadius: 20, padding: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 900, color: "#00f2fe", marginBottom: 10 }}>
               🔍 البحث عن مستخدم وإدارة الحسابات
@@ -1511,17 +1616,27 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Auto-Banned Accounts */}
+          {/* Auto-Banned Accounts with Search */}
           <div style={{ background: "rgba(10, 18, 42, 0.8)", border: "1px solid rgba(0, 242, 254, 0.2)", borderRadius: 20, padding: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 900, color: "#f87171", marginBottom: 10 }}>
-              🚫 الحسابات المحظورة تلقائياً ({autoBannedList.length})
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: "#f87171" }}>
+                🚫 الحسابات المحظورة تلقائياً ({filteredAutoBanned.length})
+              </div>
             </div>
 
+            <input
+              type="text"
+              value={autoBannedSearch}
+              onChange={(e) => setAutoBannedSearch(e.target.value)}
+              placeholder="بحث في الحسابات المحظورة بالـ ID أو السبب..."
+              style={{ width: "100%", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 10, padding: 8, color: "#fff", fontSize: 11, marginBottom: 10, boxSizing: "border-box" }}
+            />
+
             <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: 250, overflowY: "auto" }}>
-              {autoBannedList.length === 0 ? (
-                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>لا توجد حسابات محظورة حالياً</div>
+              {filteredAutoBanned.length === 0 ? (
+                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>لا توجد حسابات محظورة مطابقة</div>
               ) : (
-                autoBannedList.map((b) => (
+                filteredAutoBanned.map((b) => (
                   <div key={b.id} style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 12, padding: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <div>
                       <div style={{ fontWeight: 800, fontSize: 12 }}>User #{b.userId} ({b.username ? "@" + b.username : "No username"})</div>
@@ -1576,14 +1691,59 @@ export default function AdminPage() {
             </div>
           </div>
 
+          {/* Milestones Management */}
+          <div style={{ background: "rgba(10, 18, 42, 0.8)", border: "1px solid rgba(0, 242, 254, 0.2)", borderRadius: 20, padding: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: "#00f2fe" }}>
+                🎯 محطات الإحالة (Milestones) ({milestones.length})
+              </div>
+              <button
+                onClick={() => setNewMilestoneModal(true)}
+                style={{ background: "rgba(0, 242, 254, 0.15)", border: "1px solid rgba(0, 242, 254, 0.4)", borderRadius: 10, padding: "4px 10px", color: "#00f2fe", fontSize: 11, fontWeight: 800, cursor: "pointer" }}
+              >
+                + محطة جديدة
+              </button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {milestones.map((m) => (
+                <div key={m.id} style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: 12 }}>
+                      عند دعوة <strong>{m.requiredReferrals} أصدقاء</strong> ➔ مكافأة <strong style={{ color: "#fbbf24" }}>+{m.rewardAmount} {m.rewardCurrency}</strong>
+                    </div>
+                    <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)" }}>
+                      {m.isRepeatable ? "تتكرر مع كل مضاعف" : "لمرة واحدة"}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => handleDeleteMilestone(m.id)}
+                    style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid rgba(239, 68, 68, 0.4)", borderRadius: 8, padding: 6, color: "#f87171", cursor: "pointer" }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
           {/* Masked Wallet & API Keys Card */}
           <div style={{ background: "rgba(10, 18, 42, 0.8)", border: "1px solid rgba(0, 242, 254, 0.2)", borderRadius: 20, padding: 16 }}>
-            <div style={{ fontSize: 13, fontWeight: 900, color: "#00f2fe", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-              <Key size={16} /> حالة مفاتيح الدفع والربط المشفرة (Masked Security Keys)
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: "#00f2fe", display: "flex", alignItems: "center", gap: 6 }}>
+                <Key size={16} /> مفاتيح محفظة الدفع و API السحب التلقائي
+              </div>
+              <button
+                onClick={() => setWalletKeysModal(true)}
+                style={{ background: "rgba(0, 242, 254, 0.15)", border: "1px solid rgba(0, 242, 254, 0.4)", borderRadius: 10, padding: "4px 10px", color: "#00f2fe", fontSize: 11, fontWeight: 800, cursor: "pointer" }}
+              >
+                ⚙️ تعديل المفاتيح
+              </button>
             </div>
+
             <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", background: "rgba(255,255,255,0.02)", padding: 8, borderRadius: 8 }}>
-                <span style={{ color: "rgba(255,255,255,0.6)" }}>محفظة البوت الإدارية (TON Wallet):</span>
+                <span style={{ color: "rgba(255,255,255,0.6)" }}>محفظة البوت الإدارية (TON Hot Wallet):</span>
                 <strong style={{ color: walletKeys?.tonWalletConfigured ? "#4ade80" : "#f87171" }}>
                   {walletKeys?.maskedWalletAddress || "Not Configured"}
                 </strong>
@@ -1602,6 +1762,28 @@ export default function AdminPage() {
               </div>
             </div>
           </div>
+
+          {/* Security Events Viewer */}
+          <div style={{ background: "rgba(10, 18, 42, 0.8)", border: "1px solid rgba(0, 242, 254, 0.2)", borderRadius: 20, padding: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 900, color: "#00f2fe", marginBottom: 10 }}>
+              🚨 سجل التنبيهات الأمنية (Security & Anti-Hack Events)
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 200, overflowY: "auto" }}>
+              {securityEvents.length === 0 ? (
+                <div style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>لا توجد أحداث أمنية مشبوهة مسجلة.</div>
+              ) : (
+                securityEvents.slice(0, 20).map((ev) => (
+                  <div key={ev.id} style={{ background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: 8, fontSize: 11 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", color: "#f87171", fontWeight: 800 }}>
+                      <span>{ev.eventType}</span>
+                      <span>User #{ev.userId}</span>
+                    </div>
+                    {ev.details && <div style={{ fontSize: 10, color: "rgba(255,255,255,0.6)", marginTop: 2 }}>{JSON.stringify(ev.details)}</div>}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -1609,13 +1791,13 @@ export default function AdminPage() {
       {/* MODALS & DRAWERS */}
       {/* ==================================================================== */}
 
-      {/* User Profile Detail Modal */}
+      {/* User Profile Comprehensive Detail Modal */}
       {selectedUserDetail && (
         <div
           style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(10px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
           onClick={() => setSelectedUserDetail(null)}
         >
-          <div style={{ background: "#080e24", border: "1px solid rgba(0, 242, 254, 0.4)", borderRadius: 24, padding: 20, maxWidth: 440, width: "100%", maxHeight: "85vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ background: "#080e24", border: "1px solid rgba(0, 242, 254, 0.4)", borderRadius: 24, padding: 20, maxWidth: 460, width: "100%", maxHeight: "88vh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
               <div style={{ fontSize: 16, fontWeight: 900, color: "#00f2fe" }}>
                 ملف المستخدم #{selectedUserDetail.user.id}
@@ -1623,19 +1805,34 @@ export default function AdminPage() {
               <button onClick={() => setSelectedUserDetail(null)} style={{ background: "none", border: "none", color: "#fff", fontSize: 18, cursor: "pointer" }}>✕</button>
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12, marginBottom: 16 }}>
+            {/* Profile Data List */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 12, marginBottom: 16, background: "rgba(255,255,255,0.02)", padding: 12, borderRadius: 14 }}>
               <div>الاسم: <strong>{selectedUserDetail.user.firstName} {selectedUserDetail.user.lastName}</strong></div>
               <div>يوزرنيم: <strong>{selectedUserDetail.user.username ? "@" + selectedUserDetail.user.username : "None"}</strong></div>
-              <div>رصيد GO: <strong style={{ color: "#fbbf24" }}>{selectedUserDetail.user.goBalance || selectedUserDetail.user.balance} GO</strong></div>
-              <div>رصيد GRAM: <strong style={{ color: "#00f2fe" }}>{selectedUserDetail.user.gramBalance} Gram</strong></div>
-              <div>رصيد TON: <strong style={{ color: "#a855f7" }}>{selectedUserDetail.user.tonBalance} TON</strong></div>
-              <div>الإحالات: <strong>{selectedUserDetail.user.referralCount}</strong></div>
-              <div>المحفظة المحفوظة: <strong>{selectedUserDetail.user.savedWalletAddress || "Not connected"}</strong></div>
-              <div>حالة الحظر: <strong style={{ color: selectedUserDetail.isBanned ? "#f87171" : "#4ade80" }}>{selectedUserDetail.isBanned ? "محظور 🚫" : "نشط ✅"}</strong></div>
-              <div>حظر السحب: <strong style={{ color: selectedUserDetail.isWithdrawalBanned ? "#f87171" : "#4ade80" }}>{selectedUserDetail.isWithdrawalBanned ? "محظور من السحب 🔒" : "مسموح بالسحب 🔓"}</strong></div>
+              <div>Telegram ID: <strong>{selectedUserDetail.user.id}</strong></div>
+              <div>تاريخ التسجيل: <strong>{new Date(selectedUserDetail.user.createdAt).toLocaleDateString("ar-EG")}</strong></div>
+              <div>آخر وقت نشاط: <strong>{selectedUserDetail.user.lastMiningAt ? new Date(selectedUserDetail.user.lastMiningAt).toLocaleString("ar-EG") : "None"}</strong></div>
+              <div>مدعو بواسطة: <strong>{selectedUserDetail.inviter ? `${selectedUserDetail.inviter.firstName || ""} (@${selectedUserDetail.inviter.username || ""}) ID: ${selectedUserDetail.inviter.id}` : (selectedUserDetail.user.referredBy ? `ID: ${selectedUserDetail.user.referredBy}` : "مباشر (بدون إحالة)")}</strong></div>
+              <div>عدد الإحالات: <strong style={{ color: "#38bdf8" }}>{selectedUserDetail.referralsCount}</strong></div>
+              <div>المهام المكتملة: <strong style={{ color: "#38bdf8" }}>{selectedUserDetail.tasksCompletedCount ?? selectedUserDetail.user.tasksCompleted ?? 0}</strong></div>
+
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 6, marginTop: 4 }}>
+                <div>رصيد GO: <strong style={{ color: "#fbbf24" }}>{selectedUserDetail.user.goBalance || selectedUserDetail.user.balance} GO</strong></div>
+                <div>رصيد GRAM: <strong style={{ color: "#00f2fe" }}>{selectedUserDetail.user.gramBalance} Gram</strong></div>
+                <div>رصيد TON: <strong style={{ color: "#a855f7" }}>{selectedUserDetail.user.tonBalance} TON</strong></div>
+                <div>إجمالي الإيداعات: <strong style={{ color: "#4ade80" }}>+{selectedUserDetail.totalDeposited || "0.0000"} TON</strong></div>
+                <div>إجمالي السحوبات: <strong style={{ color: "#f87171" }}>-{selectedUserDetail.totalWithdrawn || "0.0000"} TON</strong></div>
+              </div>
+
+              <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 6, marginTop: 4 }}>
+                <div>المحفظة المحفوظة: <strong style={{ wordBreak: "break-all" }}>{selectedUserDetail.user.savedWalletAddress || "Not connected"}</strong></div>
+                <div>بصمة الـ IP: <strong style={{ color: "#fb923c" }}>{selectedUserDetail.user.ipHash ? `${selectedUserDetail.user.ipHash.slice(0, 12)}...` : "Unknown"}</strong></div>
+                <div>حالة الحظر: <strong style={{ color: selectedUserDetail.isBanned ? "#f87171" : "#4ade80" }}>{selectedUserDetail.isBanned ? "محظور 🚫" : "نشط ✅"}</strong></div>
+                <div>حظر السحب: <strong style={{ color: selectedUserDetail.isWithdrawalBanned ? "#f87171" : "#4ade80" }}>{selectedUserDetail.isWithdrawalBanned ? "محظور من السحب 🔒" : "مسموح بالسحب 🔓"}</strong></div>
+              </div>
             </div>
 
-            {/* Quick Management Buttons */}
+            {/* Quick Management Buttons Grid */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
               <button
                 onClick={() => setBalanceAdjustModal({ open: true, userId: selectedUserDetail.user.id, userName: selectedUserDetail.user.firstName || "" })}
@@ -1662,7 +1859,7 @@ export default function AdminPage() {
                 onClick={() => handleBanUser(selectedUserDetail.user.id, !selectedUserDetail.isBanned)}
                 style={{ background: selectedUserDetail.isBanned ? "rgba(34, 197, 94, 0.2)" : "rgba(239, 68, 68, 0.2)", border: selectedUserDetail.isBanned ? "1px solid #22c55e" : "1px solid #ef4444", borderRadius: 12, padding: 10, color: selectedUserDetail.isBanned ? "#4ade80" : "#f87171", fontWeight: 900, fontSize: 11, cursor: "pointer" }}
               >
-                {selectedUserDetail.isBanned ? "فك حظر الحساب" : "حظر الحساب"}
+                {selectedUserDetail.isBanned ? "فك حظر الحساب" : "حظر الحساب 🚫"}
               </button>
 
               <button
@@ -1670,6 +1867,20 @@ export default function AdminPage() {
                 style={{ background: selectedUserDetail.isWithdrawalBanned ? "rgba(34, 197, 94, 0.2)" : "rgba(251, 191, 36, 0.2)", border: selectedUserDetail.isWithdrawalBanned ? "1px solid #22c55e" : "1px solid #fbbf24", borderRadius: 12, padding: 10, color: selectedUserDetail.isWithdrawalBanned ? "#4ade80" : "#fbbf24", fontWeight: 900, fontSize: 11, cursor: "pointer" }}
               >
                 {selectedUserDetail.isWithdrawalBanned ? "السماح بالسحب 🔓" : "حظر السحب 🔒"}
+              </button>
+
+              <button
+                onClick={() => handleIpBanUser(selectedUserDetail.user.id, true)}
+                style={{ background: "rgba(239, 68, 68, 0.15)", border: "1px solid #ef4444", borderRadius: 12, padding: 10, color: "#f87171", fontWeight: 900, fontSize: 11, cursor: "pointer" }}
+              >
+                🌐 حظر جميع حسابات الـ IP
+              </button>
+
+              <button
+                onClick={() => handleIpBanUser(selectedUserDetail.user.id, false)}
+                style={{ background: "rgba(34, 197, 94, 0.15)", border: "1px solid #22c55e", borderRadius: 12, padding: 10, color: "#4ade80", fontWeight: 900, fontSize: 11, cursor: "pointer" }}
+              >
+                🌐 فك حظر حسابات الـ IP
               </button>
 
               <button
@@ -1760,7 +1971,7 @@ export default function AdminPage() {
 
             <textarea
               rows={4}
-              placeholder="اكتب الرسالة..."
+              placeholder="اكتب الرسالة هنا..."
               value={userMsgText}
               onChange={(e) => setUserMsgText(e.target.value)}
               style={{ width: "100%", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: 8, color: "#fff", fontSize: 12, marginBottom: 12, boxSizing: "border-box" }}
@@ -2009,13 +2220,13 @@ export default function AdminPage() {
 
             <input
               type="text"
-              placeholder="رابط المهمة (مثال: https://t.me/...)"
+              placeholder="رابط المهمة أو القناة (https://t.me/...)"
               value={newTaskUrl}
               onChange={(e) => setNewTaskUrl(e.target.value)}
               style={{ width: "100%", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: 8, color: "#fff", marginBottom: 10, boxSizing: "border-box" }}
             />
 
-            <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               <input
                 type="number"
                 placeholder="المكافأة"
@@ -2033,6 +2244,14 @@ export default function AdminPage() {
               </select>
             </div>
 
+            <input
+              type="number"
+              placeholder="حد المطالبات (عدد مستخدمين معين، اتركه فارغاً لغير محدود)..."
+              value={newTaskMaxClaims}
+              onChange={(e) => setNewTaskMaxClaims(e.target.value)}
+              style={{ width: "100%", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: 8, color: "#fff", marginBottom: 14, boxSizing: "border-box" }}
+            />
+
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 onClick={handleSaveTask}
@@ -2042,6 +2261,188 @@ export default function AdminPage() {
               </button>
               <button
                 onClick={() => setTaskModal(false)}
+                style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 10, padding: "10px 16px", color: "#fff", cursor: "pointer" }}
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Contest Modal */}
+      {contestModal && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 1100, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#0c1432", border: "1px solid #00f2fe", borderRadius: 20, padding: 20, maxWidth: 380, width: "100%" }}>
+            <div style={{ fontSize: 15, fontWeight: 900, color: "#00f2fe", marginBottom: 12 }}>
+              إنشاء مسابقة جديدة للمتصدرين
+            </div>
+
+            <input
+              type="text"
+              placeholder="عنوان المسابقة..."
+              value={newContest.title}
+              onChange={(e) => setNewContest({ ...newContest, title: e.target.value })}
+              style={{ width: "100%", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: 8, color: "#fff", marginBottom: 10, boxSizing: "border-box" }}
+            />
+
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <input
+                type="number"
+                placeholder="مجموع الجوائز"
+                value={newContest.totalReward}
+                onChange={(e) => setNewContest({ ...newContest, totalReward: e.target.value })}
+                style={{ flex: 1, background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: 8, color: "#fff" }}
+              />
+              <select
+                value={newContest.rewardType}
+                onChange={(e) => setNewContest({ ...newContest, rewardType: e.target.value })}
+                style={{ background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: 8, color: "#fff" }}
+              >
+                <option value="GO">GO</option>
+                <option value="Gram">Gram</option>
+              </select>
+            </div>
+
+            <input
+              type="number"
+              placeholder="عدد الفائزين (مثال: 3)..."
+              value={newContest.winnerCount}
+              onChange={(e) => setNewContest({ ...newContest, winnerCount: e.target.value })}
+              style={{ width: "100%", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: 8, color: "#fff", marginBottom: 10, boxSizing: "border-box" }}
+            />
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>تاريخ ووقت انتهاء المسابقة:</label>
+              <input
+                type="datetime-local"
+                value={newContest.endDate}
+                onChange={(e) => setNewContest({ ...newContest, endDate: e.target.value })}
+                style={{ width: "100%", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: 8, color: "#fff", marginTop: 4, boxSizing: "border-box" }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={handleCreateContest}
+                style={{ flex: 1, background: "linear-gradient(135deg, #00f2fe, #7c3aed)", border: "none", borderRadius: 10, padding: 10, color: "#000", fontWeight: 900, cursor: "pointer" }}
+              >
+                إنشاء المسابقة
+              </button>
+              <button
+                onClick={() => setContestModal(false)}
+                style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 10, padding: "10px 16px", color: "#fff", cursor: "pointer" }}
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* New Milestone Modal */}
+      {newMilestoneModal && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 1100, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#0c1432", border: "1px solid #00f2fe", borderRadius: 20, padding: 20, maxWidth: 380, width: "100%" }}>
+            <div style={{ fontSize: 15, fontWeight: 900, color: "#00f2fe", marginBottom: 12 }}>
+              إضافة محطة إحالة جديدة (Milestone)
+            </div>
+
+            <input
+              type="number"
+              placeholder="عدد الإحالات المطلوبة (مثال: 5)..."
+              value={newMilestoneRefs}
+              onChange={(e) => setNewMilestoneRefs(e.target.value)}
+              style={{ width: "100%", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: 8, color: "#fff", marginBottom: 10, boxSizing: "border-box" }}
+            />
+
+            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+              <input
+                type="number"
+                placeholder="المكافأة"
+                value={newMilestoneReward}
+                onChange={(e) => setNewMilestoneReward(e.target.value)}
+                style={{ flex: 1, background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: 8, color: "#fff" }}
+              />
+              <select
+                value={newMilestoneCurrency}
+                onChange={(e) => setNewMilestoneCurrency(e.target.value)}
+                style={{ background: "rgba(0,0,0,0.6)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: 8, color: "#fff" }}
+              >
+                <option value="GO">GO</option>
+                <option value="Gram">Gram</option>
+              </select>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <input
+                type="checkbox"
+                id="repeatMile"
+                checked={newMilestoneRepeat}
+                onChange={(e) => setNewMilestoneRepeat(e.target.checked)}
+              />
+              <label htmlFor="repeatMile" style={{ fontSize: 11, color: "#fff", cursor: "pointer" }}>
+                مكافأة متكررة مع كل مضاعف (Repeatable)
+              </label>
+            </div>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={handleCreateMilestone}
+                style={{ flex: 1, background: "linear-gradient(135deg, #00f2fe, #7c3aed)", border: "none", borderRadius: 10, padding: 10, color: "#000", fontWeight: 900, cursor: "pointer" }}
+              >
+                حفظ المحطة
+              </button>
+              <button
+                onClick={() => setNewMilestoneModal(false)}
+                style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 10, padding: "10px 16px", color: "#fff", cursor: "pointer" }}
+              >
+                إلغاء
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Wallet Keys Modal */}
+      {walletKeysModal && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 1100, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#0c1432", border: "1px solid #00f2fe", borderRadius: 20, padding: 20, maxWidth: 420, width: "100%" }}>
+            <div style={{ fontSize: 15, fontWeight: 900, color: "#00f2fe", marginBottom: 12 }}>
+              تعديل مفاتيح محفظة الدفع التلقائي و API
+            </div>
+
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginBottom: 10 }}>
+              الكلمات المفتاحية (Mnemonic Phrase - 12 أو 24 كلمة مفصولة بمسافات):
+            </div>
+            <textarea
+              rows={3}
+              placeholder="اكتب الـ 24 كلمة هنا في حال الرغبة بتغيير محفظة الدفع..."
+              value={newMnemonic}
+              onChange={(e) => setNewMnemonic(e.target.value)}
+              style={{ width: "100%", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: 8, color: "#fff", fontSize: 11, marginBottom: 12, boxSizing: "border-box" }}
+            />
+
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginBottom: 6 }}>
+              مفتاح API الخاص بـ TonCenter (اختياري لتحسين سرعة الدفع):
+            </div>
+            <input
+              type="text"
+              placeholder="TonCenter API Key..."
+              value={newApiKey}
+              onChange={(e) => setNewApiKey(e.target.value)}
+              style={{ width: "100%", background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 10, padding: 8, color: "#fff", fontSize: 11, marginBottom: 14, boxSizing: "border-box" }}
+            />
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={handleUpdateWalletKeys}
+                style={{ flex: 1, background: "linear-gradient(135deg, #00f2fe, #7c3aed)", border: "none", borderRadius: 10, padding: 10, color: "#000", fontWeight: 900, cursor: "pointer" }}
+              >
+                تحديث المفاتيح
+              </button>
+              <button
+                onClick={() => setWalletKeysModal(false)}
                 style={{ background: "rgba(255,255,255,0.1)", border: "none", borderRadius: 10, padding: "10px 16px", color: "#fff", cursor: "pointer" }}
               >
                 إلغاء
@@ -2091,4 +2492,3 @@ export default function AdminPage() {
     </div>
   );
 }
-

@@ -11,12 +11,16 @@ import {
 import { mnemonicToPrivateKey } from "@ton/crypto";
 import { logger } from "./logger";
 
-function getClient(): TonClient {
-  const apiKey = process.env.TON_API_KEY;
+import { getSetting } from "./settingsCache";
+
+async function getClient(): Promise<TonClient> {
+  const dbApiKey = await getSetting("ton_api_key");
+  const apiKey = process.env.TON_API_KEY || dbApiKey || undefined;
   const endpoint =
     process.env.TON_ENDPOINT || "https://toncenter.com/api/v2/jsonRPC";
   return new TonClient({ endpoint, ...(apiKey ? { apiKey } : {}) });
 }
+
 
 // Wallet versions to probe in priority order
 const WALLET_VERSIONS = ["V5R1", "V4", "V3R2"] as const;
@@ -50,6 +54,11 @@ async function detectWallet(client: TonClient, publicKey: Buffer) {
   return { contract: c, version: "V5R1" };
 }
 
+async function getEffectiveMnemonic(): Promise<string | null> {
+  const dbMnemonic = await getSetting("ton_wallet_mnemonic");
+  return process.env.TON_WALLET_MNEMONIC || dbMnemonic || null;
+}
+
 export interface TonSendResult {
   txRef: string;
 }
@@ -58,14 +67,14 @@ export async function sendTon(
   toAddress: string,
   amountTon: string
 ): Promise<TonSendResult> {
-  const mnemonic = process.env.TON_WALLET_MNEMONIC;
+  const mnemonic = await getEffectiveMnemonic();
   if (!mnemonic) throw new Error("TON_WALLET_MNEMONIC not configured");
 
   const words = mnemonic.trim().split(/\s+/);
   if (words.length < 12) throw new Error("Invalid mnemonic (too short)");
 
   const keyPair = await mnemonicToPrivateKey(words);
-  const client = getClient();
+  const client = await getClient();
 
   const { contract, version } = await detectWallet(client, keyPair.publicKey);
 
@@ -113,12 +122,12 @@ export async function sendTon(
 }
 
 export async function getWalletAddress(): Promise<string | null> {
-  const mnemonic = process.env.TON_WALLET_MNEMONIC;
+  const mnemonic = await getEffectiveMnemonic();
   if (!mnemonic) return null;
   try {
     const words = mnemonic.trim().split(/\s+/);
     const keyPair = await mnemonicToPrivateKey(words);
-    const client = getClient();
+    const client = await getClient();
     const { contract } = await detectWallet(client, keyPair.publicKey).catch(() => {
       // If not funded, still return V5R1 address
       const contracts = buildContracts(keyPair.publicKey);
@@ -131,12 +140,12 @@ export async function getWalletAddress(): Promise<string | null> {
 }
 
 export async function getWalletBalance(): Promise<string | null> {
-  const mnemonic = process.env.TON_WALLET_MNEMONIC;
+  const mnemonic = await getEffectiveMnemonic();
   if (!mnemonic) return null;
   try {
     const words = mnemonic.trim().split(/\s+/);
     const keyPair = await mnemonicToPrivateKey(words);
-    const client = getClient();
+    const client = await getClient();
     const contracts = buildContracts(keyPair.publicKey);
     // Check all versions and sum (realistically only one is deployed)
     for (const ver of WALLET_VERSIONS) {
@@ -154,6 +163,8 @@ export async function getWalletBalance(): Promise<string | null> {
   }
 }
 
-export function isTonConfigured(): boolean {
-  return !!process.env.TON_WALLET_MNEMONIC;
+export async function isTonConfigured(): Promise<boolean> {
+  const mnemonic = await getEffectiveMnemonic();
+  return !!mnemonic;
 }
+
