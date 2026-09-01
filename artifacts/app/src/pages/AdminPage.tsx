@@ -39,6 +39,8 @@ import {
   Radio,
   Sliders,
   Award,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 
 type SectionTab = "general" | "mining" | "finance" | "tasks" | "users";
@@ -64,7 +66,17 @@ const ALL_PERMISSIONS: { key: AdminPermission; label: string }[] = [
 
 export default function AdminPage() {
   const { user, isAdmin } = useUser();
-  const [activeSection, setActiveSection] = useState<SectionTab>("general");
+  const [openSections, setOpenSections] = useState<Record<SectionTab, boolean>>({
+    general: true,
+    mining: true,
+    finance: true,
+    tasks: true,
+    users: true,
+  });
+
+  const toggleSection = (sec: SectionTab) => {
+    setOpenSections((prev) => ({ ...prev, [sec]: !prev[sec] }));
+  };
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<{ text: string; type: "ok" | "err" } | null>(null);
 
@@ -819,7 +831,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* 5 Main Section Navigation Bar */}
+      {/* 5 Main Section Quick Selector Chips */}
       <div
         style={{
           display: "grid",
@@ -839,26 +851,26 @@ export default function AdminPage() {
           { id: "tasks" as const, label: "4. المكافآت", icon: Gift },
           { id: "users" as const, label: "5. الأمان", icon: Users },
         ].map((tab) => {
-          const isActive = activeSection === tab.id;
+          const isOpen = openSections[tab.id];
           const Icon = tab.icon;
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveSection(tab.id)}
+              onClick={() => toggleSection(tab.id)}
               style={{
-                background: isActive
-                  ? "linear-gradient(135deg, rgba(0, 242, 254, 0.3), rgba(124, 58, 237, 0.3))"
+                background: isOpen
+                  ? "linear-gradient(135deg, rgba(0, 242, 254, 0.35), rgba(124, 58, 237, 0.35))"
                   : "transparent",
-                border: isActive ? "1px solid #00f2fe" : "none",
+                border: isOpen ? "1px solid #00f2fe" : "none",
                 borderRadius: 14,
-                padding: "10px 4px",
-                color: isActive ? "#00f2fe" : "rgba(255,255,255,0.6)",
+                padding: "8px 2px",
+                color: isOpen ? "#00f2fe" : "rgba(255,255,255,0.6)",
                 cursor: "pointer",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "center",
                 gap: 4,
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: 800,
                 transition: "all 0.2s ease",
               }}
@@ -873,8 +885,76 @@ export default function AdminPage() {
       {/* ==================================================================== */}
       {/* SECTION 1: General Administration (الإدارة العامة) */}
       {/* ==================================================================== */}
-      {activeSection === "general" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+        {/* Accordion 1 Header */}
+        <div
+          onClick={() => toggleSection("general")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            background: openSections.general
+              ? "linear-gradient(135deg, rgba(0, 242, 254, 0.25), rgba(10, 18, 42, 0.95))"
+              : "rgba(10, 18, 42, 0.85)",
+            border: openSections.general
+              ? "1px solid #00f2fe"
+              : "1px solid rgba(255, 255, 255, 0.12)",
+            borderRadius: 18,
+            padding: "14px 16px",
+            cursor: "pointer",
+            boxShadow: openSections.general
+              ? "0 4px 20px rgba(0, 242, 254, 0.25)"
+              : "0 2px 10px rgba(0,0,0,0.3)",
+            transition: "all 0.2s ease",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 12,
+                background: "rgba(0, 242, 254, 0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#00f2fe",
+              }}
+            >
+              <LayoutDashboard size={20} />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: "#fff" }}>
+                1. الإدارة العامة
+              </div>
+              <div style={{ fontSize: 10, color: "rgba(255, 255, 255, 0.5)", marginTop: 2 }}>
+                الإحصائيات، الرسائل الجماعية، الصيانة، والمشرفين
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                color: openSections.general ? "#00f2fe" : "rgba(255,255,255,0.4)",
+                background: openSections.general
+                  ? "rgba(0, 242, 254, 0.15)"
+                  : "rgba(255,255,255,0.05)",
+                padding: "4px 8px",
+                borderRadius: 8,
+              }}
+            >
+              {openSections.general ? "مفتوح" : "انقر للفتح"}
+            </span>
+            {openSections.general ? <ChevronUp size={18} color="#00f2fe" /> : <ChevronDown size={18} color="rgba(255,255,255,0.5)" />}
+          </div>
+        </div>
+
+        {/* Accordion 1 Body */}
+        {openSections.general && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 4 }}>
           {/* Quick Actions */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <button
@@ -1111,69 +1191,207 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+      </div>
 
       {/* ==================================================================== */}
       {/* SECTION 2: Mining Configuration (التعدين) */}
       {/* ==================================================================== */}
-      {activeSection === "mining" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ background: "rgba(10, 18, 42, 0.8)", border: "1px solid rgba(0, 242, 254, 0.2)", borderRadius: 20, padding: 16 }}>
-            <div style={{ fontSize: 14, fontWeight: 900, color: "#00f2fe", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
-              <Zap size={18} /> إعدادات معدل التعدين اليومي (Global Mining Rate)
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+        {/* Accordion 2 Header */}
+        <div
+          onClick={() => toggleSection("mining")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            background: openSections.mining
+              ? "linear-gradient(135deg, rgba(0, 242, 254, 0.25), rgba(10, 18, 42, 0.95))"
+              : "rgba(10, 18, 42, 0.85)",
+            border: openSections.mining
+              ? "1px solid #00f2fe"
+              : "1px solid rgba(255, 255, 255, 0.12)",
+            borderRadius: 18,
+            padding: "14px 16px",
+            cursor: "pointer",
+            boxShadow: openSections.mining
+              ? "0 4px 20px rgba(0, 242, 254, 0.25)"
+              : "0 2px 10px rgba(0,0,0,0.3)",
+            transition: "all 0.2s ease",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 12,
+                background: "rgba(0, 242, 254, 0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#00f2fe",
+              }}
+            >
+              <Zap size={20} />
             </div>
-
-            <div style={{ background: "rgba(0, 242, 254, 0.08)", border: "1px solid rgba(0, 242, 254, 0.3)", borderRadius: 14, padding: 14, marginBottom: 16 }}>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>المعدل العالمي المطبق حالياً:</div>
-              <div style={{ fontSize: 28, fontWeight: 900, color: "#00f2fe" }}>
-                {(parseFloat(settings["global_mining_rate"] || "0.0200") * 100).toFixed(2)}% يومياً
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: "#fff" }}>
+                2. التعدين
               </div>
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>
-                يتم حساب أرباح GRAM لحظياً لكل مستخدم وفق هذه النسبة بناءً على رصيد عملات GO الخاصة به.
+              <div style={{ fontSize: 10, color: "rgba(255, 255, 255, 0.5)", marginTop: 2 }}>
+                نسبة التعدين اليومية وحاسبة الأرباح الفورية
               </div>
-            </div>
-
-            {/* Interactive Simulation Calculator */}
-            <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: 12, marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "#fbbf24", marginBottom: 8 }}>
-                💡 محاكاة الإنتاج عند النسبة المدخلة:
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                <div style={{ background: "rgba(0,0,0,0.3)", padding: 8, borderRadius: 8, fontSize: 11 }}>
-                  رصيد 100 GO ينتج: <strong style={{ color: "#00f2fe" }}>+{(100 * (parseFloat(miningRateInput) || 0.02)).toFixed(4)} GRAM / يوم</strong>
-                </div>
-                <div style={{ background: "rgba(0,0,0,0.3)", padding: 8, borderRadius: 8, fontSize: 11 }}>
-                  رصيد 500 GO ينتج: <strong style={{ color: "#00f2fe" }}>+{(500 * (parseFloat(miningRateInput) || 0.02)).toFixed(4)} GRAM / يوم</strong>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: "flex", gap: 10 }}>
-              <input
-                type="number"
-                step="0.001"
-                min="0.001"
-                max="1.0"
-                value={miningRateInput}
-                onChange={(e) => setMiningRateInput(e.target.value)}
-                placeholder="مثال: 0.0200"
-                style={{ flex: 1, background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 12, padding: "10px 14px", color: "#fff", fontSize: 14, fontWeight: 800 }}
-              />
-              <button
-                onClick={handleSaveMiningRate}
-                style={{ background: "linear-gradient(135deg, #00f2fe, #7c3aed)", border: "none", borderRadius: 12, padding: "10px 20px", color: "#040714", fontWeight: 900, fontSize: 13, cursor: "pointer" }}
-              >
-                حفظ وتطبيق النسبة
-              </button>
             </div>
           </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                color: openSections.mining ? "#00f2fe" : "rgba(255,255,255,0.4)",
+                background: openSections.mining
+                  ? "rgba(0, 242, 254, 0.15)"
+                  : "rgba(255,255,255,0.05)",
+                padding: "4px 8px",
+                borderRadius: 8,
+              }}
+            >
+              {openSections.mining ? "مفتوح" : "انقر للفتح"}
+            </span>
+            {openSections.mining ? <ChevronUp size={18} color="#00f2fe" /> : <ChevronDown size={18} color="rgba(255,255,255,0.5)" />}
+          </div>
         </div>
-      )}
+
+        {/* Accordion 2 Body */}
+        {openSections.mining && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 4 }}>
+            <div style={{ background: "rgba(10, 18, 42, 0.8)", border: "1px solid rgba(0, 242, 254, 0.2)", borderRadius: 20, padding: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 900, color: "#00f2fe", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                <Zap size={18} /> إعدادات معدل التعدين اليومي (Global Mining Rate)
+              </div>
+
+              <div style={{ background: "rgba(0, 242, 254, 0.08)", border: "1px solid rgba(0, 242, 254, 0.3)", borderRadius: 14, padding: 14, marginBottom: 16 }}>
+                <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>المعدل العالمي المطبق حالياً:</div>
+                <div style={{ fontSize: 28, fontWeight: 900, color: "#00f2fe" }}>
+                  {(parseFloat(settings["global_mining_rate"] || "0.0200") * 100).toFixed(2)}% يومياً
+                </div>
+                <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)", marginTop: 4 }}>
+                  يتم حساب أرباح GRAM لحظياً لكل مستخدم وفق هذه النسبة بناءً على رصيد عملات GO الخاصة به.
+                </div>
+              </div>
+
+              {/* Interactive Simulation Calculator */}
+              <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, padding: 12, marginBottom: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#fbbf24", marginBottom: 8 }}>
+                  💡 محاكاة الإنتاج عند النسبة المدخلة:
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                  <div style={{ background: "rgba(0,0,0,0.3)", padding: 8, borderRadius: 8, fontSize: 11 }}>
+                    رصيد 100 GO ينتج: <strong style={{ color: "#00f2fe" }}>+{(100 * (parseFloat(miningRateInput) || 0.02)).toFixed(4)} GRAM / يوم</strong>
+                  </div>
+                  <div style={{ background: "rgba(0,0,0,0.3)", padding: 8, borderRadius: 8, fontSize: 11 }}>
+                    رصيد 500 GO ينتج: <strong style={{ color: "#00f2fe" }}>+{(500 * (parseFloat(miningRateInput) || 0.02)).toFixed(4)} GRAM / يوم</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <input
+                  type="number"
+                  step="0.001"
+                  min="0.001"
+                  max="1.0"
+                  value={miningRateInput}
+                  onChange={(e) => setMiningRateInput(e.target.value)}
+                  placeholder="مثال: 0.0200"
+                  style={{ flex: 1, background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 12, padding: "10px 14px", color: "#fff", fontSize: 14, fontWeight: 800 }}
+                />
+                <button
+                  onClick={handleSaveMiningRate}
+                  style={{ background: "linear-gradient(135deg, #00f2fe, #7c3aed)", border: "none", borderRadius: 12, padding: "10px 20px", color: "#040714", fontWeight: 900, fontSize: 13, cursor: "pointer" }}
+                >
+                  حفظ وتطبيق النسبة
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ==================================================================== */}
       {/* SECTION 3: Finance & Wallet (المالية والمحفظة) */}
       {/* ==================================================================== */}
-      {activeSection === "finance" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+        {/* Accordion 3 Header */}
+        <div
+          onClick={() => toggleSection("finance")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            background: openSections.finance
+              ? "linear-gradient(135deg, rgba(0, 242, 254, 0.25), rgba(10, 18, 42, 0.95))"
+              : "rgba(10, 18, 42, 0.85)",
+            border: openSections.finance
+              ? "1px solid #00f2fe"
+              : "1px solid rgba(255, 255, 255, 0.12)",
+            borderRadius: 18,
+            padding: "14px 16px",
+            cursor: "pointer",
+            boxShadow: openSections.finance
+              ? "0 4px 20px rgba(0, 242, 254, 0.25)"
+              : "0 2px 10px rgba(0,0,0,0.3)",
+            transition: "all 0.2s ease",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 12,
+                background: "rgba(0, 242, 254, 0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#00f2fe",
+              }}
+            >
+              <DollarSign size={20} />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: "#fff" }}>
+                3. المالية والمحفظة
+              </div>
+              <div style={{ fontSize: 10, color: "rgba(255, 255, 255, 0.5)", marginTop: 2 }}>
+                السحوبات، الإيداعات، الحدود المالية، وتصفير الأرصدة
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                color: openSections.finance ? "#00f2fe" : "rgba(255,255,255,0.4)",
+                background: openSections.finance
+                  ? "rgba(0, 242, 254, 0.15)"
+                  : "rgba(255,255,255,0.05)",
+                padding: "4px 8px",
+                borderRadius: 8,
+              }}
+            >
+              {openSections.finance ? "مفتوح" : "انقر للفتح"}
+            </span>
+            {openSections.finance ? <ChevronUp size={18} color="#00f2fe" /> : <ChevronDown size={18} color="rgba(255,255,255,0.5)" />}
+          </div>
+        </div>
+
+        {/* Accordion 3 Body */}
+        {openSections.finance && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 4 }}>
           {/* Danger Zone */}
           <div style={{ background: "rgba(239, 68, 68, 0.08)", border: "1px solid rgba(239, 68, 68, 0.4)", borderRadius: 20, padding: 16 }}>
             <div style={{ fontSize: 13, fontWeight: 900, color: "#f87171", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
@@ -1406,12 +1624,81 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+      </div>
 
       {/* ==================================================================== */}
       {/* SECTION 4: Tasks & Rewards (المهام والمكافآت) */}
       {/* ==================================================================== */}
-      {activeSection === "tasks" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+        {/* Accordion 4 Header */}
+        <div
+          onClick={() => toggleSection("tasks")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            background: openSections.tasks
+              ? "linear-gradient(135deg, rgba(0, 242, 254, 0.25), rgba(10, 18, 42, 0.95))"
+              : "rgba(10, 18, 42, 0.85)",
+            border: openSections.tasks
+              ? "1px solid #00f2fe"
+              : "1px solid rgba(255, 255, 255, 0.12)",
+            borderRadius: 18,
+            padding: "14px 16px",
+            cursor: "pointer",
+            boxShadow: openSections.tasks
+              ? "0 4px 20px rgba(0, 242, 254, 0.25)"
+              : "0 2px 10px rgba(0,0,0,0.3)",
+            transition: "all 0.2s ease",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 12,
+                background: "rgba(0, 242, 254, 0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#00f2fe",
+              }}
+            >
+              <Gift size={20} />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: "#fff" }}>
+                4. المهام والمكافآت
+              </div>
+              <div style={{ fontSize: 10, color: "rgba(255, 255, 255, 0.5)", marginTop: 2 }}>
+                المهام، القنوات، المسابقات، Daily Combo، و Daily Check-in
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                color: openSections.tasks ? "#00f2fe" : "rgba(255,255,255,0.4)",
+                background: openSections.tasks
+                  ? "rgba(0, 242, 254, 0.15)"
+                  : "rgba(255,255,255,0.05)",
+                padding: "4px 8px",
+                borderRadius: 8,
+              }}
+            >
+              {openSections.tasks ? "مفتوح" : "انقر للفتح"}
+            </span>
+            {openSections.tasks ? <ChevronUp size={18} color="#00f2fe" /> : <ChevronDown size={18} color="rgba(255,255,255,0.5)" />}
+          </div>
+        </div>
+
+        {/* Accordion 4 Body */}
+        {openSections.tasks && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 4 }}>
           {/* Tasks Manager */}
           <div style={{ background: "rgba(10, 18, 42, 0.8)", border: "1px solid rgba(0, 242, 254, 0.2)", borderRadius: 20, padding: 16 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
@@ -1561,12 +1848,81 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+      </div>
 
       {/* ==================================================================== */}
       {/* SECTION 5: Users & Security (المستخدمين والأمان) */}
       {/* ==================================================================== */}
-      {activeSection === "users" && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+        {/* Accordion 5 Header */}
+        <div
+          onClick={() => toggleSection("users")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            background: openSections.users
+              ? "linear-gradient(135deg, rgba(0, 242, 254, 0.25), rgba(10, 18, 42, 0.95))"
+              : "rgba(10, 18, 42, 0.85)",
+            border: openSections.users
+              ? "1px solid #00f2fe"
+              : "1px solid rgba(255, 255, 255, 0.12)",
+            borderRadius: 18,
+            padding: "14px 16px",
+            cursor: "pointer",
+            boxShadow: openSections.users
+              ? "0 4px 20px rgba(0, 242, 254, 0.25)"
+              : "0 2px 10px rgba(0,0,0,0.3)",
+            transition: "all 0.2s ease",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 12,
+                background: "rgba(0, 242, 254, 0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#00f2fe",
+              }}
+            >
+              <Users size={20} />
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: "#fff" }}>
+                5. المستخدمين والأمان
+              </div>
+              <div style={{ fontSize: 10, color: "rgba(255, 255, 255, 0.5)", marginTop: 2 }}>
+                البحث، تعديل الأرصدة، الحظر، الرسائل، ومفاتيح الدفع
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                color: openSections.users ? "#00f2fe" : "rgba(255,255,255,0.4)",
+                background: openSections.users
+                  ? "rgba(0, 242, 254, 0.15)"
+                  : "rgba(255,255,255,0.05)",
+                padding: "4px 8px",
+                borderRadius: 8,
+              }}
+            >
+              {openSections.users ? "مفتوح" : "انقر للفتح"}
+            </span>
+            {openSections.users ? <ChevronUp size={18} color="#00f2fe" /> : <ChevronDown size={18} color="rgba(255,255,255,0.5)" />}
+          </div>
+        </div>
+
+        {/* Accordion 5 Body */}
+        {openSections.users && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 4 }}>
           {/* Security Master Switch */}
           <div style={{ background: "rgba(10, 18, 42, 0.8)", border: "1px solid rgba(0, 242, 254, 0.2)", borderRadius: 20, padding: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div>
@@ -1791,6 +2147,7 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+      </div>
 
       {/* ==================================================================== */}
       {/* MODALS & DRAWERS */}
