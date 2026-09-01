@@ -15,11 +15,6 @@ import {
   OWNER_USERNAME,
   isOwner,
   getAdminInfo,
-  adminConvState,
-  showAdminMenu,
-  handleAdminCallback,
-  handleAdminText,
-  handleAdminPhoto,
 } from "./admin";
 import {
   enforceSubscription,
@@ -888,19 +883,7 @@ function setupBotHandlers() {
     });
   }));
 
-  // ── /admin ────────────────────────────────────────────────────────────────
-  bot.onText(/^\/admin$/, wrapHandler(async (msg) => {
-    const userId = msg.from!.id;
-    const username = msg.from?.username;
-    const info = await getAdminInfo(userId, username);
-    if (!info) {
-      await bot.sendMessage(msg.chat.id, "⛔ ليس لديك صلاحية الوصول للوحة التحكم.");
-      return;
-    }
-    await showAdminMenu(bot, msg.chat.id, undefined, info);
-  }));
-
-  // ── /wallet ───────────────────────────────────────────────────────────────
+  // ── /wallet (Owner hot-wallet check) ──────────────────────────────────────
   bot.onText(/^\/wallet$/, wrapHandler(async (msg) => {
     const userId = msg.from!.id;
     const username = msg.from?.username;
@@ -930,7 +913,7 @@ function setupBotHandlers() {
       .onConflictDoUpdate({ target: botSettingsTable.key, set: { value: String(userId) } });
     await bot.sendMessage(
       msg.chat.id,
-      `✅ تم تسجيلك كمالك للبوت!\nID: ${userId}\nاستخدم /admin للوصول إلى لوحة التحكم.`
+      `✅ تم تسجيلك كمالك للبوت!\nID: ${userId}\nلوحة الإدارة متاحة لك داخل تطبيق الـ Web App في قسم Admin.`
     );
   }));
 
@@ -966,11 +949,7 @@ function setupBotHandlers() {
         }
       }
 
-      // 4. Admin callbacks (adm:* prefix)
-      if (data.startsWith("adm:") && adminInfo) {
-        await handleAdminCallback(bot, q);
-        return;
-      }
+
 
       // 5. Withdrawal approval/rejection (admin)
       if ((data.startsWith("withdraw_approve_") || data.startsWith("withdraw_reject_") || data.startsWith("withdraw_ban_")) && adminInfo) {
@@ -1019,16 +998,6 @@ function setupBotHandlers() {
 
       // Maintenance check for non-admins (silent — don't send duplicate message)
       if (!adminInfo && await botIsDisabled()) return;
-
-      // Admin photo handler (task icon uploads)
-      if (adminInfo && msg.photo) {
-        if (await handleAdminPhoto(bot, msg)) return;
-      }
-
-      // Admin text/conversation state-machine handler
-      if (adminInfo) {
-        if (await handleAdminText(bot, msg)) return;
-      }
 
       // Regular user message — check subscription if there is text
       if (!adminInfo && msg.text) {

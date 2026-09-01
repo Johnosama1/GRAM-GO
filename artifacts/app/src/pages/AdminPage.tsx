@@ -703,34 +703,37 @@ export default function AdminPage() {
   const isMaintenance = settings["maintenance_mode"] === "true";
   const isSecurityActive = settings["security_system_enabled"] !== "false";
 
-  const filteredWithdrawals = withdrawals.filter((w) => {
+  const filteredWithdrawals = (withdrawals || []).filter((w) => {
+    if (!w) return false;
     if (withdrawalFilter !== "all" && w.status !== withdrawalFilter) return false;
     if (withdrawalSearch) {
       const q = withdrawalSearch.toLowerCase();
-      const matchId = String(w.userId).includes(q) || String(w.id).includes(q);
-      const matchUser = w.username?.toLowerCase().includes(q) || w.firstName?.toLowerCase().includes(q);
-      const matchAddr = w.walletAddress.toLowerCase().includes(q);
-      return matchId || matchUser || matchAddr;
+      const matchId = String(w.userId || "").includes(q) || String(w.id || "").includes(q);
+      const matchUser = (w.username || "").toLowerCase().includes(q) || (w.firstName || "").toLowerCase().includes(q);
+      const matchAddr = (w.walletAddress || "").toLowerCase().includes(q);
+      return Boolean(matchId || matchUser || matchAddr);
     }
     return true;
   });
 
-  const filteredDeposits = deposits.filter((d) => {
+  const filteredDeposits = (deposits || []).filter((d) => {
+    if (!d) return false;
     if (depositFilter !== "all" && d.status !== depositFilter) return false;
     if (depositSearch) {
       const q = depositSearch.toLowerCase();
-      const matchId = String(d.userId).includes(q);
-      const matchUser = d.username?.toLowerCase().includes(q) || d.firstName?.toLowerCase().includes(q);
-      const matchHash = d.txHash?.toLowerCase().includes(q);
-      return matchId || matchUser || matchHash;
+      const matchId = String(d.userId || "").includes(q);
+      const matchUser = (d.username || "").toLowerCase().includes(q) || (d.firstName || "").toLowerCase().includes(q);
+      const matchHash = (d.txHash || "").toLowerCase().includes(q);
+      return Boolean(matchId || matchUser || matchHash);
     }
     return true;
   });
 
-  const filteredAutoBanned = autoBannedList.filter((b) => {
+  const filteredAutoBanned = (autoBannedList || []).filter((b) => {
+    if (!b) return false;
     if (!autoBannedSearch) return true;
     const q = autoBannedSearch.toLowerCase();
-    return String(b.userId).includes(q) || b.username?.toLowerCase().includes(q) || b.reason.toLowerCase().includes(q);
+    return Boolean(String(b.userId || "").includes(q) || (b.username || "").toLowerCase().includes(q) || (b.reason || "").toLowerCase().includes(q));
   });
 
   return (
@@ -739,6 +742,8 @@ export default function AdminPage() {
         display: "flex",
         flexDirection: "column",
         flex: 1,
+        minHeight: 0,
+        height: "100%",
         width: "100%",
         maxWidth: 440,
         margin: "0 auto",
