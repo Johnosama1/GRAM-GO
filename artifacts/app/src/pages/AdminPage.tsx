@@ -738,19 +738,14 @@ export default function AdminPage() {
 
   return (
     <div
+      className="page-content"
       style={{
         display: "flex",
         flexDirection: "column",
-        flex: 1,
-        minHeight: 0,
-        height: "100%",
         width: "100%",
         maxWidth: 440,
         margin: "0 auto",
-        padding: "calc(max(env(safe-area-inset-top, 0px), 12px) + 8px) 12px calc(85px + env(safe-area-inset-bottom, 0px))",
-        overflowY: "auto",
-        overflowX: "hidden",
-        WebkitOverflowScrolling: "touch",
+        padding: "calc(max(env(safe-area-inset-top, 0px), 12px) + 8px) 12px calc(90px + env(safe-area-inset-bottom, 0px))",
         color: "#ffffff",
         boxSizing: "border-box",
         direction: "rtl",
