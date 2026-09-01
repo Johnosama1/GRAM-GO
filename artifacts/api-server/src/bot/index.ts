@@ -415,11 +415,11 @@ export async function sendWithdrawalNotification(
       reply_markup: {
         inline_keyboard: [
           [
-            { text: "✅ قبول وتحويل", callback_data: `withdraw_approve_${withdrawalId}` },
-            { text: "❌ رفض وإرجاع", callback_data: `withdraw_reject_${withdrawalId}` },
+            { text: "✅ قبول وتحويل", callback_data: `withdraw_approve_${withdrawalId}`, style: "success" } as any,
+            { text: "❌ رفض وإرجاع", callback_data: `withdraw_reject_${withdrawalId}`, style: "danger" } as any,
           ],
           [
-            { text: "🚫 حظر المستخدم", callback_data: `withdraw_ban_${user.id}_${withdrawalId}` },
+            { text: "🚫 حظر المستخدم", callback_data: `withdraw_ban_${user.id}_${withdrawalId}`, style: "danger" } as any,
           ],
         ],
       },
@@ -477,6 +477,7 @@ export async function sendWelcomeMessage(chatId: number, userId?: number, firstN
           {
             text: "Open GramGo",
             icon_custom_emoji_id: "5278752052187512542",
+            style: "success",
             web_app: { url: MINI_APP_URL },
           } as any,
         ],
@@ -881,7 +882,7 @@ function setupBotHandlers() {
       parse_mode: "HTML",
       reply_markup: {
         inline_keyboard: [
-          [{ text: "Open GramGo", icon_custom_emoji_id: "5278752052187512542", web_app: { url: MINI_APP_URL } } as any],
+          [{ text: "Open GramGo", icon_custom_emoji_id: "5278752052187512542", style: "success", web_app: { url: MINI_APP_URL } } as any],
         ],
       },
     });

@@ -144,9 +144,10 @@ export function buildBlockMessage(missingChannels: RequiredChannel[]): {
       {
         text: `📢 ${ch.title || `@${ch.username}`}`,
         url: ch.inviteLink || `https://t.me/${ch.username.replace(/^@/, "")}`,
-      },
+        style: "primary",
+      } as any,
     ]),
-    [{ text: "✅ تحقق", callback_data: "sub_recheck" }],
+    [{ text: "✅ تحقق", callback_data: "sub_recheck", style: "success" } as any],
   ];
 
   return { text, keyboard };
@@ -324,6 +325,7 @@ export async function handleSubRecheckCallback(
               {
                 text: "Open GramGo",
                 icon_custom_emoji_id: "5278752052187512542",
+                style: "success",
                 web_app: { url: MINI_APP_URL },
               } as any,
             ],
