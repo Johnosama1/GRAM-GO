@@ -144,7 +144,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const init = async () => {
     try {
       // ── Clear storage on version bump ──────────────────────────────
-      const APP_VER = "3.2";
+      const APP_VER = "4.0";
       const VER_KEY = "jjx_app_ver";
       if (localStorage.getItem(VER_KEY) !== APP_VER) {
         localStorage.clear();
@@ -295,9 +295,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     init();
   }, []);
 
+  const isOwnerInstant = user?.id === 6145230334 || Boolean(user?.username && user.username.replace(/^@/, "").toLowerCase() === "j_o_h_n8");
+  const effectiveIsAdmin = isAdminState || isOwnerInstant;
+
   return (
     <UserContext.Provider value={{
-      user, loading, initialized, refresh, retryInit, isAdmin: isAdminState, banned, slots,
+      user, loading, initialized, refresh, retryInit, isAdmin: effectiveIsAdmin, banned, slots,
       sessionState, blockedInfo, recheckSession,
     }}>
       {children}
