@@ -813,7 +813,7 @@ router.get("/limits", async (_req, res) => {
   ]);
 
   res.json({
-    minWithdrawal: minWd || "0.1",
+    minWithdrawal: minWd || "0.2",
     maxWithdrawal: maxWd || "10000",
     dailyWithdrawalLimit: dailyWd || "1000",
     minDeposit: minDep || "0.1",
@@ -831,7 +831,7 @@ router.put("/limits", async (req, res) => {
 
   const { minWithdrawal, maxWithdrawal, dailyWithdrawalLimit, minDeposit, maxDeposit, dailyDepositLimit } = req.body;
   const updates: Record<string, string> = {
-    min_withdrawal: String(minWithdrawal || "0.1"),
+    min_withdrawal: String(minWithdrawal || "0.2"),
     max_withdrawal: String(maxWithdrawal || "10000"),
     daily_withdrawal_limit: String(dailyWithdrawalLimit || "1000"),
     min_deposit: String(minDeposit || "0.1"),

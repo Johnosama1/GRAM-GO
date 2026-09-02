@@ -21,7 +21,7 @@ router.get("/config", async (_req, res) => {
     botUsername: process.env.BOT_USERNAME || "Jojox1bot",
     referralThreshold: Math.max(1, parseInt(rawRef ?? "5") || 5),
     taskThreshold: Math.max(1, parseInt(rawTask ?? "5") || 5),
-    minWithdrawal: Math.max(0.01, parseFloat(rawMin ?? "0.1") || 0.1),
+    minWithdrawal: Math.max(0.01, parseFloat(rawMin ?? "0.2") || 0.2),
   });
 });
 

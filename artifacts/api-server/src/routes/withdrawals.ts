@@ -151,7 +151,7 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
     getSetting("daily_withdrawal_limit").catch(() => null),
   ]);
 
-  const MIN_WITHDRAWAL = Math.max(0.01, parseFloat(rawMin ?? "0.1") || 0.1);
+  const MIN_WITHDRAWAL = Math.max(0.01, parseFloat(rawMin ?? "0.2") || 0.2);
   const MAX_WITHDRAWAL_LIMIT = Math.max(MIN_WITHDRAWAL, parseFloat(rawMax ?? "10000") || 10000);
   const DAILY_LIMIT = rawDailyLimit ? parseFloat(rawDailyLimit) : null;
 

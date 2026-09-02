@@ -98,7 +98,7 @@ export default function AdminPage() {
   const [depositFilter, setDepositFilter] = useState("all");
   const [depositSearch, setDepositSearch] = useState("");
   const [limits, setLimits] = useState({
-    minWithdrawal: "0.1",
+    minWithdrawal: "0.2",
     maxWithdrawal: "10000",
     dailyWithdrawalLimit: "1000",
     minDeposit: "0.1",
