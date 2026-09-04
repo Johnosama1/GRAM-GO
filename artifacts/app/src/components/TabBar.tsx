@@ -40,7 +40,7 @@ function PickaxeIcon({ active }: { active: boolean }) {
 
 export default function TabBar() {
   const [location, setLocation] = useLocation();
-  const { user, isAdmin } = useUser();
+  const { user, isAdmin, canClaimCheckin } = useUser();
   const winModalOpen = useWinModalOpen();
 
   const [activeModal, setActiveModal] = useState<"profile" | null>(null);
@@ -151,12 +151,29 @@ export default function TabBar() {
             position: "relative",
           }}
         >
-          <ClipboardList
-            size={20}
-            color={isTasks && !activeModal ? "#00f2fe" : "rgba(255,255,255,0.45)"}
-            strokeWidth={isTasks && !activeModal ? 2.4 : 1.8}
-            style={{ filter: isTasks && !activeModal ? "drop-shadow(0 0 8px rgba(0,242,254,0.8))" : "none" }}
-          />
+          <div style={{ position: "relative" }}>
+            <ClipboardList
+              size={20}
+              color={isTasks && !activeModal ? "#00f2fe" : "rgba(255,255,255,0.45)"}
+              strokeWidth={isTasks && !activeModal ? 2.4 : 1.8}
+              style={{ filter: isTasks && !activeModal ? "drop-shadow(0 0 8px rgba(0,242,254,0.8))" : "none" }}
+            />
+            {/* Notification Badge Dot for daily check-in */}
+            {canClaimCheckin && (
+              <span
+                style={{
+                  position: "absolute",
+                  top: -2,
+                  right: -3,
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  background: "#00f2fe",
+                  boxShadow: "0 0 8px #00f2fe",
+                }}
+              />
+            )}
+          </div>
           <span
             style={{
               fontSize: 10,

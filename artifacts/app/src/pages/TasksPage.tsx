@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useUser } from "../lib/userContext";
 import { api, Task, CheckinStatus, getTasksOnce, getCompletedTasksOnce, invalidateUserCaches } from "../lib/api";
-import { CheckCircle, ExternalLink, Clock, Zap, Calendar, Award, Gift } from "lucide-react";
+import { CheckCircle, ExternalLink, Clock, Zap, Calendar } from "lucide-react";
 
 export default function TasksPage() {
-  const { user, refresh, initialized, retryInit } = useUser();
+  const { user, refresh, initialized, retryInit, setCanClaimCheckin } = useUser();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [completed, setCompleted] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
@@ -25,7 +25,10 @@ export default function TasksPage() {
 
   const loadCheckin = () => {
     api.getCheckinStatus()
-      .then((data) => setCheckin(data))
+      .then((data) => {
+        setCheckin(data);
+        setCanClaimCheckin(Boolean(data.canClaim));
+      })
       .catch((err) => console.error("Failed to load checkin:", err));
   };
 
@@ -80,6 +83,7 @@ export default function TasksPage() {
     try {
       const res = await api.claimDailyCheckin();
       setMessage({ taskId: "checkin", text: res.message, type: "success" });
+      setCanClaimCheckin(false);
       loadCheckin();
       await refresh();
     } catch (e: unknown) {
@@ -138,7 +142,23 @@ export default function TasksPage() {
           {/* Header */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Calendar size={18} color="#00f2fe" />
+              <div style={{ position: "relative" }}>
+                <Calendar size={18} color="#00f2fe" />
+                {checkin.canClaim && (
+                  <span
+                    style={{
+                      position: "absolute",
+                      top: -2,
+                      right: -2,
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: "#00f2fe",
+                      boxShadow: "0 0 8px #00f2fe",
+                    }}
+                  />
+                )}
+              </div>
               <div>
                 <span style={{ color: "#ffffff", fontWeight: 900, fontSize: 14 }}>
                   Daily Check-in
@@ -173,7 +193,6 @@ export default function TasksPage() {
               display: "grid",
               gridTemplateColumns: "repeat(5, 1fr)",
               gap: 6,
-              marginBottom: 14,
             }}
           >
             {checkin.days.map((d) => {
@@ -183,9 +202,13 @@ export default function TasksPage() {
               return (
                 <div
                   key={d.day}
+                  onClick={isAvailable && !claimingCheckin ? handleClaimCheckin : undefined}
+                  role={isAvailable ? "button" : undefined}
+                  tabIndex={isAvailable ? 0 : undefined}
                   style={{
+                    position: "relative",
                     background: isAvailable
-                      ? "linear-gradient(135deg, rgba(0, 242, 254, 0.25), rgba(168, 85, 247, 0.25))"
+                      ? "linear-gradient(135deg, rgba(0, 242, 254, 0.28), rgba(168, 85, 247, 0.28))"
                       : isClaimed
                       ? "rgba(34, 197, 94, 0.12)"
                       : "rgba(255, 255, 255, 0.03)",
@@ -200,10 +223,31 @@ export default function TasksPage() {
                     flexDirection: "column",
                     alignItems: "center",
                     gap: 3,
-                    boxShadow: isAvailable ? "0 0 12px rgba(0, 242, 254, 0.3)" : "none",
+                    boxShadow: isAvailable ? "0 0 14px rgba(0, 242, 254, 0.35)" : "none",
+                    cursor: isAvailable ? (claimingCheckin ? "wait" : "pointer") : "default",
+                    transform: isAvailable ? "scale(1.02)" : "scale(1)",
+                    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                    userSelect: "none",
+                    WebkitTapHighlightColor: "transparent",
                   }}
                 >
-                  <span style={{ fontSize: 9, fontWeight: 700, color: "rgba(255,255,255,0.5)" }}>
+                  {/* Notification Badge Dot on available day */}
+                  {isAvailable && (
+                    <span
+                      style={{
+                        position: "absolute",
+                        top: 3,
+                        right: 3,
+                        width: 6,
+                        height: 6,
+                        borderRadius: "50%",
+                        background: "#00f2fe",
+                        boxShadow: "0 0 8px #00f2fe",
+                      }}
+                    />
+                  )}
+
+                  <span style={{ fontSize: 9, fontWeight: 700, color: isAvailable ? "#00f2fe" : "rgba(255,255,255,0.5)" }}>
                     Day {d.day}
                   </span>
                   <span
@@ -219,62 +263,12 @@ export default function TasksPage() {
                     GO
                   </span>
                   <div style={{ marginTop: 2, fontSize: 10 }}>
-                    {isClaimed ? "✅" : isAvailable ? "🎁" : "🔒"}
+                    {isClaimed ? "✅" : isAvailable ? (claimingCheckin ? "⏳" : "🎁") : "🔒"}
                   </div>
                 </div>
               );
             })}
           </div>
-
-          {/* Claim Button */}
-          {checkin.canClaim ? (
-            <button
-              onClick={handleClaimCheckin}
-              disabled={claimingCheckin}
-              style={{
-                width: "100%",
-                padding: "12px",
-                borderRadius: 14,
-                background: "linear-gradient(135deg, #00f2fe 0%, #7c3aed 100%)",
-                border: "none",
-                color: "#040714",
-                fontSize: 13,
-                fontWeight: 900,
-                cursor: "pointer",
-                boxShadow: "0 4px 20px rgba(0, 242, 254, 0.4)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-              }}
-            >
-              <Gift size={16} />
-              {claimingCheckin
-                ? "Claiming..."
-                : `Claim Day ${checkin.nextDay} (+${checkin.todayReward} GO)`}
-            </button>
-          ) : (
-            <div
-              style={{
-                width: "100%",
-                padding: "10px",
-                borderRadius: 14,
-                background: "rgba(34, 197, 94, 0.12)",
-                border: "1px solid rgba(34, 197, 94, 0.3)",
-                color: "#4ade80",
-                fontSize: 12,
-                fontWeight: 800,
-                textAlign: "center",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-              }}
-            >
-              <CheckCircle size={14} />
-              Today's check-in completed • Come back tomorrow!
-            </div>
-          )}
         </div>
       )}
 

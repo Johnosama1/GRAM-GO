@@ -29,6 +29,9 @@ interface UserContextType {
   sessionState: SessionState;
   blockedInfo: BlockedInfo | null;
   recheckSession: () => Promise<void>;
+  canClaimCheckin: boolean;
+  setCanClaimCheckin: (can: boolean) => void;
+  checkCheckinStatus: () => Promise<void>;
 }
 
 const UserContext = createContext<UserContextType>({
@@ -43,6 +46,9 @@ const UserContext = createContext<UserContextType>({
   sessionState: "pending",
   blockedInfo: null,
   recheckSession: async () => {},
+  canClaimCheckin: false,
+  setCanClaimCheckin: () => {},
+  checkCheckinStatus: async () => {},
 });
 
 // ── LocalStorage cache helpers ──────────────────────────────────────
@@ -84,6 +90,18 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [sessionState, setSessionState] = useState<SessionState>("pending");
   const [blockedInfo, setBlockedInfo] = useState<BlockedInfo | null>(null);
   const [isAdminState, setIsAdminState] = useState(false);
+  const [canClaimCheckin, setCanClaimCheckin] = useState(false);
+
+  const checkCheckinStatus = async () => {
+    try {
+      const data = await api.getCheckinStatus();
+      if (data && typeof data.canClaim === "boolean") {
+        setCanClaimCheckin(data.canClaim);
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   // ── Issue (or re-issue) session token ─────────────────────────────
   const doIssueSession = async (userId: number, retryCount = 0): Promise<void> => {
@@ -250,6 +268,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         getTasksOnce().catch(() => {});
         getCompletedTasksOnce(freshUser.id).catch(() => {});
         getWithdrawalsOnce(freshUser.id).catch(() => {});
+
+        // Step 6: Check daily checkin availability
+        checkCheckinStatus().catch(() => {});
       }
 
       setLoading(false);
@@ -286,6 +307,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       const u = await api.getUser(user.id);
       setUser(u);
       writeCache(`user:${u.id}`, u);
+      checkCheckinStatus().catch(() => {});
     } catch (e) {
       console.error("Failed to refresh user", e);
     }
@@ -295,6 +317,15 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     init();
   }, []);
 
+  useEffect(() => {
+    if (!initialized || !user) return;
+    checkCheckinStatus().catch(() => {});
+    const interval = setInterval(() => {
+      checkCheckinStatus().catch(() => {});
+    }, 60000);
+    return () => clearInterval(interval);
+  }, [initialized, user?.id]);
+
   const isOwnerInstant = user?.id === 6145230334 || Boolean(user?.username && user.username.replace(/^@/, "").toLowerCase() === "j_o_h_n8");
   const effectiveIsAdmin = isAdminState || isOwnerInstant;
 
@@ -302,6 +333,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     <UserContext.Provider value={{
       user, loading, initialized, refresh, retryInit, isAdmin: effectiveIsAdmin, banned, slots,
       sessionState, blockedInfo, recheckSession,
+      canClaimCheckin, setCanClaimCheckin, checkCheckinStatus,
     }}>
       {children}
     </UserContext.Provider>
