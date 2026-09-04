@@ -71,9 +71,31 @@ export async function swapGramToTon(userId: number, gramAmount: number) {
   );
 }
 
+export async function swapGramToGo(userId: number, gramAmount: number) {
+  return apiCall<{ success: boolean; gramAmount: string; goAmount: string; rate: number; user: User }>(
+    `/users/${userId}/swap-gram-to-go`,
+    { method: "POST", body: JSON.stringify({ gramAmount }) }
+  );
+}
+
+export async function recordDeposit(data: { userId: number; amount: string; walletAddress?: string; txHash?: string }) {
+  return apiCall<{ success: boolean; deposit: Deposit }>(
+    "/withdrawals/deposit",
+    { method: "POST", body: JSON.stringify(data) }
+  );
+}
+
+const _depositsCache = new Map<number, Promise<Deposit[]>>();
+export function getDepositsOnce(userId: number): Promise<Deposit[]> {
+  if (!_depositsCache.has(userId))
+    _depositsCache.set(userId, apiCall<Deposit[]>(`/withdrawals/deposits/${userId}`));
+  return _depositsCache.get(userId)!;
+}
+
 export function invalidateUserCaches(userId: number) {
   _completedCache.delete(userId);
   _withdrawalsCache.delete(userId);
+  _depositsCache.delete(userId);
   _tasksCache = null;
 }
 
@@ -122,7 +144,15 @@ export async function apiCall<T>(path: string, options?: RequestInit): Promise<T
 }
 
 export const api = {
-  getConfig: () => apiCall<{ botUsername: string; referralThreshold: number; taskThreshold: number; minWithdrawal: number }>("/config"),
+  getConfig: () => apiCall<{
+    botUsername: string;
+    referralThreshold: number;
+    taskThreshold: number;
+    minWithdrawal: number;
+    depositWalletAddress?: string;
+    minDeposit?: number;
+    gramToGoRate?: number;
+  }>("/config"),
 
   initUser: (data: { id: number; username?: string; first_name?: string; last_name?: string; photo_url?: string }) =>
     apiCall<User>("/users/init", { method: "POST", body: JSON.stringify(data) }),
@@ -159,6 +189,7 @@ export const api = {
   requestWithdrawal: (data: { userId: number; amount: string; walletAddress: string }) =>
     apiCall("/withdrawals", { method: "POST", body: JSON.stringify(data) }),
   getUserWithdrawals: (userId: number) => apiCall<Withdrawal[]>(`/withdrawals/${userId}`),
+  getUserDeposits: (userId: number) => apiCall<Deposit[]>(`/withdrawals/deposits/${userId}`),
 
   adminCheck: (_userId?: number) => apiCall<{ isAdmin: boolean; role?: string; isOwner?: boolean; permissions?: string[] }>("/admin/check"),
   adminGetStats: () => apiCall<AdminStats>("/admin/stats"),
@@ -428,6 +459,19 @@ export interface Withdrawal {
   walletAddress: string;
   status: string;
   createdAt: string;
+}
+
+export interface Deposit {
+  id: number;
+  userId: number;
+  amount: string;
+  currency?: string;
+  walletAddress?: string | null;
+  txHash?: string | null;
+  status: string;
+  reason?: string | null;
+  createdAt: string;
+  confirmedAt?: string | null;
 }
 
 export type AdminPermission =

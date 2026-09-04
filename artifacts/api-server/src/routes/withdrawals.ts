@@ -1,7 +1,7 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import { db } from "@workspace/db";
-import { withdrawalsTable, usersTable, botSettingsTable, referralsTable } from "@workspace/db/schema";
+import { withdrawalsTable, depositsTable, usersTable, botSettingsTable, referralsTable } from "@workspace/db/schema";
 import { eq, sql, desc, and } from "drizzle-orm";
 import { sendWithdrawalNotification, getBot } from "../bot";
 import { getMissingChannels, getRequiredChannels } from "../bot/subscription";
@@ -273,6 +273,52 @@ router.get("/:userId", requireSession, async (req, res) => {
     .orderBy(desc(withdrawalsTable.createdAt));
 
   res.json(withdrawals);
+});
+
+// ── Record User Deposit (e.g. from TON Connect or manual transfer) ─────────
+router.post("/deposit", requireSession, verifyAccessMiddleware, async (req, res) => {
+  const { userId, amount, walletAddress, txHash } = req.body;
+  const numUserId = parseInt(String(userId));
+  if (isNaN(numUserId) || numUserId <= 0 || !amount) {
+    res.status(400).json({ error: "Invalid parameters" }); return;
+  }
+
+  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
+  if (sessionReq.sessionUserId !== undefined && sessionReq.sessionUserId !== numUserId) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
+  const [dep] = await db.insert(depositsTable).values({
+    userId: numUserId,
+    amount: String(amount),
+    currency: "TON",
+    walletAddress: walletAddress ? String(walletAddress).trim() : null,
+    txHash: txHash ? String(txHash).trim() : null,
+    status: "pending",
+  }).returning();
+
+  res.json({ success: true, deposit: dep });
+});
+
+// ── GET User Deposits ───────────────────────────────────────────────────────
+router.get("/deposits/:userId", requireSession, async (req, res) => {
+  const userId = parseInt(String(req.params.userId));
+  if (isNaN(userId) || userId <= 0) {
+    res.status(400).json({ error: "Invalid userId" }); return;
+  }
+
+  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
+  if (sessionReq.sessionUserId !== undefined && sessionReq.sessionUserId !== userId) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
+  const deposits = await db
+    .select()
+    .from(depositsTable)
+    .where(eq(depositsTable.userId, userId))
+    .orderBy(desc(depositsTable.createdAt));
+
+  res.json(deposits);
 });
 
 export default router;

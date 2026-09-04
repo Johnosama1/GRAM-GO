@@ -292,6 +292,48 @@ router.post("/:id/swap", requireSession, verifyAccessMiddleware, async (req, res
   res.json({ success: true, tonAmount: tonAmount.toFixed(6), tonPrice: tonUsdPrice, user: updated });
 });
 
+// ── Swap Gram balance → GO balance (Boost Mining Power) ───────────────────
+router.post("/:id/swap-gram-to-go", requireSession, verifyAccessMiddleware, async (req, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id) || id <= 0) { res.status(400).json({ error: "Invalid id" }); return; }
+  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
+  if (sessionReq.sessionUserId !== undefined && sessionReq.sessionUserId !== id) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
+  const { gramAmount } = req.body;
+  const amt = parseFloat(String(gramAmount));
+  if (isNaN(amt) || amt <= 0) { res.status(400).json({ error: "مبلغ غير صحيح" }); return; }
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
+  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+  const userGram = parseFloat(user.gramBalance || "0");
+  if (userGram < amt) { res.status(400).json({ error: "رصيد الجرام غير كافٍ" }); return; }
+
+  const rawRate = await getSetting("gram_to_go_rate").catch(() => null);
+  const rate = rawRate ? Math.max(1, parseFloat(rawRate)) : 50; // 1 GRAM = 50 GO
+
+  const goAmount = amt * rate;
+
+  await db.update(usersTable)
+    .set({
+      gramBalance: sql`GREATEST(gram_balance - ${String(amt)}, 0)`,
+      goBalance:   sql`COALESCE(go_balance, 0) + ${String(goAmount)}`,
+      balance:     sql`COALESCE(balance, 0) + ${String(goAmount)}`,
+    })
+    .where(eq(usersTable.id, id));
+
+  const [updated] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
+  res.json({
+    success: true,
+    gramAmount: amt.toFixed(4),
+    goAmount: goAmount.toFixed(2),
+    rate,
+    user: updated,
+  });
+});
+
 // ── Save / update wallet address ────────────────────────────────────
 const TON_ADDRESS_RE = /^(EQ|UQ|kQ|0Q)[A-Za-z0-9_-]{46}$/;
 

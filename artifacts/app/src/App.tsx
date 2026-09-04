@@ -4,6 +4,7 @@ import { useLocation, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TonConnectUIProvider } from "@tonconnect/ui-react";
 import { UserProvider, useUser } from "./lib/userContext";
+import { LanguageProvider, useLanguage } from "./lib/i18nContext";
 import TabBar from "./components/TabBar";
 import AnimatedBackground from "./components/AnimatedBackground";
 import TopBar from "./components/TopBar";
@@ -15,21 +16,22 @@ const ReferralPage    = lazy(() => import("./pages/ReferralPage"));
 const WithdrawPage    = lazy(() => import("./pages/WithdrawPage"));
 const AdminPage       = lazy(() => import("./pages/AdminPage"));
 const LeaderboardPage = lazy(() => import("./pages/LeaderboardPage"));
-const WalletPage      = lazy(() => import("./pages/WalletPage"));
+const ProfilePage     = lazy(() => import("./pages/ProfilePage"));
 const ComboPage       = lazy(() => import("./pages/ComboPage"));
 
 const queryClient = new QueryClient();
 
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 const MANIFEST_URL = `${window.location.origin}/api/tonconnect-manifest.json`;
 
 function BannedScreen() {
+  const { isRtl } = useLanguage();
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 9999,
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
       background: "radial-gradient(circle at 50% 30%, #1a1024 0%, #0a0b10 100%)",
       padding: "32px 24px", textAlign: "center", gap: 24,
+      direction: isRtl ? "rtl" : "ltr",
     }}>
       <div style={{
         width: 84, height: 84, borderRadius: "50%",
@@ -47,7 +49,7 @@ function BannedScreen() {
         <h2 style={{ color: "#f87171", fontWeight: 800, fontSize: 22, margin: "0 0 14px", letterSpacing: "0.3px" }}>
           الحساب معطل
         </h2>
-        <p style={{ color: "rgba(231,236,242,0.85)", fontSize: 14, margin: 0, lineHeight: 1.7, direction: "rtl" }}>
+        <p style={{ color: "rgba(231,236,242,0.85)", fontSize: 14, margin: 0, lineHeight: 1.7 }}>
           تم حظر هذا الحساب لمخالفة شروط وسياسات الاستخدام.
         </p>
       </div>
@@ -153,7 +155,8 @@ const ROUTES = [
   { path: "/tasks",       Component: TasksPage,       lazy: true  },
   { path: "/referral",    Component: ReferralPage,    lazy: true  },
   { path: "/leaderboard", Component: LeaderboardPage, lazy: true  },
-  { path: "/wallet",      Component: WalletPage,      lazy: true  },
+  { path: "/profile",     Component: ProfilePage,     lazy: true  },
+  { path: "/wallet",      Component: ProfilePage,     lazy: true  },
   { path: "/withdraw",    Component: WithdrawPage,    lazy: true  },
   { path: "/admin",       Component: AdminPage,       lazy: true  },
 ] as const;
@@ -183,7 +186,7 @@ function PersistentRouter() {
     );
   }
 
-  const hideTopBar = location === "/referral" || location === "/leaderboard" || location === "/wallet" || location === "/admin";
+  const hideTopBar = location === "/referral" || location === "/leaderboard" || location === "/profile" || location === "/wallet" || location === "/admin";
 
   return (
     <>
@@ -217,7 +220,7 @@ function PersistentRouter() {
           </div>
         );
       })}
-      {location !== "/wallet" && <TabBar />}
+      <TabBar />
     </>
   );
 }
@@ -226,14 +229,16 @@ function App() {
   return (
     <TonConnectUIProvider manifestUrl={MANIFEST_URL}>
       <QueryClientProvider client={queryClient}>
-        <UserProvider>
-          <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <AnimatedBackground />
-              <PersistentRouter />
-            </WouterRouter>
-          </div>
-        </UserProvider>
+        <LanguageProvider>
+          <UserProvider>
+            <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                <AnimatedBackground />
+                <PersistentRouter />
+              </WouterRouter>
+            </div>
+          </UserProvider>
+        </LanguageProvider>
       </QueryClientProvider>
     </TonConnectUIProvider>
   );

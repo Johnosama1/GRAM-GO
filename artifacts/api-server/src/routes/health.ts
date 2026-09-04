@@ -12,16 +12,22 @@ router.get("/healthz", (_req, res) => {
 });
 
 router.get("/config", async (_req, res) => {
-  const [rawRef, rawTask, rawMin] = await Promise.all([
+  const [rawRef, rawTask, rawMin, rawDepositWallet, rawMinDeposit, rawGramRate] = await Promise.all([
     getSetting("referral_threshold").catch(() => null),
     getSetting("task_threshold").catch(() => null),
     getSetting("min_withdrawal").catch(() => null),
+    getSetting("deposit_wallet_address").catch(() => null),
+    getSetting("min_deposit").catch(() => null),
+    getSetting("gram_to_go_rate").catch(() => null),
   ]);
   res.json({
     botUsername: process.env.BOT_USERNAME || "Jojox1bot",
     referralThreshold: Math.max(1, parseInt(rawRef ?? "5") || 5),
     taskThreshold: Math.max(1, parseInt(rawTask ?? "5") || 5),
-    minWithdrawal: Math.max(0.01, parseFloat(rawMin ?? "0.2") || 0.2),
+    minWithdrawal: Math.max(0.01, parseFloat(rawMin ?? "0.1") || 0.1),
+    depositWalletAddress: rawDepositWallet || process.env.DEPOSIT_WALLET_ADDRESS || "UQD2_1mZ8p4Fk8_e2m8pWq98bWbV57YkXj5Xv_9Xb4vB2B_1",
+    minDeposit: Math.max(0.01, parseFloat(rawMinDeposit ?? "0.1") || 0.1),
+    gramToGoRate: Math.max(1, parseFloat(rawGramRate ?? "50") || 50),
   });
 });
 

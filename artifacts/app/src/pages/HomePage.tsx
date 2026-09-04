@@ -325,11 +325,7 @@ export default function HomePage() {
   };
 
   const handleWalletClick = () => {
-    if (connectedAddress || user?.savedWalletAddress) {
-      setLocation("/wallet");
-    } else {
-      tonConnectUI.openModal();
-    }
+    setLocation("/profile");
   };
 
   // User formatted values
@@ -480,7 +476,10 @@ export default function HomePage() {
         }}
       >
         {/* Left: Avatar + Names */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+        <div
+          onClick={() => setLocation("/profile")}
+          style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, cursor: "pointer" }}
+        >
           {/* Avatar with double glowing ring */}
           <div style={{ position: "relative", flexShrink: 0 }}>
             {user?.photoUrl ? (
