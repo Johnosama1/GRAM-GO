@@ -202,7 +202,9 @@ function PersistentRouter() {
               flexDirection: "column",
               flex: 1,
               minHeight: 0,
-              overflow: "hidden",
+              overflow: path === "/admin" ? "visible" : "hidden",
+              height: "100%",
+              background: path === "/admin" ? "#0B0A0D" : "transparent",
             }}
           >
             {isLazy ? (
@@ -225,9 +227,9 @@ function App() {
     <TonConnectUIProvider manifestUrl={MANIFEST_URL}>
       <QueryClientProvider client={queryClient}>
         <UserProvider>
-          <AnimatedBackground />
           <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
             <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+              <AnimatedBackground />
               <PersistentRouter />
             </WouterRouter>
           </div>

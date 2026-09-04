@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
+import { useLocation } from "wouter";
 
 export default function AnimatedBackground() {
+  const [location] = useLocation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -58,7 +60,11 @@ export default function AnimatedBackground() {
       window.removeEventListener("resize", handleResize);
       cancelAnimationFrame(animId);
     };
-  }, []);
+  }, [location]);
+
+  if (location === "/admin") {
+    return null;
+  }
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 0, overflow: "hidden", pointerEvents: "none", background: "#030612" }}>
