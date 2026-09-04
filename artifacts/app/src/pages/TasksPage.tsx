@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useUser } from "../lib/userContext";
 import { api, Task, CheckinStatus, getTasksOnce, getCompletedTasksOnce, invalidateUserCaches } from "../lib/api";
-import { CheckCircle, ExternalLink, Clock, Zap, Sparkles, Calendar, Award, Gift } from "lucide-react";
+import { CheckCircle, ExternalLink, Clock, Zap, Calendar, Award, Gift } from "lucide-react";
 
 export default function TasksPage() {
   const { user, refresh, initialized, retryInit } = useUser();
@@ -93,74 +93,14 @@ export default function TasksPage() {
 
   const activeTasks = tasks.filter((t) => !completed.includes(t.id));
   const doneTasks = tasks.filter((t) => completed.includes(t.id));
-  const goBalance = parseFloat(user?.goBalance || user?.balance || "0").toFixed(1);
 
   return (
     <div className="page-content" style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
-      {/* ── Fixed Progress Card (always visible, never scrolls) ── */}
-      <div style={{
-        flexShrink: 0,
-        zIndex: 10,
-        padding: "12px 12px 8px",
-        background: "transparent",
-      }}>
-      {/* ── Hero Progress Card ── */}
-      <div className="slide-up" style={{
-        position: "relative",
-        padding: "16px 16px 14px",
-        borderRadius: 22,
-        overflow: "hidden",
-        background:
-          "radial-gradient(120% 100% at 0% 0%, rgba(0,242,254,0.22) 0%, rgba(16,185,129,0.08) 45%, rgba(8,6,22,0.45) 100%)",
-        border: "1px solid rgba(0,242,254,0.30)",
-        backdropFilter: "blur(20px) saturate(140%)",
-        WebkitBackdropFilter: "blur(20px) saturate(140%)",
-        boxShadow: "0 6px 20px rgba(0,0,0,0.20), inset 0 1px 0 rgba(255,255,255,0.08)",
-      }}>
-        {/* sheen */}
-        <div style={{
-          position: "absolute", inset: 0, pointerEvents: "none",
-          background: "radial-gradient(80% 60% at 100% 0%, rgba(0,242,254,0.12), transparent 60%)",
-        }} />
-
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-            background: "linear-gradient(135deg, rgba(0,242,254,0.30), rgba(16,185,129,0.20))",
-            border: "1px solid rgba(0,242,254,0.40)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 0 14px rgba(0,242,254,0.25)",
-          }}>
-            <Sparkles size={20} color="#00f2fe" />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ color: "#fff", fontWeight: 800, fontSize: 14, lineHeight: 1.2 }}>
-              مضاعفة سرعة التعدين (+5 Go)
-            </div>
-            <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 11, marginTop: 2 }}>
-              أنجز كل مهمة للحصول على +5 Go لزيادة إنتاج الجرام 3% يومياً
-            </div>
-          </div>
-          <div style={{
-            display: "flex", alignItems: "center", gap: 4,
-            background: "rgba(0,0,0,0.35)", border: "1px solid rgba(0,242,254,0.35)",
-            borderRadius: 999, padding: "5px 11px",
-            boxShadow: "0 0 10px rgba(0,242,254,0.15)",
-          }}>
-            <Zap size={12} color="#00f2fe" fill="#00f2fe" />
-            <span style={{ color: "#00f2fe", fontWeight: 900, fontSize: 12, letterSpacing: 0.3 }}>
-              {goBalance} Go
-            </span>
-          </div>
-        </div>
-      </div>
-      </div>{/* ── end fixed wrapper ── */}
-
       {/* ── Scrollable tasks content ── */}
       <div style={{
         flex: 1, overflowY: "auto",
-        padding: "4px 12px calc(80px + env(safe-area-inset-bottom, 0px) + 12px)",
+        padding: "12px 12px calc(80px + env(safe-area-inset-bottom, 0px) + 12px)",
         display: "flex", flexDirection: "column", gap: 12,
       }}>
 
