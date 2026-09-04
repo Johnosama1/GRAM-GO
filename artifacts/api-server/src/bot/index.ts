@@ -850,13 +850,13 @@ function setupBotHandlers() {
     if (!u) return;
 
     const rawRate = await getSetting("global_mining_rate").catch(() => null);
-    const globalRate = rawRate ? parseFloat(rawRate) : 0.02;
+    const globalRate = rawRate ? parseFloat(rawRate) : 0.00125;
 
     const goBal = Math.max(0, parseFloat(u.goBalance ?? u.balance ?? "0") || 0);
     const gramBal = Math.max(0, parseFloat(u.gramBalance ?? "0") || 0);
-    const rate = Math.max(0, parseFloat(String(globalRate ?? u.miningRate ?? "0.0200")) || globalRate);
+    const rate = Math.max(0, parseFloat(String(globalRate ?? u.miningRate ?? "0.001250")) || globalRate);
     const dailyYield = (goBal * rate).toFixed(4);
-    const ratePercent = (rate * 100).toFixed(1);
+    const ratePercent = (rate * 100).toFixed(3);
 
     const vercelDomain = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
     const MINI_APP_URL =

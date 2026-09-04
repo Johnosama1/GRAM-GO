@@ -40,7 +40,7 @@ router.post("/init", softTelegramAuth, async (req, res) => {
         balance: "10",
         goBalance: "10",
         gramBalance: "0",
-        miningRate: "0.0300",
+        miningRate: "0.001250",
         lastMiningAt: new Date(),
         spins: 0,
       })
@@ -106,11 +106,16 @@ router.get("/:id", requireSession, async (req, res) => {
     }
   }
 
+  const rawGlobalRate = await getSetting("global_mining_rate").catch(() => null);
+  const globalRate = rawGlobalRate ? parseFloat(rawGlobalRate) : 0.00125;
+
   const goBal = Math.max(0, parseFloat(user.goBalance ?? user.balance ?? "0") || 0);
   const gramBal = Math.max(0, parseFloat(user.gramBalance ?? "0") || 0);
-  const rate = Math.max(0, parseFloat(user.miningRate ?? "0.0300") || 0.03);
+  const rate = Math.max(0, parseFloat(String(globalRate ?? user.miningRate ?? "0.001250")) || globalRate);
   const lastAt = user.lastMiningAt ? new Date(user.lastMiningAt).getTime() : Date.now();
-  const elapsedSec = Math.max(0, (Date.now() - lastAt) / 1000);
+  const rawElapsedSec = Math.max(0, (Date.now() - lastAt) / 1000);
+  const elapsedSec = Math.min(rawElapsedSec, 86400);
+  const remainingSec = Math.max(0, 86400 - rawElapsedSec);
   const dailyYield = goBal * rate;
   const perSecondYield = dailyYield / 86400;
   const unclaimedGram = elapsedSec * perSecondYield;
@@ -124,6 +129,8 @@ router.get("/:id", requireSession, async (req, res) => {
     dailyYield: dailyYield.toFixed(6),
     perSecondYield: perSecondYield.toFixed(8),
     miningRate: rate,
+    remainingSeconds: Math.floor(remainingSec),
+    cycleDurationSeconds: 86400,
     isMining: goBal > 0,
     isVerified: user.ipVerifiedAt != null,
     inviterName,
@@ -313,7 +320,7 @@ router.post("/:id/swap-gram-to-go", requireSession, verifyAccessMiddleware, asyn
   if (userGram < amt) { res.status(400).json({ error: "رصيد الجرام غير كافٍ" }); return; }
 
   const rawRate = await getSetting("gram_to_go_rate").catch(() => null);
-  const rate = rawRate ? Math.max(1, parseFloat(rawRate)) : 50; // 1 GRAM = 50 GO
+  const rate = rawRate ? Math.max(1, parseFloat(rawRate)) : 800; // 1 GRAM = 800 GO
 
   const goAmount = amt * rate;
 

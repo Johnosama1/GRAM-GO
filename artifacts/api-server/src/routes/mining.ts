@@ -22,15 +22,18 @@ export function calculateUserMining(
 ) {
   const goBal = Math.max(0, parseFloat(user.goBalance ?? user.balance ?? "0") || 0);
   const gramBal = Math.max(0, parseFloat(user.gramBalance ?? "0") || 0);
-  const defaultRate = globalMiningRate ?? 0.02; // 2%
-  const rate = Math.max(0, parseFloat(String(globalMiningRate ?? user.miningRate ?? "0.0200")) || defaultRate);
+  const defaultRate = globalMiningRate ?? 0.00125; // 800 GO = 1 GRAM (1 / 800 = 0.00125 = 0.125% daily)
+  const rate = Math.max(0, parseFloat(String(globalMiningRate ?? user.miningRate ?? "0.001250")) || defaultRate);
   
   const lastAt = user.lastMiningAt ? new Date(user.lastMiningAt).getTime() : Date.now();
   const now = Date.now();
-  const elapsedSec = Math.max(0, (now - lastAt) / 1000);
+  const rawElapsedSec = Math.max(0, (now - lastAt) / 1000);
+  const cycleDurationSec = 86400; // 24 hours
+  const elapsedSec = Math.min(rawElapsedSec, cycleDurationSec);
+  const remainingSec = Math.max(0, cycleDurationSec - rawElapsedSec);
 
-  const dailyYield = goBal * rate; // Daily yield based on mining rate
-  const perSecondYield = dailyYield / 86400; // per second
+  const dailyYield = goBal * rate; // Daily yield based on mining rate (1 Gram per 800 GO)
+  const perSecondYield = dailyYield / cycleDurationSec; // per second
   const unclaimedGram = elapsedSec * perSecondYield;
   const isMining = goBal > 0;
 
@@ -44,6 +47,8 @@ export function calculateUserMining(
     isMining,
     lastMiningAt: user.lastMiningAt || new Date(now),
     elapsedSeconds: elapsedSec,
+    remainingSeconds: remainingSec,
+    cycleDurationSeconds: cycleDurationSec,
   };
 }
 
@@ -58,7 +63,7 @@ router.get("/status", requireSession, async (req, res) => {
 
   try {
     const rawRate = await getSetting("global_mining_rate").catch(() => null);
-    const globalRate = rawRate ? parseFloat(rawRate) : 0.02;
+    const globalRate = rawRate ? parseFloat(rawRate) : 0.00125;
 
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
     if (!user) {
@@ -78,6 +83,8 @@ router.get("/status", requireSession, async (req, res) => {
       dailyYield: calc.dailyYield.toFixed(6),
       perSecondYield: calc.perSecondYield.toFixed(8),
       lastMiningAt: calc.lastMiningAt,
+      remainingSeconds: Math.floor(calc.remainingSeconds),
+      cycleDurationSeconds: calc.cycleDurationSeconds,
       serverTime: new Date().toISOString(),
     });
   } catch (err) {
@@ -96,7 +103,7 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
 
   try {
     const rawRate = await getSetting("global_mining_rate").catch(() => null);
-    const globalRate = rawRate ? parseFloat(rawRate) : 0.02;
+    const globalRate = rawRate ? parseFloat(rawRate) : 0.00125;
 
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
     if (!user) {
@@ -131,6 +138,7 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
       success: true,
       claimedAmount: claimed.toFixed(6),
       gramBalance: newGramTotal.toFixed(6),
+      remainingSeconds: 86400,
       user: {
         ...updatedUser,
         isVerified: updatedUser.ipVerifiedAt != null,
@@ -145,7 +153,7 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
 router.get("/stats", async (_req, res) => {
   try {
     const rawRate = await getSetting("global_mining_rate").catch(() => null);
-    const globalRate = rawRate ? parseFloat(rawRate) : 0.02;
+    const globalRate = rawRate ? parseFloat(rawRate) : 0.00125;
 
     const [usersStats] = await db.select({
       totalUsers: sql<number>`count(*)`,
@@ -161,7 +169,7 @@ router.get("/stats", async (_req, res) => {
       totalGoCirculation: totalGoNum.toFixed(2),
       totalGramMined: totalGramNum.toFixed(4),
       dailyNetworkYield: (totalGoNum * globalRate).toFixed(4),
-      defaultRatePercent: parseFloat((globalRate * 100).toFixed(2)),
+      defaultRatePercent: parseFloat((globalRate * 100).toFixed(3)),
     });
   } catch {
     res.json({
@@ -169,7 +177,7 @@ router.get("/stats", async (_req, res) => {
       totalGoCirculation: "0.00",
       totalGramMined: "0.0000",
       dailyNetworkYield: "0.0000",
-      defaultRatePercent: 2.0,
+      defaultRatePercent: 0.125,
     });
   }
 });

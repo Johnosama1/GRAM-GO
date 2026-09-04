@@ -27,7 +27,7 @@ router.get("/config", async (_req, res) => {
     minWithdrawal: Math.max(0.01, parseFloat(rawMin ?? "0.1") || 0.1),
     depositWalletAddress: rawDepositWallet || process.env.DEPOSIT_WALLET_ADDRESS || "UQD2_1mZ8p4Fk8_e2m8pWq98bWbV57YkXj5Xv_9Xb4vB2B_1",
     minDeposit: Math.max(0.01, parseFloat(rawMinDeposit ?? "0.1") || 0.1),
-    gramToGoRate: Math.max(1, parseFloat(rawGramRate ?? "50") || 50),
+    gramToGoRate: Math.max(1, parseFloat(rawGramRate ?? "800") || 800),
   });
 });
 

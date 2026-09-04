@@ -566,20 +566,20 @@ router.post("/mining/rate", async (req, res) => {
   const { rate } = req.body;
   const numRate = parseFloat(rate);
   if (isNaN(numRate) || numRate <= 0 || numRate > 1.0) {
-    res.status(400).json({ error: "Mining rate must be a valid positive number between 0.001 (0.1%) and 1.00 (100%)" });
+    res.status(400).json({ error: "Mining rate must be a valid positive number between 0.0001 (0.01%) and 1.00 (100%)" });
     return;
   }
 
-  const strRate = numRate.toFixed(4);
+  const strRate = numRate.toFixed(6);
   await db
     .insert(botSettingsTable)
     .values({ key: "global_mining_rate", value: strRate })
     .onConflictDoUpdate({ target: botSettingsTable.key, set: { value: strRate } });
 
   invalidateSetting("global_mining_rate");
-  await logAudit(adminUser.id, "update_mining_rate", { rate: strRate, percentage: (numRate * 100).toFixed(2) + "%" });
+  await logAudit(adminUser.id, "update_mining_rate", { rate: strRate, percentage: (numRate * 100).toFixed(3) + "%" });
 
-  res.json({ ok: true, rate: strRate, percentage: (numRate * 100).toFixed(2) + "%" });
+  res.json({ ok: true, rate: strRate, percentage: (numRate * 100).toFixed(3) + "%" });
 });
 
 // ============================================================================

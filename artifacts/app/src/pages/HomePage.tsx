@@ -199,15 +199,15 @@ export default function HomePage() {
   const [connectedAddress] = [useTonAddress()];
   const [tonConnectUI] = useTonConnectUI();
 
-  const [, setMiningStatus] = useState<MiningStatus | null>(null);
+  const [miningStatus, setMiningStatus] = useState<MiningStatus | null>(null);
   const [liveUnclaimed, setLiveUnclaimed] = useState<number>(0);
   const [claiming, setClaiming] = useState(false);
   const [claimedPopup, setClaimedPopup] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [tonPrice, setTonPrice] = useState<number>(2.5);
 
-  // Mining Countdown timer (seconds remaining in cycle)
-  const [timerSeconds, setTimerSeconds] = useState<number>(5101); // 01:25:01
+  // Mining Countdown timer (seconds remaining in 24h cycle)
+  const [timerSeconds, setTimerSeconds] = useState<number>(86400); // 24:00:00
 
   // Status fetch timestamp & initial values
   const lastFetchRef = useRef<{ ts: number; baseUnclaimed: number; perSec: number }>({
@@ -249,19 +249,30 @@ export default function HomePage() {
         perSec: perSec,
       };
       setLiveUnclaimed(base);
+      if (typeof res.remainingSeconds === "number") {
+        setTimerSeconds(res.remainingSeconds);
+      } else if (res.lastMiningAt) {
+        const elapsed = Math.max(0, (Date.now() - new Date(res.lastMiningAt).getTime()) / 1000);
+        setTimerSeconds(Math.max(0, Math.floor(86400 - elapsed)));
+      }
     } catch {
       // Fallback calculation using user balance
       if (user) {
         const go = parseFloat(user.goBalance || user.balance || "0");
-        const rate = 0.03;
+        const rate = 0.00125; // 800 GO = 1 Gram
         const daily = go * rate;
         const perSec = daily / 86400;
+        const lastAt = user.lastMiningAt ? new Date(user.lastMiningAt).getTime() : Date.now();
+        const elapsed = Math.max(0, (Date.now() - lastAt) / 1000);
+        const rem = Math.max(0, Math.floor(86400 - elapsed));
+        const unclaimed = Math.min(daily, elapsed * perSec);
         lastFetchRef.current = {
           ts: Date.now(),
-          baseUnclaimed: 0,
+          baseUnclaimed: unclaimed,
           perSec,
         };
-        setLiveUnclaimed(0);
+        setLiveUnclaimed(unclaimed);
+        setTimerSeconds(rem);
       }
     }
   };
@@ -286,10 +297,10 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, []);
 
-  // ── Timer countdown ────────────────────────────────────────────────
+  // ── Timer countdown (24-hour cycle) ────────────────────────────────
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimerSeconds((prev) => (prev > 0 ? prev - 1 : 86400));
+      setTimerSeconds((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -312,6 +323,7 @@ export default function HomePage() {
       if (res.success) {
         setClaimedPopup(res.claimedAmount);
         setLiveUnclaimed(0);
+        setTimerSeconds(86400);
         lastFetchRef.current.baseUnclaimed = 0;
         lastFetchRef.current.ts = Date.now();
         await refresh();
@@ -328,12 +340,12 @@ export default function HomePage() {
     setLocation("/profile");
   };
 
-  // User formatted values
+  // User formatted values (800 GO = 1 Gram)
   const rushPoints = Math.round(parseFloat(user?.goBalance || user?.balance || "0"));
   const gramBal = parseFloat(user?.gramBalance || "0").toFixed(4);
   const gramBalNum = parseFloat(gramBal);
   const gramUsdValue = (gramBalNum * tonPrice).toFixed(2);
-  const dailyYield = (rushPoints * 0.03).toFixed(4);
+  const dailyYield = (rushPoints * 0.00125).toFixed(4);
 
   const activeWallet = user?.savedWalletAddress || connectedAddress;
   const walletDisplay = activeWallet
@@ -643,79 +655,6 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── DAILY COMBO QUICK ENTRY CARD ───────────────────────────────── */}
-      <div
-        onClick={() => setLocation("/combo")}
-        style={{
-          width: "100%",
-          background: "linear-gradient(135deg, rgba(8, 18, 48, 0.85) 0%, rgba(124, 58, 237, 0.25) 100%)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          border: "1px solid rgba(0, 242, 254, 0.35)",
-          borderRadius: 22,
-          padding: "14px 18px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          cursor: "pointer",
-          boxShadow: "0 8px 30px rgba(0, 242, 254, 0.2)",
-          transition: "all 0.25s ease",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: 14,
-              background: "linear-gradient(135deg, rgba(0, 242, 254, 0.2), rgba(168, 85, 247, 0.3))",
-              border: "1px solid rgba(0, 242, 254, 0.6)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 22,
-              boxShadow: "0 0 15px rgba(0, 242, 254, 0.4)",
-            }}
-          >
-            🧩
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ color: "#ffffff", fontSize: 14, fontWeight: 900, letterSpacing: 0.2 }}>
-                DAILY COMBO
-              </span>
-              <span
-                style={{
-                  background: "linear-gradient(135deg, #00f2fe, #a855f7)",
-                  color: "#000",
-                  fontSize: 10,
-                  fontWeight: 900,
-                  padding: "1px 6px",
-                  borderRadius: 6,
-                }}
-              >
-                +5 GO
-              </span>
-            </div>
-            <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: 11, fontWeight: 600 }}>
-              Pick 3 correct catalysts to earn rewards
-            </span>
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 4,
-            color: "#00f2fe",
-            fontSize: 12,
-            fontWeight: 800,
-          }}
-        >
-          Play <ChevronRight size={16} />
-        </div>
-      </div>
 
       {/* ══════════════════════════════════════════════════════════════════
           3. 24H EARNINGS PILL

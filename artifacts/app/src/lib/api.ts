@@ -337,6 +337,8 @@ export interface MiningStatus {
   dailyYield: string;
   perSecondYield: string;
   lastMiningAt: string;
+  remainingSeconds?: number;
+  cycleDurationSeconds?: number;
   serverTime?: string;
 }
 

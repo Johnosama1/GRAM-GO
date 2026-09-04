@@ -11,7 +11,7 @@ export const usersTable = pgTable("users", {
   balance: numeric("balance", { precision: 18, scale: 6 }).notNull().default("10"),
   goBalance: numeric("go_balance", { precision: 18, scale: 6 }).notNull().default("10"),
   gramBalance: numeric("gram_balance", { precision: 18, scale: 6 }).notNull().default("0"),
-  miningRate: numeric("mining_rate", { precision: 6, scale: 4 }).notNull().default("0.0300"),
+  miningRate: numeric("mining_rate", { precision: 10, scale: 6 }).notNull().default("0.001250"),
   lastMiningAt: timestamp("last_mining_at").notNull().defaultNow(),
   tonBalance: numeric("ton_balance", { precision: 18, scale: 6 }).notNull().default("0"),
   spins: integer("spins").notNull().default(0),

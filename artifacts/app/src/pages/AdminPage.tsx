@@ -362,7 +362,7 @@ export default function AdminPage() {
         setSettings(setts);
         if (setts["global_mining_rate"]) {
           const rateVal = parseFloat(setts["global_mining_rate"]) * 100;
-          setMiningRateInput(rateVal ? rateVal.toFixed(1) : "3.0");
+          setMiningRateInput(rateVal ? rateVal.toString() : "0.125");
         }
         if (setts["monetag_zone_id"]) setMonetagZoneId(setts["monetag_zone_id"]);
         if (setts["ad_reward_rush"]) setAdRewardRush(setts["ad_reward_rush"]);
@@ -472,7 +472,7 @@ export default function AdminPage() {
     try {
       const actualFraction = rateNum / 100;
       await api.adminUpdateMiningRate(actualFraction);
-      await handleUpdateSetting("global_mining_rate", actualFraction.toFixed(4));
+      await handleUpdateSetting("global_mining_rate", actualFraction.toFixed(6));
       showToast(`تم حفظ وتطبيق نسبة التعدين (${rateNum}%) فورياً ⚡`);
     } catch {
       showToast("فشل في تحديث نسبة التعدين", "err");
@@ -1347,12 +1347,12 @@ export default function AdminPage() {
             onToggle={() => toggleSection("mining_rate")}
           >
             <p style={{ fontSize: 11, color: "#8A8F98", lineHeight: 1.6, marginBottom: 12 }}>
-              نسبة التعدين اليومية من رصيد Rush (الافتراضي 3%). مثال: Rush = 1000، ونسبة 3% يعني المستخدم يكسب 30 GRAM يومياً.
+              نسبة التعدين اليومية من رصيد GO (الافتراضي 0.125% أي كل 800 GO تنتج 1 GRAM يومياً).
             </p>
 
             {/* Preset Chips */}
             <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-              {["1.0", "2.0", "3.0", "5.0", "10.0"].map((r) => (
+              {["0.125", "0.25", "0.5", "1.0", "2.0"].map((r) => (
                 <button
                   key={r}
                   onClick={() => setMiningRateInput(r)}
@@ -1376,8 +1376,8 @@ export default function AdminPage() {
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
               <input
                 type="number"
-                step="0.1"
-                min="0.1"
+                step="0.001"
+                min="0.001"
                 max="100"
                 value={miningRateInput}
                 onChange={(e) => setMiningRateInput(e.target.value)}
@@ -1388,7 +1388,7 @@ export default function AdminPage() {
 
             {/* Simulation Preview */}
             <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 11, color: "#8A8F98" }}>
-              💡 رصيد 1000 Rush ينتج: <strong style={{ color: "#11ABEC" }}>+{((1000 * (parseFloat(miningRateInput) || 3)) / 100).toFixed(2)} GRAM / يوم</strong>
+              💡 رصيد 800 GO ينتج: <strong style={{ color: "#11ABEC" }}>+{((800 * (parseFloat(miningRateInput) || 0.125)) / 100).toFixed(4)} GRAM / يوم</strong>
             </div>
 
             <button

@@ -315,7 +315,7 @@ async function showMiningMenu(bot: TelegramBot, chatId: number, messageId?: numb
   }).from(usersTable);
 
   const rawRate = await getSetting("default_mining_rate");
-  const ratePct = rawRate ? (parseFloat(rawRate) * 100).toFixed(1) : "3.0";
+  const ratePct = rawRate ? (parseFloat(rawRate) * 100).toFixed(3) : "0.125";
 
   const totalGoNum = parseFloat(stats?.totalGo || "0");
   const totalGramNum = parseFloat(stats?.totalGram || "0");
@@ -1213,7 +1213,7 @@ export async function handleAdminText(bot: TelegramBot, msg: TelegramBot.Message
     if (state.step === "mining_rate") {
       const pct = parseFloat(text);
       if (isNaN(pct) || pct <= 0 || pct > 100) { await send("❌ أدخل رقماً صحيحاً بين 0.1 و 100"); return true; }
-      const decimalRate = (pct / 100).toFixed(4);
+      const decimalRate = (pct / 100).toFixed(6);
       await setSetting("default_mining_rate", decimalRate);
       await db.update(usersTable).set({ miningRate: decimalRate });
       clearState();

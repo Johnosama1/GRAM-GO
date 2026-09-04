@@ -72,7 +72,7 @@ export default function ProfilePage() {
   const [tonPrice, setTonPrice] = useState<number>(2.5);
   const [depositWallet, setDepositWallet] = useState<string>("UQD2_1mZ8p4Fk8_e2m8pWq98bWbV57YkXj5Xv_9Xb4vB2B_1");
   const [minDeposit, setMinDeposit] = useState<number>(0.1);
-  const [gramRate, setGramRate] = useState<number>(50); // 1 GRAM = 50 GO
+  const [gramRate, setGramRate] = useState<number>(800); // 1 GRAM = 800 GO
 
   // Copy states
   const [copiedId, setCopiedId] = useState(false);
