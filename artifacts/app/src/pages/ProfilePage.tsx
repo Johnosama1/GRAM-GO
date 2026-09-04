@@ -301,10 +301,12 @@ export default function ProfilePage() {
     }
   };
 
-  // Display name & avatar initial
-  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.username || "John";
-  const usernameDisplay = user?.username ? `@${user.username}` : "@J_O_H_N8";
-  const avatarInitial = (fullName.trim()[0] || "J").toUpperCase();
+  // Display name & avatar initial (fully dynamic for each user)
+  const fullName =
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+    (user?.username ? `@${user.username}` : (user?.id ? `User #${user.id}` : "User"));
+  const usernameDisplay = user?.username ? `@${user.username}` : null;
+  const avatarInitial = (([user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.username || "U")[0] || "U").toUpperCase();
 
   return (
     <div
@@ -402,40 +404,44 @@ export default function ProfilePage() {
             <span style={{ fontSize: 20 }}>🧢</span>
           </div>
 
-          {/* @Username in Purple */}
-          <div style={{ color: "#818cf8", fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
-            {usernameDisplay}
-          </div>
+          {/* @Username in Purple (Only if user has a username) */}
+          {usernameDisplay && (
+            <div style={{ color: "#818cf8", fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
+              {usernameDisplay}
+            </div>
+          )}
 
-          {/* User ID with Copy Icon */}
-          <div
-            onClick={copyUserId}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              color: "rgba(255, 255, 255, 0.5)",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer",
-              marginBottom: 14,
-            }}
-          >
-            <span>ID: {user?.id ?? "6145230334"}</span>
-            <button
+          {/* User ID with Copy Icon (Dynamic from user.id) */}
+          {user?.id && (
+            <div
+              onClick={copyUserId}
               style={{
-                background: "none",
-                border: "none",
-                color: copiedId ? "#34d399" : "rgba(255, 255, 255, 0.5)",
-                cursor: "pointer",
-                padding: 0,
                 display: "flex",
                 alignItems: "center",
+                gap: 6,
+                color: "rgba(255, 255, 255, 0.5)",
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: "pointer",
+                marginBottom: 14,
               }}
             >
-              {copiedId ? <Check size={13} /> : <Copy size={13} />}
-            </button>
-          </div>
+              <span>ID: {user.id}</span>
+              <button
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: copiedId ? "#34d399" : "rgba(255, 255, 255, 0.5)",
+                  cursor: "pointer",
+                  padding: 0,
+                  display: "flex",
+                  alignItems: "center",
+                }}
+              >
+                {copiedId ? <Check size={13} /> : <Copy size={13} />}
+              </button>
+            </div>
+          )}
 
           {/* Wallet Connection Status Pill Button */}
           <button
@@ -557,7 +563,7 @@ export default function ProfilePage() {
                 <div>
                   <div style={{ fontSize: 16, fontWeight: 900, color: "#ffffff" }}>Sending currencies</div>
                   <div style={{ fontSize: 12, color: "rgba(255, 255, 255, 0.45)", marginTop: 2 }}>
-                    Convert MNX and send it to a user on another bot
+                    Transfer tokens to another user
                   </div>
                 </div>
               </div>
