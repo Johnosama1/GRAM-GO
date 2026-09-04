@@ -185,7 +185,7 @@ export default function VerificationScreen({ firstName, onVerified, onBanned }: 
             Device verified successfully!
           </h2>
           <p className="vf-row-1" style={{ color: "rgba(255,255,255,0.65)", fontSize: 14, lineHeight: 1.8, margin: "0 0 22px" }}>
-            Welcome to Jo-jokes 🎰<br />You can now enter and start winning.
+            Welcome to Gram GO APP ⚡<br />You can now enter and start winning.
           </p>
           <div className="vf-row-2" style={{
             background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.18)",
@@ -277,7 +277,7 @@ export default function VerificationScreen({ firstName, onVerified, onBanned }: 
           lineHeight: 1.85, margin: "0 0 22px",
         }}>
           A quick step to verify your account<br />
-          and secure your Jo-jokes platform.
+          and secure your Gram GO APP platform.
         </p>
 
         {/* ── Feature list — full text lines with inline emoji IDs ── */}

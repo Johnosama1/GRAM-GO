@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Jojox Lucky Wheel"
+title = "Gram GO APP"
 version = "1.0.0"
 
 [[services]]

@@ -1,4 +1,4 @@
-# Vercel Deployment Guide — Jo-jokes Lucky Wheel
+# Vercel Deployment Guide — Gram GO APP
 
 ## Required Environment Variables
 

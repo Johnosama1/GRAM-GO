@@ -1,6 +1,6 @@
-# Jojox Lucky Wheel
+# Gram GO APP
 
-A Telegram Mini App (TMA) featuring a lucky wheel game where users can spin to win USDT prizes. Built with React + Vite frontend and an Express API backend.
+A Telegram Mini App (TMA) for Gram GO (Mine, Earn, and Grow). Built with React + Vite frontend and an Express API backend.
 
 ## Run & Operate
 

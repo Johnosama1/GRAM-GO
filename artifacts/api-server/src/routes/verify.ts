@@ -64,11 +64,11 @@ function htmlBase(title: string, body: string): string {
 
 function verifyPageHtml(uid: number, token: string, question: string, errorMsg?: string): string {
   const errHtml = errorMsg ? `<div class="err">⚠️ ${errorMsg}</div>` : "";
-  return htmlBase("التحقق — Jo-jokes", `
-    <span class="icon">🎰</span>
+  return htmlBase("التحقق — Gram GO APP", `
+    <span class="icon">⚡</span>
     <span class="badge">التحقق من الهوية</span>
     <h1>تحقق من حسابك</h1>
-    <p class="sub">أكمل هذه الخطوة البسيطة للوصول إلى Jo-jokes وبدء الربح</p>
+    <p class="sub">أكمل هذه الخطوة البسيطة للوصول إلى Gram GO APP وبدء الربح</p>
     ${errHtml}
     <div class="captcha-box">
       <div class="captcha-label">حل المسألة للتأكيد</div>
@@ -91,7 +91,7 @@ function verifyPageHtml(uid: number, token: string, question: string, errorMsg?:
 }
 
 function successHtml(msg: string): string {
-  return htmlBase("تم التحقق — Jo-jokes", `
+  return htmlBase("تم التحقق — Gram GO APP", `
     <span class="success-icon">✅</span>
     <h1>تم التحقق بنجاح!</h1>
     <p class="sub">${msg}</p>
@@ -100,7 +100,7 @@ function successHtml(msg: string): string {
 }
 
 function errorHtml(msg: string): string {
-  return htmlBase("خطأ — Jo-jokes", `
+  return htmlBase("خطأ — Gram GO APP", `
     <span class="icon">🚫</span>
     <h1>تعذّر التحقق</h1>
     <p class="sub">${msg}</p>
@@ -211,7 +211,7 @@ router.post("/verify", async (req, res) => {
     if (bot) {
       await bot.sendMessage(
         uid,
-        `✅ تم التحقق بنجاح!\n\n🎉 مرحباً بك في Jo-jokes!\nيمكنك الآن الدخول إلى التطبيق وبدء الربح.`,
+        `✅ تم التحقق بنجاح!\n\n🎉 مرحباً بك في Gram GO APP!\nيمكنك الآن الدخول إلى التطبيق وبدء الربح.`,
       );
       await sendWelcomeMessage(uid, uid, user.firstName || "");
     }

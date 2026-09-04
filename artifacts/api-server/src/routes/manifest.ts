@@ -29,9 +29,16 @@ function resolveAppUrl(req: Request): string {
     }
   }
 
-  // 5. Default to Replit domain or empty string
+  // 5. Derive from request headers
+  const host = req.get("x-forwarded-host") || req.get("host");
+  if (host) {
+    const proto = req.get("x-forwarded-proto") || req.protocol || "https";
+    return `${proto}://${host}`;
+  }
+
+  // 6. Default to Replit domain or default URL
   const replitDomain = process.env.REPLIT_DOMAINS?.split(",")[0]?.trim();
-  return replitDomain ? `https://${replitDomain}` : "";
+  return replitDomain ? `https://${replitDomain}` : "https://gram-go-ivory.vercel.app";
 }
 
 router.get("/tonconnect-manifest.json", (req: Request, res: Response) => {
@@ -42,8 +49,8 @@ router.get("/tonconnect-manifest.json", (req: Request, res: Response) => {
   res.setHeader("Cache-Control", "no-store");
   res.json({
     url: appUrl,
-    name: "Jojox Lucky Wheel",
-    iconUrl: "https://i.ibb.co/gZgFjFmZ/cropped-circle-image-1.png",
+    name: "Gram GO APP",
+    iconUrl: `${appUrl}/bot-icon.png`,
   });
 });
 
