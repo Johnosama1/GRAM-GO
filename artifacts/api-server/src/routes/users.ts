@@ -6,6 +6,7 @@ import { eq, sql, and } from "drizzle-orm";
 import { telegramAuth, softTelegramAuth, spinRateLimit } from "../middlewares/telegramAuth";
 import { verifyAccessMiddleware } from "../middlewares/verifyAccess";
 import { requireSession } from "../middlewares/requireSession";
+import { getSetting } from "../lib/settingsCache";
 
 const router = Router();
 
