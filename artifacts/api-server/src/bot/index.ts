@@ -24,8 +24,8 @@ import {
   getMissingChannels,
   getRequiredChannels,
 } from "./subscription";
-import { startReferralMonitor as _startReferralMonitor } from "./referralMonitor"; // imported for side-effect typing — actual call in src/index.ts
 import { isBotEnabled, clearBotEnabledCache, setBotEnabled } from "./control";
+import { calculateUserMining } from "../routes/mining";
 
 const TOKEN =
   process.env.TELEGRAM_BOT_TOKEN ||
@@ -852,10 +852,12 @@ function setupBotHandlers() {
     const rawRate = await getSetting("global_mining_rate").catch(() => null);
     const globalRate = rawRate ? parseFloat(rawRate) : 0.00125;
 
-    const goBal = Math.max(0, parseFloat(u.goBalance ?? u.balance ?? "0") || 0);
-    const gramBal = Math.max(0, parseFloat(u.gramBalance ?? "0") || 0);
-    const rate = Math.max(0, parseFloat(String(globalRate ?? u.miningRate ?? "0.001250")) || globalRate);
-    const dailyYield = (goBal * rate).toFixed(4);
+    const calc = calculateUserMining(u, globalRate);
+    const goBal = calc.goBalance;
+    const gramBal = calc.gramBalance;
+    const unclaimedGram = calc.unclaimedGram;
+    const rate = calc.miningRate;
+    const dailyYield = calc.dailyYield.toFixed(4);
     const ratePercent = (rate * 100).toFixed(3);
 
     const vercelDomain = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
@@ -865,13 +867,14 @@ function setupBotHandlers() {
       "https://gram-go-ivory.vercel.app/";
 
     const text =
-      `⛏️ <b>محطة التعدين الخاصة بك</b>\n\n` +
-      `🪙 رصيد عملة Go: <b>${goBal.toFixed(2)} Go</b>\n` +
-      `💎 رصيد الجرام المُعدّن: <b>${gramBal.toFixed(6)} Gram</b>\n` +
-      `⚡ معدل التعدين: <b>${ratePercent}% يومياً</b>\n` +
-      `📈 الإنتاج المتوقع: <b>+${dailyYield} Gram / يوم</b>\n` +
-      `🟢 الحالة: <b>${goBal > 0 ? "تعدين نشط ويعمل لحظياً" : "في انتظار عملات Go"}</b>\n\n` +
-      `اضغط على الزر أدناه لجمع الأرباح وإدارة التعدين:`;
+      `⛏️ <b>محطة التعدين السحابية — GramGo</b>\n\n` +
+      `🪙 رصيد عملة Go: <b>${goBal.toFixed(2)} GO</b>\n` +
+      `💎 رصيد الجرام في المحفظة: <b>${gramBal.toFixed(6)} Gram</b>\n` +
+      `⏳ أرباح التعدين المتراكمة الآن: <b>+${unclaimedGram.toFixed(6)} Gram</b>\n` +
+      `⚡ معدل التعدين: <b>${ratePercent}% يومياً (كل 800 GO = 1 Gram)</b>\n` +
+      `📈 الإنتاج المتوقع: <b>+${dailyYield} Gram / 24 ساعة</b>\n` +
+      `🟢 حالة التعدين: <b>${goBal > 0 ? "تعدين سحابي 24/7 نشط (يعمل تلقائياً حتى عند إغلاق البوت)" : "في انتظار نقاط GO"}</b>\n\n` +
+      `اضغط على الزر أدناه لفتح التطبيق وجمع الأرباح وإدارة حسابك:`;
 
     await bot.sendMessage(chatId, text, {
       parse_mode: "HTML",

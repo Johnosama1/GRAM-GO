@@ -1388,6 +1388,9 @@ export default function ProfilePage() {
               </div>
               <div
                 style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
                   padding: "6px 12px",
                   borderRadius: 12,
                   background: "rgba(168, 85, 247, 0.15)",
@@ -1397,6 +1400,7 @@ export default function ProfilePage() {
                   fontSize: 13,
                 }}
               >
+                <img src="/go.png" alt="GO" style={{ width: 18, height: 18, borderRadius: "50%" }} />
                 GO
               </div>
             </div>

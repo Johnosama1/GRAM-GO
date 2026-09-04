@@ -20,6 +20,34 @@ function HexagonIcon({
   type: "rush" | "gram";
 }) {
   const isRush = type === "rush";
+  if (isRush) {
+    return (
+      <div
+        style={{
+          position: "relative",
+          width: 48,
+          height: 48,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <img
+          src="/go.png"
+          alt="GO"
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            objectFit: "cover",
+            filter: "drop-shadow(0 0 10px rgba(234, 179, 8, 0.6))",
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div
       style={{
@@ -35,24 +63,12 @@ function HexagonIcon({
       <svg width="48" height="48" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path
           d="M26 2L48 14.7V40.3L26 51L4 40.3V14.7L26 2Z"
-          fill={isRush ? "url(#rushBg)" : "url(#gramBg)"}
-          stroke={isRush ? "url(#rushStroke)" : "url(#gramStroke)"}
+          fill="url(#gramBg)"
+          stroke="url(#gramStroke)"
           strokeWidth="2"
-          style={{
-            filter: isRush
-              ? "drop-shadow(0 0 10px rgba(168, 85, 247, 0.45))"
-              : "drop-shadow(0 0 10px rgba(0, 242, 254, 0.45))",
-          }}
+          style={{ filter: "drop-shadow(0 0 10px rgba(0, 242, 254, 0.45))" }}
         />
         <defs>
-          <linearGradient id="rushBg" x1="0" y1="0" x2="52" y2="52" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#2e1065" stopOpacity="0.8" />
-            <stop offset="1" stopColor="#0f0728" stopOpacity="0.9" />
-          </linearGradient>
-          <linearGradient id="rushStroke" x1="0" y1="0" x2="52" y2="52" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#c084fc" />
-            <stop offset="1" stopColor="#7e22ce" />
-          </linearGradient>
           <linearGradient id="gramBg" x1="0" y1="0" x2="52" y2="52" gradientUnits="userSpaceOnUse">
             <stop stopColor="#083344" stopOpacity="0.8" />
             <stop offset="1" stopColor="#041824" stopOpacity="0.9" />
@@ -66,27 +82,15 @@ function HexagonIcon({
 
       {/* Icon Content */}
       <div style={{ position: "absolute", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        {isRush ? (
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M13 2L3 14H12L11 22L21 10H12L13 2Z"
-              fill="#ffffff"
-              stroke="#00f2fe"
-              strokeWidth="1.2"
-              style={{ filter: "drop-shadow(0 0 6px #00f2fe)" }}
-            />
-          </svg>
-        ) : (
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M6 3H18L22 9L12 22L2 9L6 3Z"
-              fill="#00f2fe"
-              stroke="#ffffff"
-              strokeWidth="1"
-              style={{ filter: "drop-shadow(0 0 6px rgba(0,242,254,0.8))" }}
-            />
-          </svg>
-        )}
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M6 3H18L22 9L12 22L2 9L6 3Z"
+            fill="#00f2fe"
+            stroke="#ffffff"
+            strokeWidth="1"
+            style={{ filter: "drop-shadow(0 0 6px rgba(0,242,254,0.8))" }}
+          />
+        </svg>
       </div>
     </div>
   );
@@ -282,6 +286,24 @@ export default function HomePage() {
       fetchMining();
     }
   }, [initialized, user?.id]);
+
+  // ── Auto-sync when app is reopened / foregrounded (Offline cloud mining sync) ──
+  useEffect(() => {
+    const handleSyncOnVisible = () => {
+      if (document.visibilityState === "visible") {
+        fetchMining();
+        refresh();
+      }
+    };
+    document.addEventListener("visibilitychange", handleSyncOnVisible);
+    window.addEventListener("focus", handleSyncOnVisible);
+    window.addEventListener("pageshow", handleSyncOnVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", handleSyncOnVisible);
+      window.removeEventListener("focus", handleSyncOnVisible);
+      window.removeEventListener("pageshow", handleSyncOnVisible);
+    };
+  }, [user?.id]);
 
   // ── 60fps Real-Time Ticker for live continuous yield ───────────────
   useEffect(() => {
@@ -757,8 +779,8 @@ export default function HomePage() {
             </div>
 
             {/* Subtitle */}
-            <span style={{ color: "rgba(255, 255, 255, 0.45)", fontSize: 11, fontWeight: 600 }}>
-              Mining in progress...
+            <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: 11, fontWeight: 700 }}>
+              24/7 Cloud Mining (Active Offline)
             </span>
 
             {/* Boost Badge */}
