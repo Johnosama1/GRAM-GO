@@ -260,8 +260,8 @@ export const api = {
   adminUpdateWalletKeys: (data: { mnemonic?: string; apiKey?: string; endpoint?: string }) =>
     apiCall<{ ok: boolean; message: string }>("/admin/wallet-keys", { method: "PUT", body: JSON.stringify(data) }),
 
-  saveWallet: (userId: number, walletAddress: string) =>
-    apiCall<{ savedWalletAddress: string }>(`/users/${userId}/wallet`, {
+  saveWallet: (userId: number, walletAddress: string | null) =>
+    apiCall<{ savedWalletAddress: string | null }>(`/users/${userId}/wallet`, {
       method: "PUT",
       body: JSON.stringify({ walletAddress }),
     }),

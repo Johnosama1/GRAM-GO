@@ -45,8 +45,8 @@ export default function ProfilePage() {
   const { t, language, setLanguage, isRtl } = useLanguage();
   const [, setLocation] = useLocation();
 
-  // Current view inside Profile: "menu" | "wallet" | "sending" | "swap" | "settings"
-  const [currentView, setCurrentView] = useState<"menu" | "wallet" | "sending" | "swap" | "settings">(() => {
+  // Current view inside Profile: "menu" | "wallet" | "swap" | "settings"
+  const [currentView, setCurrentView] = useState<"menu" | "wallet" | "swap" | "settings">(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab");
@@ -66,6 +66,7 @@ export default function ProfilePage() {
   const [tonConnectUI] = useTonConnectUI();
   const connectedAddress = useTonAddress();
   const prevAddressRef = useRef("");
+  const [disconnecting, setDisconnecting] = useState(false);
 
   // Price & Config
   const [tonPrice, setTonPrice] = useState<number>(2.5);
@@ -98,16 +99,41 @@ export default function ProfilePage() {
   const [swapResult, setSwapResult] = useState<{ gramAmount: string; goAmount: string } | null>(null);
   const [swapError, setSwapError] = useState("");
 
-  // Sending currencies state
-  const [sendRecipient, setSendRecipient] = useState("");
-  const [sendAmount, setSendAmount] = useState("");
-  const [sendSuccess, setSendSuccess] = useState(false);
-  const [sendError, setSendError] = useState("");
-
   // History state
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+
+  // ── Disconnect Wallet Handler ──────────────────────────────────────────
+  const handleDisconnectWallet = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (disconnecting || !user) return;
+    setDisconnecting(true);
+    try {
+      try {
+        await tonConnectUI.disconnect();
+      } catch (tcErr) {
+        console.warn("TON Connect disconnect error:", tcErr);
+      }
+      await api.saveWallet(user.id, null);
+      invalidateUserCaches(user.id);
+      await refresh();
+    } catch (err) {
+      console.error("Failed to disconnect wallet:", err);
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  // ── Connect Wallet Handler ─────────────────────────────────────────────
+  const handleConnectWallet = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      await tonConnectUI.openModal();
+    } catch (err) {
+      console.error("Failed to open TON Connect modal:", err);
+    }
+  };
 
   // ── Auto-sync TON Wallet with account ──────────────────────────────────
   useEffect(() => {
@@ -117,7 +143,7 @@ export default function ProfilePage() {
     if (connectedAddress && connectedAddress !== user.savedWalletAddress) {
       api.saveWallet(user.id, connectedAddress).then(() => refresh()).catch(() => {});
     } else if (!connectedAddress && prev && user.savedWalletAddress) {
-      api.saveWallet(user.id, "").then(() => refresh()).catch(() => {});
+      api.saveWallet(user.id, null).then(() => refresh()).catch(() => {});
     }
   }, [connectedAddress, user?.id]);
 
@@ -443,44 +469,79 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* Wallet Connection Status Pill Button */}
-          <button
-            onClick={() => {
-              if (!isWalletConnected) {
-                tonConnectUI.openModal();
-              } else {
-                setCurrentView("wallet");
-              }
-            }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              padding: "7px 18px",
-              borderRadius: 24,
-              border: isWalletConnected
-                ? "1px solid rgba(34, 197, 94, 0.35)"
-                : "1px solid rgba(239, 68, 68, 0.35)",
-              background: isWalletConnected
-                ? "rgba(34, 197, 94, 0.12)"
-                : "rgba(239, 68, 68, 0.12)",
-              color: isWalletConnected ? "#4ade80" : "#f87171",
-              fontSize: 12,
-              fontWeight: 800,
-              cursor: "pointer",
-              marginBottom: 28,
-            }}
-          >
+          {/* Wallet Connection Status & Actions */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 28, flexWrap: "wrap", justifyContent: "center" }}>
             {isWalletConnected ? (
               <>
-                <span style={{ fontSize: 10 }}>🟢</span> {maskWallet(savedWallet || "")}
+                <button
+                  type="button"
+                  onClick={() => setCurrentView("wallet")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "7px 16px",
+                    borderRadius: 24,
+                    border: "1px solid rgba(34, 197, 94, 0.35)",
+                    background: "rgba(34, 197, 94, 0.12)",
+                    color: "#4ade80",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    cursor: "pointer",
+                  }}
+                >
+                  <span style={{ fontSize: 9 }}>🟢</span> {maskWallet(savedWallet || "")}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDisconnectWallet}
+                  disabled={disconnecting}
+                  title="Disconnect wallet"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                    padding: "7px 14px",
+                    borderRadius: 24,
+                    border: "1px solid rgba(239, 68, 68, 0.35)",
+                    background: "rgba(239, 68, 68, 0.12)",
+                    color: "#f87171",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    cursor: disconnecting ? "not-allowed" : "pointer",
+                  }}
+                >
+                  {disconnecting ? (
+                    <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} />
+                  ) : (
+                    <X size={12} strokeWidth={2.5} />
+                  )}
+                  Disconnect
+                </button>
               </>
             ) : (
-              <>
-                <X size={13} strokeWidth={2.5} /> Not Connected
-              </>
+              <button
+                type="button"
+                onClick={handleConnectWallet}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                  padding: "8px 20px",
+                  borderRadius: 24,
+                  border: "none",
+                  background: "linear-gradient(135deg, #0098EA 0%, #0077c2 100%)",
+                  color: "#ffffff",
+                  fontSize: 13,
+                  fontWeight: 900,
+                  cursor: "pointer",
+                  boxShadow: "0 4px 14px rgba(0, 152, 234, 0.4)",
+                }}
+              >
+                <Wallet size={14} /> Connect Wallet
+              </button>
             )}
-          </button>
+          </div>
 
           {/* ══════════════════════════════════════════════════════════════
               VERTICAL MENU CARDS LIST (Screenshot 1)
@@ -522,48 +583,6 @@ export default function ProfilePage() {
                   <div style={{ fontSize: 16, fontWeight: 900, color: "#ffffff" }}>Wallet</div>
                   <div style={{ fontSize: 12, color: "rgba(255, 255, 255, 0.45)", marginTop: 2 }}>
                     Manage connected wallets
-                  </div>
-                </div>
-              </div>
-              <ChevronRight size={18} color="rgba(255, 255, 255, 0.35)" />
-            </div>
-
-            {/* 2. Sending currencies Card */}
-            <div
-              onClick={() => setCurrentView("sending")}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "16px",
-                borderRadius: 20,
-                background: "rgba(18, 16, 32, 0.85)",
-                border: "1px solid rgba(139, 92, 246, 0.16)",
-                boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 14,
-                    background: "rgba(168, 85, 247, 0.18)",
-                    border: "1px solid rgba(168, 85, 247, 0.3)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#c084fc",
-                  }}
-                >
-                  <Send size={18} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: "#ffffff" }}>Sending currencies</div>
-                  <div style={{ fontSize: 12, color: "rgba(255, 255, 255, 0.45)", marginTop: 2 }}>
-                    Transfer tokens to another user
                   </div>
                 </div>
               </div>
@@ -708,20 +727,71 @@ export default function ProfilePage() {
               justifyContent: "space-between",
             }}
           >
-            <span
-              style={{
-                color: "rgba(255, 255, 255, 0.45)",
-                fontSize: 11,
-                fontWeight: 800,
-                letterSpacing: 1,
-                textTransform: "uppercase",
-              }}
-            >
-              WALLET CONNECTION
-            </span>
-            <span style={{ color: "#ffffff", fontSize: 13, fontWeight: 800, fontFamily: "monospace" }}>
-              {isWalletConnected ? maskWallet(savedWallet || "") : "Not Connected"}
-            </span>
+            <div>
+              <div
+                style={{
+                  color: "rgba(255, 255, 255, 0.45)",
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: 1,
+                  textTransform: "uppercase",
+                  marginBottom: 3,
+                }}
+              >
+                WALLET CONNECTION
+              </div>
+              <div style={{ color: "#ffffff", fontSize: 13, fontWeight: 800, fontFamily: "monospace" }}>
+                {isWalletConnected ? maskWallet(savedWallet || "") : "Not Connected"}
+              </div>
+            </div>
+            {isWalletConnected ? (
+              <button
+                type="button"
+                onClick={handleDisconnectWallet}
+                disabled={disconnecting}
+                style={{
+                  padding: "6px 12px",
+                  borderRadius: 10,
+                  border: "1px solid rgba(239, 68, 68, 0.35)",
+                  background: "rgba(239, 68, 68, 0.12)",
+                  color: "#f87171",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  cursor: disconnecting ? "not-allowed" : "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 5,
+                }}
+              >
+                {disconnecting ? (
+                  <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
+                ) : (
+                  <X size={11} strokeWidth={2.5} />
+                )}
+                Disconnect
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleConnectWallet}
+                style={{
+                  padding: "7px 14px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: "linear-gradient(135deg, #0098EA 0%, #0077c2 100%)",
+                  color: "#ffffff",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  boxShadow: "0 4px 12px rgba(0, 152, 234, 0.35)",
+                }}
+              >
+                <Wallet size={13} /> Connect
+              </button>
+            )}
           </div>
 
           {/* Switcher Pills (Deposit vs Withdraw) */}
@@ -818,9 +888,31 @@ export default function ProfilePage() {
                       {isWalletConnected ? maskWallet(savedWallet || "") : "Not Connected"}
                     </span>
                   </div>
-                  {!isWalletConnected && (
+                  {isWalletConnected ? (
                     <button
-                      onClick={() => tonConnectUI.openModal()}
+                      type="button"
+                      onClick={handleDisconnectWallet}
+                      disabled={disconnecting}
+                      style={{
+                        padding: "4px 10px",
+                        borderRadius: 8,
+                        border: "1px solid rgba(239, 68, 68, 0.4)",
+                        background: "rgba(239, 68, 68, 0.15)",
+                        color: "#fca5a5",
+                        fontSize: 11,
+                        fontWeight: 800,
+                        cursor: disconnecting ? "not-allowed" : "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 4,
+                      }}
+                    >
+                      <X size={10} /> Disconnect
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleConnectWallet}
                       style={{
                         padding: "5px 12px",
                         borderRadius: 8,
@@ -1011,12 +1103,33 @@ export default function ProfilePage() {
                     {isWalletConnected ? maskWallet(savedWallet || "") : "Connect wallet first"}
                   </div>
                 </div>
-                {!isWalletConnected && (
+                {isWalletConnected ? (
                   <button
                     type="button"
-                    onClick={() => tonConnectUI.openModal()}
+                    onClick={handleDisconnectWallet}
+                    disabled={disconnecting}
                     style={{
                       padding: "6px 12px",
+                      borderRadius: 10,
+                      border: "1px solid rgba(239, 68, 68, 0.35)",
+                      background: "rgba(239, 68, 68, 0.12)",
+                      color: "#f87171",
+                      fontSize: 11,
+                      fontWeight: 800,
+                      cursor: disconnecting ? "not-allowed" : "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <X size={11} /> Disconnect
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleConnectWallet}
+                    style={{
+                      padding: "6px 14px",
                       borderRadius: 10,
                       border: "none",
                       background: "#3b82f6",
@@ -1548,130 +1661,7 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* ══════════════════════════════════════════════════════════════════
-          VIEW 5: SENDING CURRENCIES SUBPAGE
-      ══════════════════════════════════════════════════════════════════ */}
-      {currentView === "sending" && (
-        <div
-          className="page-fade"
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            overflowX: "hidden",
-            WebkitOverflowScrolling: "touch" as never,
-            padding: "max(env(safe-area-inset-top, 0px), 16px) 16px 90px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 14,
-          }}
-        >
-          {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
-            <button
-              onClick={() => setCurrentView("menu")}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 12,
-                background: "rgba(49, 39, 74, 0.7)",
-                border: "1px solid rgba(139, 92, 246, 0.25)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#ffffff",
-                cursor: "pointer",
-              }}
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <div style={{ fontSize: 20, fontWeight: 900, color: "#ffffff" }}>Sending currencies</div>
-          </div>
 
-          <div
-            style={{
-              background: "rgba(18, 16, 32, 0.9)",
-              border: "1px solid rgba(139, 92, 246, 0.16)",
-              borderRadius: 20,
-              padding: "18px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
-            }}
-          >
-            <div>
-              <div style={{ color: "rgba(255, 255, 255, 0.45)", fontSize: 11, fontWeight: 800, marginBottom: 6 }}>
-                RECIPIENT USER ID / USERNAME
-              </div>
-              <input
-                type="text"
-                value={sendRecipient}
-                onChange={(e) => setSendRecipient(e.target.value)}
-                placeholder="e.g. 123456789 or @username"
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  borderRadius: 12,
-                  background: "rgba(255, 255, 255, 0.05)",
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
-                  color: "#fff",
-                  fontSize: 14,
-                  outline: "none",
-                }}
-              />
-            </div>
-
-            <div>
-              <div style={{ color: "rgba(255, 255, 255, 0.45)", fontSize: 11, fontWeight: 800, marginBottom: 6 }}>
-                AMOUNT (GRAM)
-              </div>
-              <input
-                className="no-spin"
-                type="number"
-                value={sendAmount}
-                onChange={(e) => setSendAmount(e.target.value)}
-                placeholder="0.00"
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  borderRadius: 12,
-                  background: "rgba(255, 255, 255, 0.05)",
-                  border: "1px solid rgba(255, 255, 255, 0.1)",
-                  color: "#fff",
-                  fontSize: 14,
-                  outline: "none",
-                }}
-              />
-            </div>
-
-            <button
-              onClick={() => {
-                setSendSuccess(true);
-                setTimeout(() => setSendSuccess(false), 3000);
-              }}
-              style={{
-                width: "100%",
-                padding: "16px",
-                borderRadius: 16,
-                border: "none",
-                background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)",
-                color: "#ffffff",
-                fontSize: 15,
-                fontWeight: 900,
-                cursor: "pointer",
-                marginTop: 6,
-              }}
-            >
-              Send Currency
-            </button>
-
-            {sendSuccess && (
-              <div style={{ color: "#4ade80", fontSize: 12, textAlign: "center", fontWeight: 700 }}>
-                Transfer request recorded!
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* ══════════════════════════════════════════════════════════════════
           QR CODE MODAL
