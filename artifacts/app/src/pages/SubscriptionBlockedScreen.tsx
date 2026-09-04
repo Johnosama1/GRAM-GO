@@ -36,7 +36,7 @@ export default function SubscriptionBlockedScreen({
     <div style={{
       position: "fixed", inset: 0, zIndex: 9000,
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      background: "linear-gradient(160deg, #0a0812 0%, #120820 50%, #0d0a1a 100%)",
+      background: "rgba(3,6,18,0.88)", backdropFilter: "blur(20px)",
       padding: "28px 20px", textAlign: "center", gap: 0,
       overflowY: "auto",
     }}>

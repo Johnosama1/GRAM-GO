@@ -23,13 +23,132 @@ const queryClient = new QueryClient();
 
 const MANIFEST_URL = `${window.location.origin}/api/tonconnect-manifest.json`;
 
+function LoadingScreen() {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundImage: "url('/bg.jpg')",
+        backgroundPosition: "center center",
+        backgroundSize: "cover",
+        backgroundRepeat: "no-repeat",
+        backgroundColor: "#030612",
+        padding: 24,
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background: "radial-gradient(circle at 50% 50%, rgba(3, 6, 18, 0.4) 0%, rgba(3, 6, 18, 0.75) 100%)",
+        }}
+      />
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 18,
+        }}
+      >
+        <div style={{ position: "relative", width: 90, height: 90, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div
+            style={{
+              position: "absolute",
+              inset: -12,
+              borderRadius: "50%",
+              background: "radial-gradient(circle, rgba(0, 242, 254, 0.35) 0%, rgba(168, 85, 247, 0.15) 50%, transparent 70%)",
+              animation: "splashGlowPulse 2.2s ease-in-out infinite",
+            }}
+          />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              borderRadius: "50%",
+              border: "2px dashed rgba(0, 242, 254, 0.6)",
+              animation: "splashRotate 8s linear infinite",
+            }}
+          />
+          <div
+            style={{
+              width: 68,
+              height: 68,
+              borderRadius: 20,
+              background: "linear-gradient(135deg, rgba(8, 14, 32, 0.9), rgba(20, 10, 40, 0.9))",
+              border: "1px solid rgba(0, 242, 254, 0.4)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 32,
+              boxShadow: "0 0 24px rgba(0, 242, 254, 0.35)",
+            }}
+          >
+            ⚡
+          </div>
+        </div>
+
+        <h1
+          style={{
+            fontFamily: "'Cairo', 'Tajawal', sans-serif",
+            fontSize: 22,
+            fontWeight: 900,
+            letterSpacing: 2,
+            background: "linear-gradient(135deg, #00f2fe 0%, #c084fc 50%, #fbbf24 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            margin: 0,
+            textAlign: "center",
+          }}
+        >
+          GRAM GO
+        </h1>
+
+        <div
+          style={{
+            width: 130,
+            height: 4,
+            background: "rgba(255, 255, 255, 0.1)",
+            borderRadius: 999,
+            overflow: "hidden",
+            position: "relative",
+            marginTop: 4,
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: "45%",
+              background: "linear-gradient(90deg, #00f2fe, #c084fc, #fbbf24)",
+              borderRadius: 999,
+              animation: "splashLoaderAnim 1.4s ease-in-out infinite alternate",
+              boxShadow: "0 0 10px rgba(0, 242, 254, 0.7)",
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function BannedScreen() {
   const { isRtl } = useLanguage();
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 9999,
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      background: "radial-gradient(circle at 50% 30%, #1a1024 0%, #0a0b10 100%)",
+      background: "rgba(3,6,18,0.88)", backdropFilter: "blur(20px)",
       padding: "32px 24px", textAlign: "center", gap: 24,
       direction: isRtl ? "rtl" : "ltr",
     }}>
@@ -96,7 +215,7 @@ function MaintenanceScreen() {
     <div style={{
       position: "fixed", inset: 0, zIndex: 9999,
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      background: "linear-gradient(160deg, #05080f 0%, #0a0f1a 50%, #080d15 100%)",
+      background: "rgba(3,6,18,0.88)", backdropFilter: "blur(20px)",
       padding: "32px 24px", textAlign: "center",
     }}>
       <MaintenanceLottie />
@@ -163,7 +282,10 @@ const ROUTES = [
 
 function PersistentRouter() {
   const [location] = useLocation();
-  const { banned, user, refresh, sessionState, blockedInfo, recheckSession } = useUser();
+  const { banned, user, refresh, sessionState, blockedInfo, recheckSession, loading } = useUser();
+
+  // ── 0. Initial Loading ────────────────────────────────────────────
+  if (loading && !user) return <LoadingScreen />;
 
   // ── 1. Banned ─────────────────────────────────────────────────────
   if (banned || sessionState === "banned") return <BannedScreen />;

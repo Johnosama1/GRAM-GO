@@ -67,7 +67,20 @@ export default function AnimatedBackground() {
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 0, overflow: "hidden", pointerEvents: "none", background: "#030612" }}>
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 0,
+        overflow: "hidden",
+        pointerEvents: "none",
+        backgroundImage: "url('/bg.jpg')",
+        backgroundPosition: "center center",
+        backgroundSize: "cover",
+        backgroundRepeat: "no-repeat",
+        backgroundColor: "#030612",
+      }}
+    >
       {/* Ambient Top Cyan Radial Glow */}
       <div
         style={{
@@ -79,7 +92,7 @@ export default function AnimatedBackground() {
           maxWidth: 400,
           maxHeight: 400,
           borderRadius: "50%",
-          background: "radial-gradient(circle, rgba(0, 242, 254, 0.09) 0%, rgba(0, 114, 255, 0.03) 50%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(0, 242, 254, 0.08) 0%, rgba(0, 114, 255, 0.02) 50%, transparent 70%)",
           filter: "blur(40px)",
         }}
       />

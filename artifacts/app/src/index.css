@@ -79,7 +79,7 @@
   }
   body {
     @apply font-sans antialiased text-foreground;
-    background: #030612;
+    background: #030612 url('/bg.jpg') center center / cover no-repeat fixed;
     direction: ltr;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;

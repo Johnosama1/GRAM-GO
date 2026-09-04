@@ -15,13 +15,137 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Jojox Lucky Wheel" />
     <meta name="twitter:description" content="Jojox Lucky Wheel — Spin and win!" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preload" as="image" href="/bg.jpg" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;900&family=Tajawal:wght@400;500;700;900&display=swap" rel="stylesheet">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #030612 url('/bg.jpg') center center / cover no-repeat;
+        transition: opacity 0.4s ease, visibility 0.4s ease;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      #splash.hidden {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+      }
+      #splash .splash-overlay {
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(circle at 50% 50%, rgba(3, 6, 18, 0.4) 0%, rgba(3, 6, 18, 0.75) 100%);
+      }
+      #splash .splash-content {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 18px;
+      }
+      #splash .splash-logo-box {
+        position: relative;
+        width: 90px;
+        height: 90px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #splash .splash-glow {
+        position: absolute;
+        inset: -12px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(0, 242, 254, 0.35) 0%, rgba(168, 85, 247, 0.15) 50%, transparent 70%);
+        animation: splashGlowPulse 2.2s ease-in-out infinite;
+      }
+      #splash .splash-ring {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        border: 2px dashed rgba(0, 242, 254, 0.6);
+        animation: splashRotate 8s linear infinite;
+      }
+      #splash .splash-icon {
+        width: 68px;
+        height: 68px;
+        border-radius: 20px;
+        background: linear-gradient(135deg, rgba(8, 14, 32, 0.9), rgba(20, 10, 40, 0.9));
+        border: 1px solid rgba(0, 242, 254, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 32px;
+        box-shadow: 0 0 24px rgba(0, 242, 254, 0.35);
+      }
+      #splash .splash-title {
+        font-family: 'Cairo', 'Tajawal', sans-serif;
+        font-size: 22px;
+        font-weight: 900;
+        letter-spacing: 2px;
+        background: linear-gradient(135deg, #00f2fe 0%, #c084fc 50%, #fbbf24 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin: 0;
+        text-align: center;
+      }
+      #splash .splash-loader-bar {
+        width: 130px;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 999px;
+        overflow: hidden;
+        position: relative;
+        margin-top: 4px;
+      }
+      #splash .splash-loader-progress {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 45%;
+        background: linear-gradient(90deg, #00f2fe, #c084fc, #fbbf24);
+        border-radius: 999px;
+        animation: splashLoaderAnim 1.4s ease-in-out infinite alternate;
+        box-shadow: 0 0 10px rgba(0, 242, 254, 0.7);
+      }
+      @keyframes splashGlowPulse {
+        0%, 100% { transform: scale(0.92); opacity: 0.6; }
+        50% { transform: scale(1.1); opacity: 1; }
+      }
+      @keyframes splashRotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      @keyframes splashLoaderAnim {
+        0% { left: 0%; width: 30%; }
+        100% { left: 70%; width: 30%; }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash">
+      <div class="splash-overlay"></div>
+      <div class="splash-content">
+        <div class="splash-logo-box">
+          <div class="splash-glow"></div>
+          <div class="splash-ring"></div>
+          <div class="splash-icon">⚡</div>
+        </div>
+        <h1 class="splash-title">GRAM GO</h1>
+        <div class="splash-loader-bar">
+          <div class="splash-loader-progress"></div>
+        </div>
+      </div>
+    </div>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
