@@ -5,7 +5,6 @@ import {
   api,
   Withdrawal,
   Deposit,
-  swapGramToGo,
   recordDeposit,
   getWithdrawalsOnce,
   getDepositsOnce,
@@ -15,7 +14,6 @@ import { useTonAddress, useTonConnectUI } from "@tonconnect/ui-react";
 import {
   Wallet,
   Send,
-  ArrowDownUp,
   Settings as SettingsIcon,
   ChevronRight,
   ChevronLeft,
@@ -45,12 +43,12 @@ export default function ProfilePage() {
   const { t, language, setLanguage, isRtl } = useLanguage();
   const [, setLocation] = useLocation();
 
-  // Current view inside Profile: "menu" | "wallet" | "swap" | "settings"
-  const [currentView, setCurrentView] = useState<"menu" | "wallet" | "swap" | "settings">(() => {
+  // Current view inside Profile: "menu" | "wallet" | "settings"
+  const [currentView, setCurrentView] = useState<"menu" | "wallet" | "settings">(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab");
-      if (tabParam === "wallet" || tabParam === "swap" || tabParam === "settings") {
+      if (tabParam === "wallet" || tabParam === "settings") {
         return tabParam;
       }
     } catch {
@@ -92,12 +90,6 @@ export default function ProfilePage() {
   const [depositError, setDepositError] = useState("");
   const [showQrModal, setShowQrModal] = useState(false);
 
-  // Swap state
-  const [swapGramAmount, setSwapGramAmount] = useState("");
-  const [swapping, setSwapping] = useState(false);
-  const [swapSuccess, setSwapSuccess] = useState(false);
-  const [swapResult, setSwapResult] = useState<{ gramAmount: string; goAmount: string } | null>(null);
-  const [swapError, setSwapError] = useState("");
 
   // History state
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
@@ -294,38 +286,6 @@ export default function ProfilePage() {
     }
   };
 
-  // ── Handle Swap GRAM -> GO ────────────────────────────────────────────
-  const handleSwapGramToGo = async () => {
-    if (!user || swapping) return;
-    setSwapError("");
-    setSwapSuccess(false);
-    setSwapResult(null);
-
-    const amt = parseFloat(swapGramAmount);
-    if (isNaN(amt) || amt <= 0) {
-      setSwapError(t.enterValidAmount);
-      return;
-    }
-    if (amt > gramBalance) {
-      setSwapError(t.insufficientGram);
-      return;
-    }
-
-    setSwapping(true);
-    try {
-      const res = await swapGramToGo(user.id, amt);
-      setSwapResult({ gramAmount: res.gramAmount, goAmount: res.goAmount });
-      setSwapSuccess(true);
-      setSwapGramAmount("");
-      invalidateUserCaches(user.id);
-      await refresh();
-      setTimeout(() => setSwapSuccess(false), 5000);
-    } catch (err: unknown) {
-      setSwapError(err instanceof Error ? err.message : t.swapFailed);
-    } finally {
-      setSwapping(false);
-    }
-  };
 
   // Display name & avatar initial (fully dynamic for each user)
   const fullName =
@@ -589,47 +549,6 @@ export default function ProfilePage() {
               <ChevronRight size={18} color="rgba(255, 255, 255, 0.35)" />
             </div>
 
-            {/* 3. Swap Card */}
-            <div
-              onClick={() => setCurrentView("swap")}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "16px",
-                borderRadius: 20,
-                background: "rgba(18, 16, 32, 0.85)",
-                border: "1px solid rgba(139, 92, 246, 0.16)",
-                boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 14,
-                    background: "rgba(59, 130, 246, 0.18)",
-                    border: "1px solid rgba(59, 130, 246, 0.3)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#38bdf8",
-                  }}
-                >
-                  <ArrowDownUp size={20} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: "#ffffff" }}>Swap</div>
-                  <div style={{ fontSize: 12, color: "rgba(255, 255, 255, 0.45)", marginTop: 2 }}>
-                    Convert GRAM to GO
-                  </div>
-                </div>
-              </div>
-              <ChevronRight size={18} color="rgba(255, 255, 255, 0.35)" />
-            </div>
 
             {/* 4. Settings Card */}
             <div
@@ -972,7 +891,7 @@ export default function ProfilePage() {
                   }}
                 />
                 <div style={{ color: "#a78bfa", fontSize: 12, fontWeight: 700 }}>
-                  Min 0.1 GRAM
+                  Min 0.1 TON
                 </div>
               </div>
 
@@ -1283,225 +1202,7 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* ══════════════════════════════════════════════════════════════════
-          VIEW 3: SWAP SUBPAGE
-      ══════════════════════════════════════════════════════════════════ */}
-      {currentView === "swap" && (
-        <div
-          className="page-fade"
-          style={{
-            flex: 1,
-            overflowY: "auto",
-            overflowX: "hidden",
-            WebkitOverflowScrolling: "touch" as never,
-            padding: "max(env(safe-area-inset-top, 0px), 16px) 16px 90px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 14,
-          }}
-        >
-          {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
-            <button
-              onClick={() => setCurrentView("menu")}
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: 12,
-                background: "rgba(49, 39, 74, 0.7)",
-                border: "1px solid rgba(139, 92, 246, 0.25)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#ffffff",
-                cursor: "pointer",
-              }}
-            >
-              <ChevronLeft size={20} />
-            </button>
-            <div style={{ fontSize: 20, fontWeight: 900, color: "#ffffff" }}>Swap GRAM → GO</div>
-          </div>
 
-          {/* Swap Box */}
-          <div
-            style={{
-              background: "rgba(18, 16, 32, 0.9)",
-              border: "1px solid rgba(139, 92, 246, 0.16)",
-              borderRadius: 20,
-              padding: "18px",
-            }}
-          >
-            {/* Pay */}
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ color: "rgba(255, 255, 255, 0.45)", fontSize: 11, fontWeight: 800 }}>YOU PAY (GRAM)</span>
-              <span style={{ color: "#fbbf24", fontSize: 11, fontWeight: 800 }}>
-                Balance: {gramBalance.toFixed(4)} GRAM
-              </span>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-              <input
-                className="no-spin"
-                type="number"
-                value={swapGramAmount}
-                onChange={(e) => setSwapGramAmount(e.target.value)}
-                placeholder="0.00"
-                step="any"
-                style={{
-                  flex: 1,
-                  background: "none",
-                  border: "none",
-                  outline: "none",
-                  color: "#ffffff",
-                  fontSize: 28,
-                  fontWeight: 900,
-                  fontFamily: "inherit",
-                }}
-              />
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "6px 12px",
-                  borderRadius: 12,
-                  background: "rgba(0, 242, 254, 0.15)",
-                  border: "1px solid rgba(0, 242, 254, 0.3)",
-                  color: "#00f2fe",
-                  fontWeight: 800,
-                  fontSize: 13,
-                }}
-              >
-                <img src="/gram.png" alt="GRAM" style={{ width: 18, height: 18, borderRadius: "50%" }} />
-                GRAM
-              </div>
-            </div>
-
-            {/* Divider */}
-            <div style={{ height: 1, background: "rgba(255, 255, 255, 0.08)", margin: "10px 0 16px" }} />
-
-            {/* Receive */}
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-              <span style={{ color: "rgba(255, 255, 255, 0.45)", fontSize: 11, fontWeight: 800 }}>YOU RECEIVE (GO)</span>
-              <span style={{ color: "#c084fc", fontSize: 11, fontWeight: 800 }}>Rate: 1 GRAM = {gramRate} GO</span>
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ flex: 1, color: "#c084fc", fontSize: 28, fontWeight: 900 }}>
-                {parseFloat(swapGramAmount) > 0 ? (parseFloat(swapGramAmount) * gramRate).toFixed(2) : "0.00"}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "6px 12px",
-                  borderRadius: 12,
-                  background: "rgba(168, 85, 247, 0.15)",
-                  border: "1px solid rgba(168, 85, 247, 0.3)",
-                  color: "#c084fc",
-                  fontWeight: 800,
-                  fontSize: 13,
-                }}
-              >
-                <img src="/go.png" alt="GO" style={{ width: 18, height: 18, borderRadius: "50%" }} />
-                GO
-              </div>
-            </div>
-          </div>
-
-          {/* Presets */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-            {[0.25, 0.5, 0.75, 1.0].map((pct, i) => {
-              const isMax = i === 3;
-              const calcVal = gramBalance * pct;
-              return (
-                <button
-                  key={pct}
-                  onClick={() => setSwapGramAmount(calcVal.toFixed(4))}
-                  style={{
-                    padding: "10px 0",
-                    borderRadius: 12,
-                    border: "1px solid rgba(139, 92, 246, 0.2)",
-                    background: "rgba(18, 16, 32, 0.8)",
-                    color: isMax ? "#fbbf24" : "rgba(255, 255, 255, 0.6)",
-                    fontSize: 12,
-                    fontWeight: 800,
-                    cursor: "pointer",
-                  }}
-                >
-                  {isMax ? "ALL" : `${pct * 100}%`}
-                </button>
-              );
-            })}
-          </div>
-
-          {swapSuccess && (
-            <div
-              style={{
-                borderRadius: 14,
-                padding: "12px 14px",
-                background: "rgba(34, 197, 94, 0.15)",
-                border: "1px solid rgba(34, 197, 94, 0.4)",
-                color: "#4ade80",
-                fontSize: 12,
-                fontWeight: 700,
-              }}
-            >
-              ✅ Swapped successfully! Mining yield boosted.
-            </div>
-          )}
-
-          {swapError && (
-            <div
-              style={{
-                borderRadius: 14,
-                padding: "12px 14px",
-                background: "rgba(239, 68, 68, 0.15)",
-                border: "1px solid rgba(239, 68, 68, 0.4)",
-                color: "#f87171",
-                fontSize: 12,
-                fontWeight: 700,
-              }}
-            >
-              {swapError}
-            </div>
-          )}
-
-          {/* Swap CTA */}
-          <button
-            onClick={handleSwapGramToGo}
-            disabled={swapping || gramBalance <= 0 || parseFloat(swapGramAmount) <= 0}
-            style={{
-              width: "100%",
-              padding: "18px",
-              borderRadius: 18,
-              border: "none",
-              background:
-                gramBalance > 0 && parseFloat(swapGramAmount) > 0
-                  ? "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)"
-                  : "rgba(255, 255, 255, 0.08)",
-              color: gramBalance > 0 && parseFloat(swapGramAmount) > 0 ? "#ffffff" : "rgba(255, 255, 255, 0.3)",
-              fontSize: 16,
-              fontWeight: 900,
-              cursor: gramBalance > 0 && parseFloat(swapGramAmount) > 0 ? "pointer" : "not-allowed",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              boxShadow: "0 8px 28px rgba(124, 58, 237, 0.45)",
-            }}
-          >
-            {swapping ? (
-              <>
-                <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> Swapping...
-              </>
-            ) : (
-              "Swap GRAM to GO"
-            )}
-          </button>
-        </div>
-      )}
 
       {/* ══════════════════════════════════════════════════════════════════
           VIEW 4: SETTINGS SUBPAGE

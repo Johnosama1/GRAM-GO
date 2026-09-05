@@ -151,10 +151,10 @@ const translations: Record<Language, Translations> = {
     day: "day",
 
     // Profile Balances
-    gramGold: "GRAM GOLD",
+    gramGold: "GO BALANCE",
     goPower: "GO POWER",
     tonBalance: "TON",
-    minedTokens: "Mined Tokens",
+    minedTokens: "Mined GO",
     miningPower: "Mining Capacity",
     readyToWithdraw: "Ready to Withdraw",
 
@@ -207,19 +207,19 @@ const translations: Record<Language, Translations> = {
     minDepositNotice: "Minimum deposit: 0.1 TON",
 
     // Swap View
-    swapTitle: "Swap GRAM → GO",
-    swapSubtitle: "Convert your mined GRAM into GO to boost your mining power",
+    swapTitle: "Swap GO",
+    swapSubtitle: "Upgrade your mining power",
     youPay: "You Pay",
     youReceive: "You Receive",
     yourBalance: "Balance",
     swapRate: "Conversion Rate",
     all: "ALL",
-    swapGramToGo: "Swap GRAM to GO",
+    swapGramToGo: "Swap to GO",
     swapping: "Swapping...",
     swapSuccess: "Swap Successful!",
-    swapSuccessDesc: "GRAM converted to GO. Your mining yield has increased!",
+    swapSuccessDesc: "Your mining yield has increased!",
     swapFailed: "Swap failed",
-    insufficientGram: "Insufficient GRAM balance",
+    insufficientGram: "Insufficient balance",
     enterValidAmount: "Please enter a valid amount",
     swapBoostNotice: "GO tokens increase your daily mining speed and daily output.",
 
@@ -240,7 +240,7 @@ const translations: Record<Language, Translations> = {
     appVersion: "Version 4.5.0",
 
     // Home & Other Pages
-    claimMining: "Claim Gram",
+    claimMining: "Claim GO",
     claiming: "Claiming...",
     minedSuccessfully: "Mined successfully!",
     miningActive: "Mining Active",
@@ -276,10 +276,10 @@ const translations: Record<Language, Translations> = {
     day: "يوم",
 
     // Profile Balances
-    gramGold: "جرام ذهب",
+    gramGold: "رصيد GO",
     goPower: "نقاط GO",
     tonBalance: "رصيد TON",
-    minedTokens: "العملات المُعدّنة",
+    minedTokens: "عملات GO المُعدّنة",
     miningPower: "قوة التعدين",
     readyToWithdraw: "جاهز للسحب",
 
@@ -332,19 +332,19 @@ const translations: Record<Language, Translations> = {
     minDepositNotice: "الحد الأدنى للإيداع: 0.1 TON",
 
     // Swap View
-    swapTitle: "تبديل GRAM إلى GO",
-    swapSubtitle: "حوّل عملات الجرام المُعدّنة إلى نقاط GO لزيادة سرعة وإنتاجية التعدين اليومية",
+    swapTitle: "تبديل GO",
+    swapSubtitle: "ترقية قوة التعدين اليومية",
     youPay: "المراد تبديله",
     youReceive: "المستلم بـ GO",
     yourBalance: "رصيدك",
     swapRate: "سعر التحويل",
     all: "الكل",
-    swapGramToGo: "تبديل GRAM إلى GO",
+    swapGramToGo: "تبديل إلى GO",
     swapping: "جاري التبديل...",
     swapSuccess: "تم التبديل بنجاح!",
-    swapSuccessDesc: "تم تحويل الجرام إلى GO وزادت سرعة تعدينك اليومية بنجاح!",
+    swapSuccessDesc: "تمت زيادة سرعة تعدينك اليومية بنجاح!",
     swapFailed: "فشل التبديل",
-    insufficientGram: "رصيد الجرام غير كافٍ",
+    insufficientGram: "الرصيد غير كافٍ",
     enterValidAmount: "يرجى إدخال مبلغ صحيح",
     swapBoostNotice: "نقاط GO ترفع من قوتك التعدينية ونسبة أرباحك اليومية بشكل دائم.",
 
@@ -365,7 +365,7 @@ const translations: Record<Language, Translations> = {
     appVersion: "الإصدار 4.5.0",
 
     // Home & Other Pages
-    claimMining: "جمع الجرام",
+    claimMining: "جمع GO",
     claiming: "جاري الجمع...",
     minedSuccessfully: "تم التعدين بنجاح!",
     miningActive: "التعدين يعمل",
@@ -401,10 +401,10 @@ const translations: Record<Language, Translations> = {
     day: "день",
 
     // Profile Balances
-    gramGold: "GRAM GOLD",
+    gramGold: "БАЛАНС GO",
     goPower: "GO POWER",
     tonBalance: "TON",
-    minedTokens: "Добытые токены",
+    minedTokens: "Добытые GO",
     miningPower: "Мощность майнинга",
     readyToWithdraw: "Доступно к выводу",
 
@@ -457,19 +457,19 @@ const translations: Record<Language, Translations> = {
     minDepositNotice: "Минимальный депозит: 0.1 TON",
 
     // Swap View
-    swapTitle: "Обмен GRAM → GO",
-    swapSubtitle: "Конвертируйте добытые GRAM в очки GO для увеличения скорости майнинга",
+    swapTitle: "Обмен GO",
+    swapSubtitle: "Увеличение мощности майнинга",
     youPay: "Вы отдаете",
     youReceive: "Вы получаете",
     yourBalance: "Баланс",
     swapRate: "Курс обмена",
     all: "ВСЕ",
-    swapGramToGo: "Обменять GRAM на GO",
+    swapGramToGo: "Обменять на GO",
     swapping: "Обмен...",
     swapSuccess: "Обмен выполнен!",
-    swapSuccessDesc: "GRAM конвертированы в GO. Мощность майнинга повышена!",
+    swapSuccessDesc: "Мощность майнинга повышена!",
     swapFailed: "Ошибка обмена",
-    insufficientGram: "Недостаточно GRAM на балансе",
+    insufficientGram: "Недостаточно средств на балансе",
     enterValidAmount: "Введите корректную сумму",
     swapBoostNotice: "Очки GO увеличивают скорость майнинга и ваш ежедневный доход.",
 
@@ -490,7 +490,7 @@ const translations: Record<Language, Translations> = {
     appVersion: "Версия 4.5.0",
 
     // Home & Other Pages
-    claimMining: "Собрать Gram",
+    claimMining: "Собрать GO",
     claiming: "Сбор...",
     minedSuccessfully: "Успешно собрано!",
     miningActive: "Майнинг активен",

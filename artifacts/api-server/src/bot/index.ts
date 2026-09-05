@@ -854,8 +854,7 @@ function setupBotHandlers() {
 
     const calc = calculateUserMining(u, globalRate);
     const goBal = calc.goBalance;
-    const gramBal = calc.gramBalance;
-    const unclaimedGram = calc.unclaimedGram;
+    const unclaimedGo = calc.unclaimedGo;
     const rate = calc.miningRate;
     const dailyYield = calc.dailyYield.toFixed(4);
     const ratePercent = (rate * 100).toFixed(3);
@@ -868,11 +867,10 @@ function setupBotHandlers() {
 
     const text =
       `⛏️ <b>محطة التعدين السحابية — GramGo</b>\n\n` +
-      `🪙 رصيد عملة Go: <b>${goBal.toFixed(2)} GO</b>\n` +
-      `💎 رصيد الجرام في المحفظة: <b>${gramBal.toFixed(6)} Gram</b>\n` +
-      `⏳ أرباح التعدين المتراكمة الآن: <b>+${unclaimedGram.toFixed(6)} Gram</b>\n` +
-      `⚡ معدل التعدين: <b>${ratePercent}% يومياً (كل 800 GO = 1 Gram)</b>\n` +
-      `📈 الإنتاج المتوقع: <b>+${dailyYield} Gram / 24 ساعة</b>\n` +
+      `🪙 رصيد عملة GO: <b>${goBal.toFixed(2)} GO</b>\n` +
+      `⏳ أرباح التعدين المتراكمة الآن: <b>+${unclaimedGo.toFixed(6)} GO</b>\n` +
+      `⚡ معدل التعدين: <b>${ratePercent}% يومياً</b>\n` +
+      `📈 الإنتاج المتوقع: <b>+${dailyYield} GO / 24 ساعة</b>\n` +
       `🟢 حالة التعدين: <b>${goBal > 0 ? "تعدين سحابي 24/7 نشط (يعمل تلقائياً حتى عند إغلاق البوت)" : "في انتظار نقاط GO"}</b>\n\n` +
       `اضغط على الزر أدناه لفتح التطبيق وجمع الأرباح وإدارة حسابك:`;
 

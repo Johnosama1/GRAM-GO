@@ -13,47 +13,14 @@ import {
   CheckCircle,
 } from "lucide-react";
 
-// ── Hexagon Container with Glow ────────────────────────────────────────
-function HexagonIcon({
-  type,
-}: {
-  type: "rush" | "gram";
-}) {
-  const isRush = type === "rush";
-  if (isRush) {
-    return (
-      <div
-        style={{
-          position: "relative",
-          width: 48,
-          height: 48,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          flexShrink: 0,
-        }}
-      >
-        <img
-          src="/go.png"
-          alt="GO"
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: "50%",
-            objectFit: "cover",
-            filter: "drop-shadow(0 0 10px rgba(234, 179, 8, 0.6))",
-          }}
-        />
-      </div>
-    );
-  }
-
+// ── Glowing GO Coin Icon ──────────────────────────────────────────────
+function GOCoinIcon({ size = 48 }: { size?: number }) {
   return (
     <div
       style={{
         position: "relative",
-        width: 48,
-        height: 48,
+        width: size,
+        height: size,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -61,14 +28,14 @@ function HexagonIcon({
       }}
     >
       <img
-        src="/gram.png"
-        alt="Gram"
+        src="/go.png"
+        alt="GO"
         style={{
-          width: 48,
-          height: 48,
+          width: size,
+          height: size,
           borderRadius: "50%",
           objectFit: "cover",
-          filter: "drop-shadow(0 0 10px rgba(0, 242, 254, 0.6))",
+          filter: "drop-shadow(0 0 12px rgba(234, 179, 8, 0.7))",
         }}
       />
     </div>
@@ -224,7 +191,7 @@ export default function HomePage() {
     try {
       const res = await api.getMiningStatus();
       setMiningStatus(res);
-      const base = parseFloat(res.unclaimedGram || "0");
+      const base = parseFloat(res.unclaimedGo || res.unclaimedGram || "0");
       const perSec = parseFloat(res.perSecondYield || "0");
       lastFetchRef.current = {
         ts: Date.now(),
@@ -242,7 +209,7 @@ export default function HomePage() {
       // Fallback calculation using user balance
       if (user) {
         const go = parseFloat(user.goBalance || user.balance || "0");
-        const rate = 0.00125; // 800 GO = 1 Gram
+        const rate = 0.00125; // 0.125% daily GO yield
         const daily = go * rate;
         const perSec = daily / 86400;
         const lastAt = user.lastMiningAt ? new Date(user.lastMiningAt).getTime() : Date.now();
@@ -313,7 +280,7 @@ export default function HomePage() {
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
   };
 
-  // ── Handle Claim Gram ──────────────────────────────────────────────
+  // ── Handle Claim GO ────────────────────────────────────────────────
   const handleClaim = async () => {
     if (claiming || liveUnclaimed <= 0) return;
     setClaiming(true);
@@ -341,12 +308,9 @@ export default function HomePage() {
     setLocation("/profile");
   };
 
-  // User formatted values (800 GO = 1 Gram)
-  const rushPoints = Math.round(parseFloat(user?.goBalance || user?.balance || "0"));
-  const gramBal = parseFloat(user?.gramBalance || "0").toFixed(4);
-  const gramBalNum = parseFloat(gramBal);
-  const gramUsdValue = (gramBalNum * tonPrice).toFixed(2);
-  const dailyYield = (rushPoints * 0.00125).toFixed(4);
+  // User formatted values
+  const goBalanceNum = parseFloat(user?.goBalance || user?.balance || "0");
+  const dailyYield = (goBalanceNum * 0.00125).toFixed(4);
 
   const activeWallet = user?.savedWalletAddress || connectedAddress;
   const walletDisplay = activeWallet
@@ -419,35 +383,48 @@ export default function HomePage() {
               width: "100%",
               maxWidth: 330,
               background: "linear-gradient(165deg, #0d152c 0%, #060a18 100%)",
-              border: "1px solid rgba(0,242,254,0.5)",
+              border: "1px solid rgba(234, 179, 8, 0.5)",
               borderRadius: 26,
               padding: "32px 24px 24px",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              boxShadow: "0 20px 60px rgba(0,242,254,0.3)",
+              boxShadow: "0 20px 60px rgba(234, 179, 8, 0.25)",
               animation: "popInModal 0.25s cubic-bezier(0.34,1.56,0.64,1)",
               textAlign: "center",
             }}
           >
-            <div style={{ fontSize: 50, marginBottom: 8 }}>💎</div>
+            <div style={{ position: "relative", marginBottom: 12 }}>
+              <img
+                src="/go.png"
+                alt="GO"
+                style={{
+                  width: 60,
+                  height: 60,
+                  borderRadius: "50%",
+                  objectFit: "cover",
+                  filter: "drop-shadow(0 0 16px rgba(234, 179, 8, 0.8))",
+                }}
+              />
+            </div>
             <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase" }}>
-              Reward Claimed!
+              Mining Claimed!
             </div>
             <div
               style={{
                 fontSize: 34,
                 fontWeight: 900,
                 margin: "6px 0",
-                background: "linear-gradient(135deg, #00f2fe 0%, #a855f7 100%)",
+                background: "linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #fcd34d 100%)",
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
+                filter: "drop-shadow(0 0 10px rgba(245, 158, 11, 0.5))",
               }}
             >
               +{parseFloat(claimedPopup).toFixed(6)}
             </div>
-            <div style={{ color: "#00f2fe", fontSize: 13, fontWeight: 800, marginBottom: 16 }}>
-              Gram Gold Token
+            <div style={{ color: "#fbbf24", fontSize: 13, fontWeight: 800, marginBottom: 16 }}>
+              GO Points Added
             </div>
             <button
               onClick={() => setClaimedPopup(null)}
@@ -456,12 +433,12 @@ export default function HomePage() {
                 padding: "14px",
                 borderRadius: 16,
                 border: "none",
-                background: "linear-gradient(90deg, #00c6ff 0%, #7f00ff 100%)",
+                background: "linear-gradient(90deg, #f59e0b 0%, #d97706 100%)",
                 color: "#ffffff",
                 fontSize: 14,
                 fontWeight: 900,
                 cursor: "pointer",
-                boxShadow: "0 6px 20px rgba(0,242,254,0.4)",
+                boxShadow: "0 6px 20px rgba(245, 158, 11, 0.4)",
               }}
             >
               Continue Mining ⚡
@@ -590,72 +567,75 @@ export default function HomePage() {
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════
-          2. BALANCE SECTION (Two Large Side-by-Side Cards)
+          2. BALANCE SECTION (Single Prominent GO Balance Card)
       ══════════════════════════════════════════════════════════════════ */}
       <div
         style={{
           width: "100%",
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 10,
+          background: "linear-gradient(135deg, rgba(14, 22, 48, 0.85) 0%, rgba(8, 14, 32, 0.9) 100%)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          border: "1px solid rgba(234, 179, 8, 0.35)",
+          borderRadius: 22,
+          padding: "18px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          boxShadow: "0 10px 36px rgba(0, 0, 0, 0.5), 0 0 20px rgba(234, 179, 8, 0.12)",
         }}
       >
-        {/* Left Card: GO Balance */}
-        <div
-          style={{
-            background: "rgba(8, 14, 32, 0.72)",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            border: "1px solid rgba(168, 85, 247, 0.22)",
-            borderRadius: 22,
-            padding: "16px",
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            boxShadow: "0 8px 30px rgba(0, 0, 0, 0.45)",
-          }}
-        >
-          <HexagonIcon type="rush" />
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <GOCoinIcon size={52} />
           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-            <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: 11, fontWeight: 700, letterSpacing: 0.2 }}>
-              GO
-            </span>
-            <span style={{ color: "#ffffff", fontSize: 24, fontWeight: 900, letterSpacing: -0.5, lineHeight: 1.1 }}>
-              {rushPoints}
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ color: "rgba(255, 255, 255, 0.6)", fontSize: 12, fontWeight: 800, letterSpacing: 1.2, textTransform: "uppercase" }}>
+                GO BALANCE
+              </span>
+              <span
+                style={{
+                  background: "rgba(234, 179, 8, 0.18)",
+                  border: "1px solid rgba(234, 179, 8, 0.4)",
+                  borderRadius: 999,
+                  padding: "1px 7px",
+                  fontSize: 10,
+                  fontWeight: 900,
+                  color: "#fbbf24",
+                }}
+              >
+                PRIMARY
+              </span>
+            </div>
+            <span
+              style={{
+                color: "#ffffff",
+                fontSize: 28,
+                fontWeight: 900,
+                letterSpacing: -0.5,
+                lineHeight: 1.1,
+                fontFamily: "monospace",
+              }}
+            >
+              {goBalanceNum.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
             </span>
           </div>
         </div>
 
-        {/* Right Card: Gram Balance */}
         <div
           style={{
-            background: "rgba(8, 14, 32, 0.72)",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            border: "1px solid rgba(0, 242, 254, 0.22)",
-            borderRadius: 22,
-            padding: "16px",
+            width: 38,
+            height: 38,
+            borderRadius: 12,
+            background: "rgba(234, 179, 8, 0.12)",
+            border: "1px solid rgba(234, 179, 8, 0.25)",
             display: "flex",
             alignItems: "center",
-            gap: 12,
-            boxShadow: "0 8px 30px rgba(0, 0, 0, 0.45)",
+            justifyContent: "center",
+            fontSize: 18,
           }}
         >
-          <HexagonIcon type="gram" />
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: 11, fontWeight: 700, letterSpacing: 0.2 }}>
-              Gram Balance
-            </span>
-            <span style={{ color: "#ffffff", fontSize: 22, fontWeight: 900, letterSpacing: -0.5, lineHeight: 1.1 }}>
-              {gramBal}
-            </span>
-            <span style={{ color: "rgba(255, 255, 255, 0.35)", fontSize: 10, fontWeight: 700 }}>
-              ≈ ${gramUsdValue}
-            </span>
-          </div>
+          ⚡
         </div>
       </div>
-
 
       {/* ══════════════════════════════════════════════════════════════════
           3. 24H EARNINGS PILL
@@ -683,14 +663,14 @@ export default function HomePage() {
         </div>
         <div
           style={{
-            color: "#00f2fe",
+            color: "#fbbf24",
             fontSize: 14,
             fontWeight: 900,
             letterSpacing: 0.3,
-            filter: "drop-shadow(0 0 8px rgba(0,242,254,0.5))",
+            filter: "drop-shadow(0 0 8px rgba(251,191,36,0.5))",
           }}
         >
-          + {dailyYield} Gram
+          + {dailyYield} GO
         </div>
       </div>
 
@@ -795,7 +775,7 @@ export default function HomePage() {
               >
                 {liveUnclaimed.toFixed(8)}
               </span>
-              <span style={{ color: "#00f2fe", fontSize: 13, fontWeight: 800 }}>Gram</span>
+              <span style={{ color: "#fbbf24", fontSize: 13, fontWeight: 800 }}>GO</span>
             </div>
           </div>
         </div>
@@ -837,8 +817,8 @@ export default function HomePage() {
             </>
           ) : (
             <>
-              <span style={{ fontSize: 17 }}>💎</span>
-              CLAIM REWARD
+              <span style={{ fontSize: 17 }}>⚡</span>
+              CLAIM GO REWARD
             </>
           )}
         </button>

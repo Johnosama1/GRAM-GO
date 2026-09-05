@@ -342,8 +342,8 @@ export const api = {
 export interface MiningStatus {
   isMining: boolean;
   goBalance: string;
-  gramBalance: string;
-  unclaimedGram: string;
+  unclaimedGo?: string;
+  unclaimedGram?: string;
   miningRate: number;
   dailyYield: string;
   perSecondYield: string;
@@ -356,7 +356,7 @@ export interface MiningStatus {
 export interface ClaimMiningResult {
   success: boolean;
   claimedAmount: string;
-  gramBalance: string;
+  goBalance: string;
   user: User;
 }
 
