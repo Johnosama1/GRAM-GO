@@ -35,14 +35,18 @@ function UsdtLogo({ size = 32 }: { size?: number }) {
 
 function GramLogo({ size = 32 }: { size?: number }) {
   return (
-    <div style={{
-      width: size, height: size, borderRadius: "50%",
-      background: "linear-gradient(135deg, #fef08a, #fbbf24)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      fontSize: size * 0.55, boxShadow: "0 0 12px rgba(251,191,36,0.4)",
-    }}>
-      💎
-    </div>
+    <img
+      src="/gram.png"
+      alt="GRAM"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        objectFit: "cover",
+        flexShrink: 0,
+        filter: "drop-shadow(0 0 8px rgba(0, 242, 254, 0.5))",
+      }}
+    />
   );
 }
 

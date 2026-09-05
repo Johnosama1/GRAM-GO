@@ -60,38 +60,17 @@ function HexagonIcon({
         flexShrink: 0,
       }}
     >
-      <svg width="48" height="48" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path
-          d="M26 2L48 14.7V40.3L26 51L4 40.3V14.7L26 2Z"
-          fill="url(#gramBg)"
-          stroke="url(#gramStroke)"
-          strokeWidth="2"
-          style={{ filter: "drop-shadow(0 0 10px rgba(0, 242, 254, 0.45))" }}
-        />
-        <defs>
-          <linearGradient id="gramBg" x1="0" y1="0" x2="52" y2="52" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#083344" stopOpacity="0.8" />
-            <stop offset="1" stopColor="#041824" stopOpacity="0.9" />
-          </linearGradient>
-          <linearGradient id="gramStroke" x1="0" y1="0" x2="52" y2="52" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#00f2fe" />
-            <stop offset="1" stopColor="#0284c7" />
-          </linearGradient>
-        </defs>
-      </svg>
-
-      {/* Icon Content */}
-      <div style={{ position: "absolute", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path
-            d="M6 3H18L22 9L12 22L2 9L6 3Z"
-            fill="#00f2fe"
-            stroke="#ffffff"
-            strokeWidth="1"
-            style={{ filter: "drop-shadow(0 0 6px rgba(0,242,254,0.8))" }}
-          />
-        </svg>
-      </div>
+      <img
+        src="/gram.png"
+        alt="Gram"
+        style={{
+          width: 48,
+          height: 48,
+          borderRadius: "50%",
+          objectFit: "cover",
+          filter: "drop-shadow(0 0 10px rgba(0, 242, 254, 0.6))",
+        }}
+      />
     </div>
   );
 }

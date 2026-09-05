@@ -1360,15 +1360,19 @@ export default function ProfilePage() {
               />
               <div
                 style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
                   padding: "6px 12px",
                   borderRadius: 12,
-                  background: "rgba(251, 191, 36, 0.15)",
-                  border: "1px solid rgba(251, 191, 36, 0.3)",
-                  color: "#fbbf24",
+                  background: "rgba(0, 242, 254, 0.15)",
+                  border: "1px solid rgba(0, 242, 254, 0.3)",
+                  color: "#00f2fe",
                   fontWeight: 800,
                   fontSize: 13,
                 }}
               >
+                <img src="/gram.png" alt="GRAM" style={{ width: 18, height: 18, borderRadius: "50%" }} />
                 GRAM
               </div>
             </div>
