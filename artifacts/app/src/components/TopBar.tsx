@@ -1,4 +1,11 @@
+import { useUser } from "../lib/userContext";
+
 export default function TopBar() {
+  const { user } = useUser();
+
+  const goBalance = parseFloat(user?.goBalance || user?.balance || "0");
+  const tonBalance = parseFloat(user?.tonBalance || "0");
+
   return (
     <div
       style={{
@@ -8,12 +15,12 @@ export default function TopBar() {
         right: 0,
         height: "calc(max(env(safe-area-inset-top, 0px), 12px) + 48px)",
         paddingTop: "max(env(safe-area-inset-top, 0px), 12px)",
-        paddingLeft: 16,
-        paddingRight: 16,
+        paddingLeft: 14,
+        paddingRight: 14,
         zIndex: 100,
         display: "flex",
         alignItems: "center",
-        justifyContent: "flex-start",
+        justifyContent: "space-between",
         background: "rgba(3,6,18,0.75)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
@@ -21,6 +28,7 @@ export default function TopBar() {
         direction: "ltr",
       }}
     >
+      {/* Left: Logo & Title */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         {/* Glowing Lightning Bolt Logo */}
         <div style={{ position: "relative", width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -92,6 +100,49 @@ export default function TopBar() {
           </span>
         </div>
       </div>
+
+      {/* Right: Balances (TON/Diamonds & GO) */}
+      {user && (
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {/* TON / Diamond Balance */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              background: "rgba(8, 14, 32, 0.85)",
+              border: "1px solid rgba(0, 242, 254, 0.25)",
+              borderRadius: "10px",
+              padding: "3px 7px",
+              fontSize: "11px",
+              fontWeight: 800,
+              color: "#93c5fd",
+            }}
+          >
+            <span style={{ fontSize: "12px" }}>💎</span>
+            <span>{tonBalance.toFixed(3)}</span>
+          </div>
+
+          {/* GO Balance */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 4,
+              background: "rgba(8, 14, 32, 0.85)",
+              border: "1px solid rgba(251, 191, 36, 0.35)",
+              borderRadius: "10px",
+              padding: "3px 7px",
+              fontSize: "11px",
+              fontWeight: 800,
+              color: "#fbbf24",
+            }}
+          >
+            <img src="/go.png" alt="GO" style={{ width: 13, height: 13, borderRadius: "50%" }} />
+            <span>{goBalance.toFixed(3)}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

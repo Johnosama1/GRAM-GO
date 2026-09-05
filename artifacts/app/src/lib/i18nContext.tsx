@@ -6,6 +6,7 @@ export interface Translations {
   // Navigation
   navMine: string;
   navTasks: string;
+  navGames: string;
   navCombo: string;
   navFriends: string;
   navProfile: string;
@@ -131,6 +132,7 @@ const translations: Record<Language, Translations> = {
     // Navigation
     navMine: "Mine",
     navTasks: "Tasks",
+    navGames: "Games",
     navCombo: "Combo",
     navFriends: "Friends",
     navProfile: "Profile",
@@ -255,6 +257,7 @@ const translations: Record<Language, Translations> = {
     // Navigation
     navMine: "تعدين",
     navTasks: "المهام",
+    navGames: "الألعاب",
     navCombo: "كومبو",
     navFriends: "الأصدقاء",
     navProfile: "الملف الشخصي",
@@ -379,6 +382,7 @@ const translations: Record<Language, Translations> = {
     // Navigation
     navMine: "Майнинг",
     navTasks: "Задания",
+    navGames: "Игры",
     navCombo: "Комбо",
     navFriends: "Друзья",
     navProfile: "Профиль",

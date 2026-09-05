@@ -4,7 +4,7 @@ import { useLanguage } from "../lib/i18nContext";
 import { useWinModalOpen } from "../lib/winModal";
 import {
   ClipboardList,
-  Puzzle,
+  Gamepad2,
   Users,
   User as UserIcon,
   Shield,
@@ -43,7 +43,7 @@ export default function TabBar() {
   if (winModalOpen) return null;
 
   const isMine = location === "/" || location === "";
-  const isCombo = location === "/combo";
+  const isGames = location === "/games" || location === "/combo";
   const isTasks = location === "/tasks";
   const isFriends = location === "/referral";
   const isProfile = location === "/profile" || location.startsWith("/profile") || location === "/wallet";
@@ -184,9 +184,9 @@ export default function TabBar() {
         )}
       </button>
 
-      {/* 3. Combo */}
+      {/* 3. Games */}
       <button
-        onClick={() => handleTabClick("/combo")}
+        onClick={() => handleTabClick("/games")}
         style={{
           display: "flex",
           flexDirection: "column",
@@ -201,11 +201,11 @@ export default function TabBar() {
         }}
       >
         <div style={{ position: "relative" }}>
-          <Puzzle
-            size={20}
-            color={isCombo ? "#00f2fe" : "rgba(255,255,255,0.45)"}
-            strokeWidth={isCombo ? 2.4 : 1.8}
-            style={{ filter: isCombo ? "drop-shadow(0 0 8px rgba(0,242,254,0.8))" : "none" }}
+          <Gamepad2
+            size={21}
+            color={isGames ? "#00f2fe" : "rgba(255,255,255,0.45)"}
+            strokeWidth={isGames ? 2.4 : 1.8}
+            style={{ filter: isGames ? "drop-shadow(0 0 8px rgba(0,242,254,0.8))" : "none" }}
           />
           {/* Notification Badge Dot */}
           <span
@@ -226,13 +226,13 @@ export default function TabBar() {
             fontSize: 10,
             fontWeight: 800,
             marginTop: 3,
-            color: isCombo ? "#00f2fe" : "rgba(255,255,255,0.45)",
+            color: isGames ? "#00f2fe" : "rgba(255,255,255,0.45)",
             letterSpacing: 0.2,
           }}
         >
-          {t.navCombo}
+          {t.navGames || "Games"}
         </span>
-        {isCombo && (
+        {isGames && (
           <div
             style={{
               position: "absolute",

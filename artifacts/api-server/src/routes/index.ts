@@ -17,6 +17,7 @@ import priceRouter from "./price";
 import avatarRouter from "./avatar";
 import comboRouter from "./combo";
 import checkinRouter from "./checkin";
+import gamesRouter from "./games";
 
 const router: IRouter = Router();
 
@@ -26,6 +27,7 @@ router.use("/session", sessionRouter);
 router.use("/users", usersRouter);
 router.use("/mining", miningRouter);
 router.use("/combo", comboRouter);
+router.use("/games", gamesRouter);
 router.use("/checkin", checkinRouter);
 router.use("/tasks", tasksRouter);
 router.use("/wheel", wheelRouter);

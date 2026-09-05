@@ -291,6 +291,17 @@ export const api = {
       body: JSON.stringify({ selectedItems }),
     }),
 
+  startSwordAdventure: () =>
+    apiCall<{ ok: boolean; sessionToken: string; rewardPerEnemy: number; maxEnemiesPerRound: number; serverTime: string }>("/games/sword-adventure/start", {
+      method: "POST",
+    }),
+
+  finishSwordAdventure: (data: { sessionToken: string; enemiesDefeated: number; durationSeconds: number }) =>
+    apiCall<{ ok: boolean; success: boolean; enemiesDefeated: number; reward: number; currency: string; durationSeconds: number; goBalance: string; message: string }>("/games/sword-adventure/finish", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   getCheckinStatus: () => apiCall<CheckinStatus>("/checkin/status"),
 
   claimDailyCheckin: () =>
