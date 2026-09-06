@@ -483,6 +483,12 @@ export async function sendWelcomeMessage(chatId: number, userId?: number, firstN
             icon_custom_emoji_id: "5424818078833715060",
             style: "primary",
           } as any,
+          {
+            text: "Withdrawals",
+            url: "https://t.me/GramGOwithdrawal",
+            icon_custom_emoji_id: "5409048419211682843",
+            style: "success",
+          } as any,
         ],
       ],
     },
