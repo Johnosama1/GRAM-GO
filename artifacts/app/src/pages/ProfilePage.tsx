@@ -561,7 +561,7 @@ export default function ProfilePage() {
                 padding: "16px",
                 borderRadius: 20,
                 background: "rgba(18, 16, 32, 0.85)",
-                border: "1px solid rgba(245, 158, 11, 0.25)",
+                border: "1px solid rgba(0, 242, 254, 0.25)",
                 boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
                 cursor: "pointer",
                 transition: "all 0.2s ease",
@@ -573,20 +573,20 @@ export default function ProfilePage() {
                     width: 44,
                     height: 44,
                     borderRadius: 14,
-                    background: "rgba(245, 158, 11, 0.18)",
-                    border: "1px solid rgba(245, 158, 11, 0.3)",
+                    background: "rgba(0, 242, 254, 0.18)",
+                    border: "1px solid rgba(0, 242, 254, 0.3)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    color: "#f59e0b",
+                    color: "#00f2fe",
                   }}
                 >
                   <ArrowDownUp size={20} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: "#ffffff" }}>Swap GO ↔ Gram</div>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: "#ffffff" }}>Swap Gram → GO</div>
                   <div style={{ fontSize: 12, color: "rgba(255, 255, 255, 0.45)", marginTop: 2 }}>
-                    1 Gram = {gramRate} GO
+                    1 Gram = {gramRate} GO (Boost Power)
                   </div>
                 </div>
               </div>

@@ -342,46 +342,9 @@ router.post("/:id/swap-gram-to-go", requireSession, verifyAccessMiddleware, asyn
   });
 });
 
-// ── Swap GO balance → Gram balance ─────────────────────────────────────────
+// ── Swap GO balance → Gram balance (Disabled: Gram to GO only) ──────────────
 router.post("/:id/swap-go-to-gram", requireSession, verifyAccessMiddleware, async (req, res) => {
-  const id = parseInt(String(req.params.id));
-  if (isNaN(id) || id <= 0) { res.status(400).json({ error: "Invalid id" }); return; }
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  if (sessionReq.sessionUserId !== undefined && sessionReq.sessionUserId !== id) {
-    res.status(403).json({ error: "Forbidden" }); return;
-  }
-
-  const { goAmount } = req.body;
-  const amt = parseFloat(String(goAmount));
-  if (isNaN(amt) || amt <= 0) { res.status(400).json({ error: "مبلغ غير صحيح" }); return; }
-
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
-
-  const userGo = parseFloat(user.goBalance || user.balance || "0");
-  if (userGo < amt) { res.status(400).json({ error: "رصيد GO غير كافٍ" }); return; }
-
-  const rawRate = await getSetting("gram_to_go_rate").catch(() => null);
-  const rate = rawRate ? Math.max(1, parseFloat(rawRate)) : 800; // 800 GO = 1 GRAM
-
-  const gramAmount = amt / rate;
-
-  await db.update(usersTable)
-    .set({
-      goBalance:   sql`GREATEST(COALESCE(go_balance, 0) - ${String(amt)}, 0)`,
-      balance:     sql`GREATEST(COALESCE(balance, 0) - ${String(amt)}, 0)`,
-      gramBalance: sql`COALESCE(gram_balance, 0) + ${String(gramAmount)}`,
-    })
-    .where(eq(usersTable.id, id));
-
-  const [updated] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
-  res.json({
-    success: true,
-    goAmount: amt.toFixed(4),
-    gramAmount: gramAmount.toFixed(6),
-    rate,
-    user: updated,
-  });
+  res.status(400).json({ error: "التبديل متاح من Gram إلى GO فقط" });
 });
 
 // ── Save / update wallet address ────────────────────────────────────

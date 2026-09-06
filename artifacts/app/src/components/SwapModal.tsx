@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useUser } from "../lib/userContext";
-import { api, swapGramToGo, swapGoToGram } from "../lib/api";
+import { api, swapGramToGo } from "../lib/api";
 import {
-  ArrowDownUp,
+  ArrowDown,
   X,
   Loader2,
   CheckCircle2,
@@ -13,22 +13,19 @@ import {
 interface SwapModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialMode?: "GRAM_TO_GO" | "GO_TO_GRAM";
+  initialMode?: string;
   onSuccess?: () => void;
 }
 
-export default function SwapModal({ isOpen, onClose, initialMode = "GRAM_TO_GO", onSuccess }: SwapModalProps) {
+export default function SwapModal({ isOpen, onClose, onSuccess }: SwapModalProps) {
   const { user, refresh } = useUser();
-  const [mode, setMode] = useState<"GRAM_TO_GO" | "GO_TO_GRAM">(initialMode);
   const [amount, setAmount] = useState<string>("");
   const [swapping, setSwapping] = useState<boolean>(false);
   const [rate, setRate] = useState<number>(800); // 1 GRAM = 800 GO
   const [error, setError] = useState<string>("");
   const [successResult, setSuccessResult] = useState<{
-    fromAmount: string;
-    toAmount: string;
-    fromSymbol: string;
-    toSymbol: string;
+    gramAmount: string;
+    goAmount: string;
   } | null>(null);
 
   // Fetch dynamic rate from server config
@@ -48,32 +45,19 @@ export default function SwapModal({ isOpen, onClose, initialMode = "GRAM_TO_GO",
       setError("");
       setSuccessResult(null);
     }
-  }, [isOpen, mode]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const gramBalance = Math.max(0, parseFloat(user?.gramBalance || "0"));
   const goBalance = Math.max(0, parseFloat(user?.goBalance || user?.balance || "0"));
 
-  const isGramToGo = mode === "GRAM_TO_GO";
-  const sourceBalance = isGramToGo ? gramBalance : goBalance;
   const inputAmt = parseFloat(amount) || 0;
-
-  // Output calculated using rate
-  const calculatedOutput = isGramToGo
-    ? (inputAmt * rate).toFixed(4)
-    : (inputAmt / rate).toFixed(6);
-
-  const toggleDirection = () => {
-    setMode((prev) => (prev === "GRAM_TO_GO" ? "GO_TO_GRAM" : "GRAM_TO_GO"));
-    setAmount("");
-    setError("");
-    setSuccessResult(null);
-  };
+  const calculatedGoOutput = (inputAmt * rate).toFixed(4);
 
   const handlePercentage = (pct: number) => {
-    if (sourceBalance <= 0) return;
-    const val = (sourceBalance * pct).toFixed(isGramToGo ? 6 : 4);
+    if (gramBalance <= 0) return;
+    const val = (gramBalance * pct).toFixed(6);
     setAmount(val);
     setError("");
   };
@@ -84,46 +68,29 @@ export default function SwapModal({ isOpen, onClose, initialMode = "GRAM_TO_GO",
     setSuccessResult(null);
 
     if (inputAmt <= 0) {
-      setError("Please enter a valid amount.");
+      setError("يرجى إدخال كمية صحيحة من Gram.");
       return;
     }
 
-    if (inputAmt > sourceBalance) {
-      setError(`Insufficient ${isGramToGo ? "Gram" : "GO"} balance.`);
+    if (inputAmt > gramBalance) {
+      setError("رصيد Gram غير كافٍ لإتمام التبديل.");
       return;
     }
 
     setSwapping(true);
     try {
-      if (isGramToGo) {
-        const res = await swapGramToGo(user.id, inputAmt);
-        if (res.success) {
-          setSuccessResult({
-            fromAmount: res.gramAmount,
-            toAmount: res.goAmount,
-            fromSymbol: "Gram",
-            toSymbol: "GO",
-          });
-          setAmount("");
-          await refresh();
-          onSuccess?.();
-        }
-      } else {
-        const res = await swapGoToGram(user.id, inputAmt);
-        if (res.success) {
-          setSuccessResult({
-            fromAmount: res.goAmount,
-            toAmount: res.gramAmount,
-            fromSymbol: "GO",
-            toSymbol: "Gram",
-          });
-          setAmount("");
-          await refresh();
-          onSuccess?.();
-        }
+      const res = await swapGramToGo(user.id, inputAmt);
+      if (res.success) {
+        setSuccessResult({
+          gramAmount: res.gramAmount,
+          goAmount: res.goAmount,
+        });
+        setAmount("");
+        await refresh();
+        onSuccess?.();
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Swap failed. Please try again.");
+      setError(e instanceof Error ? e.message : "فشل التبديل. يرجى المحاولة لاحقاً.");
     } finally {
       setSwapping(false);
     }
@@ -185,14 +152,14 @@ export default function SwapModal({ isOpen, onClose, initialMode = "GRAM_TO_GO",
                 justifyContent: "center",
               }}
             >
-              <ArrowDownUp size={18} color="#00f2fe" />
+              <ArrowDown size={18} color="#00f2fe" />
             </div>
             <div>
               <div style={{ color: "#ffffff", fontSize: 17, fontWeight: 900, letterSpacing: -0.2 }}>
-                Instant Swap
+                Swap Gram → GO
               </div>
               <div style={{ color: "rgba(255, 255, 255, 0.5)", fontSize: 11, fontWeight: 700 }}>
-                {isGramToGo ? "Gram → GO (Boost Power)" : "GO → Gram (Mined Asset)"}
+                Boost Cloud Mining Power
               </div>
             </div>
           </div>
@@ -239,7 +206,7 @@ export default function SwapModal({ isOpen, onClose, initialMode = "GRAM_TO_GO",
           </span>
         </div>
 
-        {/* 1. FROM CARD */}
+        {/* 1. FROM CARD (Gram) */}
         <div
           style={{
             background: "rgba(8, 14, 32, 0.8)",
@@ -253,10 +220,10 @@ export default function SwapModal({ isOpen, onClose, initialMode = "GRAM_TO_GO",
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ color: "rgba(255, 255, 255, 0.45)", fontSize: 11, fontWeight: 800 }}>
-              YOU SEND
+              YOU SEND (GRAM)
             </span>
             <span style={{ color: "#38bdf8", fontSize: 11, fontWeight: 800 }}>
-              Balance: {sourceBalance.toFixed(isGramToGo ? 6 : 2)} {isGramToGo ? "Gram" : "GO"}
+              Balance: {gramBalance.toFixed(6)} Gram
             </span>
           </div>
 
@@ -287,26 +254,26 @@ export default function SwapModal({ isOpen, onClose, initialMode = "GRAM_TO_GO",
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
-                background: isGramToGo ? "rgba(0, 242, 254, 0.12)" : "rgba(234, 179, 8, 0.12)",
-                border: isGramToGo ? "1px solid rgba(0, 242, 254, 0.3)" : "1px solid rgba(234, 179, 8, 0.3)",
+                background: "rgba(0, 242, 254, 0.12)",
+                border: "1px solid rgba(0, 242, 254, 0.3)",
                 borderRadius: 12,
                 padding: "6px 10px",
                 flexShrink: 0,
               }}
             >
               <img
-                src={isGramToGo ? "/gram.png" : "/go.png"}
-                alt={isGramToGo ? "Gram" : "GO"}
+                src="/gram.png"
+                alt="Gram"
                 style={{ width: 20, height: 20, borderRadius: "50%" }}
               />
               <span
                 style={{
-                  color: isGramToGo ? "#00f2fe" : "#fbbf24",
+                  color: "#00f2fe",
                   fontWeight: 900,
                   fontSize: 13,
                 }}
               >
-                {isGramToGo ? "Gram" : "GO"}
+                Gram
               </span>
             </div>
           </div>
@@ -336,14 +303,12 @@ export default function SwapModal({ isOpen, onClose, initialMode = "GRAM_TO_GO",
           </div>
         </div>
 
-        {/* Direction Switcher Button */}
+        {/* Arrow Down Indicator */}
         <div style={{ display: "flex", justifyContent: "center", margin: "-6px 0" }}>
-          <button
-            type="button"
-            onClick={toggleDirection}
+          <div
             style={{
-              width: 38,
-              height: 38,
+              width: 36,
+              height: 36,
               borderRadius: "50%",
               background: "linear-gradient(135deg, #00f2fe 0%, #7f00ff 100%)",
               border: "3px solid #0d152c",
@@ -351,16 +316,14 @@ export default function SwapModal({ isOpen, onClose, initialMode = "GRAM_TO_GO",
               alignItems: "center",
               justifyContent: "center",
               color: "#ffffff",
-              cursor: "pointer",
               boxShadow: "0 0 16px rgba(0, 242, 254, 0.4)",
-              transition: "transform 0.2s ease",
             }}
           >
-            <ArrowDownUp size={16} />
-          </button>
+            <ArrowDown size={16} />
+          </div>
         </div>
 
-        {/* 2. TO CARD */}
+        {/* 2. TO CARD (GO) */}
         <div
           style={{
             background: "rgba(8, 14, 32, 0.8)",
@@ -374,10 +337,10 @@ export default function SwapModal({ isOpen, onClose, initialMode = "GRAM_TO_GO",
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ color: "rgba(255, 255, 255, 0.45)", fontSize: 11, fontWeight: 800 }}>
-              YOU RECEIVE (ESTIMATED)
+              YOU RECEIVE (ESTIMATED GO)
             </span>
             <span style={{ color: "#38bdf8", fontSize: 11, fontWeight: 800 }}>
-              Balance: {isGramToGo ? goBalance.toFixed(2) : gramBalance.toFixed(6)} {isGramToGo ? "GO" : "Gram"}
+              Balance: {goBalance.toFixed(2)} GO
             </span>
           </div>
 
@@ -391,7 +354,7 @@ export default function SwapModal({ isOpen, onClose, initialMode = "GRAM_TO_GO",
                 fontFamily: "monospace",
               }}
             >
-              {inputAmt > 0 ? calculatedOutput : "0.00"}
+              {inputAmt > 0 ? calculatedGoOutput : "0.00"}
             </div>
 
             <div
@@ -399,26 +362,26 @@ export default function SwapModal({ isOpen, onClose, initialMode = "GRAM_TO_GO",
                 display: "flex",
                 alignItems: "center",
                 gap: 6,
-                background: !isGramToGo ? "rgba(0, 242, 254, 0.12)" : "rgba(234, 179, 8, 0.12)",
-                border: !isGramToGo ? "1px solid rgba(0, 242, 254, 0.3)" : "1px solid rgba(234, 179, 8, 0.3)",
+                background: "rgba(234, 179, 8, 0.12)",
+                border: "1px solid rgba(234, 179, 8, 0.3)",
                 borderRadius: 12,
                 padding: "6px 10px",
                 flexShrink: 0,
               }}
             >
               <img
-                src={!isGramToGo ? "/gram.png" : "/go.png"}
-                alt={!isGramToGo ? "Gram" : "GO"}
+                src="/go.png"
+                alt="GO"
                 style={{ width: 20, height: 20, borderRadius: "50%" }}
               />
               <span
                 style={{
-                  color: !isGramToGo ? "#00f2fe" : "#fbbf24",
+                  color: "#fbbf24",
                   fontWeight: 900,
                   fontSize: 13,
                 }}
               >
-                {!isGramToGo ? "Gram" : "GO"}
+                GO
               </span>
             </div>
           </div>
@@ -439,7 +402,7 @@ export default function SwapModal({ isOpen, onClose, initialMode = "GRAM_TO_GO",
           >
             <CheckCircle2 size={16} color="#4ade80" />
             <span style={{ color: "#4ade80", fontSize: 12, fontWeight: 800 }}>
-              Swapped {successResult.fromAmount} {successResult.fromSymbol} → +{successResult.toAmount} {successResult.toSymbol} successfully!
+              تم تبديل {successResult.gramAmount} Gram → +{successResult.goAmount} GO بنجاح!
             </span>
           </div>
         )}
@@ -489,12 +452,12 @@ export default function SwapModal({ isOpen, onClose, initialMode = "GRAM_TO_GO",
           {swapping ? (
             <>
               <Loader2 size={16} style={{ animation: "spinSlow 1s linear infinite" }} />
-              <span>Executing Swap...</span>
+              <span>جاري التبديل...</span>
             </>
           ) : (
             <>
               <Zap size={16} />
-              <span>Convert {isGramToGo ? "Gram → GO" : "GO → Gram"}</span>
+              <span>تبديل Gram إلى GO</span>
             </>
           )}
         </button>

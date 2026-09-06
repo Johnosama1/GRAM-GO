@@ -185,7 +185,6 @@ export default function HomePage() {
   const [claimedPopup, setClaimedPopup] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
-  const [swapModalInitialMode, setSwapModalInitialMode] = useState<"GRAM_TO_GO" | "GO_TO_GRAM">("GRAM_TO_GO");
 
   // Mining Countdown timer (seconds remaining in 24h cycle)
   const [timerSeconds, setTimerSeconds] = useState<number>(86400); // 24:00:00
@@ -329,8 +328,7 @@ export default function HomePage() {
     setLocation("/profile");
   };
 
-  const openSwap = (initialDir: "GRAM_TO_GO" | "GO_TO_GRAM") => {
-    setSwapModalInitialMode(initialDir);
+  const openSwap = () => {
     setIsSwapModalOpen(true);
   };
 
@@ -479,7 +477,6 @@ export default function HomePage() {
       <SwapModal
         isOpen={isSwapModalOpen}
         onClose={() => setIsSwapModalOpen(false)}
-        initialMode={swapModalInitialMode}
         onSuccess={() => {
           fetchMining();
           refresh();
@@ -611,7 +608,6 @@ export default function HomePage() {
       <div style={{ width: "100%", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         {/* CARD 1: GO Balance (Mining Power) */}
         <div
-          onClick={() => openSwap("GO_TO_GRAM")}
           style={{
             background: "linear-gradient(145deg, rgba(20, 16, 8, 0.85) 0%, rgba(10, 12, 24, 0.92) 100%)",
             backdropFilter: "blur(20px)",
@@ -623,10 +619,8 @@ export default function HomePage() {
             flexDirection: "column",
             gap: 8,
             boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45), 0 0 16px rgba(234, 179, 8, 0.12)",
-            cursor: "pointer",
             position: "relative",
             overflow: "hidden",
-            transition: "transform 0.15s ease",
           }}
         >
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -669,17 +663,17 @@ export default function HomePage() {
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: -2 }}>
             <span style={{ color: "rgba(255, 255, 255, 0.4)", fontSize: 10, fontWeight: 700 }}>
-              Games & Multiplier
+              Games & Power
             </span>
-            <span style={{ color: "#fbbf24", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", gap: 3 }}>
-              Swap <ArrowDownUp size={10} />
+            <span style={{ color: "rgba(251, 191, 36, 0.7)", fontSize: 10, fontWeight: 800 }}>
+              Mining Multiplier
             </span>
           </div>
         </div>
 
-        {/* CARD 2: Gram Balance (Mined Asset) */}
+        {/* CARD 2: Gram Balance (Mined Asset - Swap to GO) */}
         <div
-          onClick={() => openSwap("GRAM_TO_GO")}
+          onClick={openSwap}
           style={{
             background: "linear-gradient(145deg, rgba(8, 20, 40, 0.85) 0%, rgba(6, 10, 24, 0.92) 100%)",
             backdropFilter: "blur(20px)",
@@ -737,10 +731,10 @@ export default function HomePage() {
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: -2 }}>
             <span style={{ color: "rgba(255, 255, 255, 0.4)", fontSize: 10, fontWeight: 700 }}>
-              Mined & Withdrawable
+              Mined Gram
             </span>
             <span style={{ color: "#00f2fe", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", gap: 3 }}>
-              Swap <ArrowDownUp size={10} />
+              Swap to GO ⚡
             </span>
           </div>
         </div>
