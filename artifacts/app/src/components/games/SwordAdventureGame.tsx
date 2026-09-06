@@ -60,6 +60,15 @@ interface Obstacle {
   type: "spike";
 }
 
+const HERO_RUN_FRAMES = [
+  "/games/adventurer-run-00.png",
+  "/games/adventurer-run-01.png",
+  "/games/adventurer-run-02.png",
+  "/games/adventurer-run-03.png",
+  "/games/adventurer-run-04.png",
+  "/games/adventurer-run-05.png",
+];
+
 export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps) {
   const { refresh } = useUser();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -67,6 +76,23 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
 
   // Audio Context ref for lazy user-gesture initialization
   const audioCtxRef = useRef<AudioContext | null>(null);
+
+  // Animated Hero Run Sprite Frames (Game Engine Preload & Cache)
+  const heroRunImagesRef = useRef<HTMLImageElement[]>([]);
+
+  useEffect(() => {
+    const images: HTMLImageElement[] = [];
+    HERO_RUN_FRAMES.forEach((src, idx) => {
+      const img = new Image();
+      img.src = src;
+      img.onerror = () => {
+        // Fallback to root path if /games/ fails
+        img.src = `/adventurer-run-0${idx}.png`;
+      };
+      images.push(img);
+    });
+    heroRunImagesRef.current = images;
+  }, []);
 
   // React State for HUD & Modals
   const [gameState, setGameState] = useState<"playing" | "over" | "claiming">("playing");
@@ -94,7 +120,8 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
       isAttacking: false,
       attackTimer: 0,
       invulnerableTimer: 0,
-      legCycle: 0,
+      frameIndex: 0,
+      animTimer: 0,
     },
     enemies: [] as Enemy[],
     obstacles: [] as Obstacle[],
@@ -207,6 +234,8 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
     s.hero.isAttacking = false;
     s.hero.attackTimer = 0;
     s.hero.invulnerableTimer = 0;
+    s.hero.frameIndex = 0;
+    s.hero.animTimer = 0;
     s.hero.y = s.groundY - s.hero.height;
 
     try {
@@ -572,8 +601,22 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
           hero.invulnerableTimer -= 1;
         }
 
+        // Advance Sprite Animation Frame (Game Engine Controller)
         if (hero.isGrounded) {
-          hero.legCycle = (hero.legCycle + 0.25) % (Math.PI * 2);
+          hero.animTimer += 1;
+          // Running animation pace: smooth, energetic 10-12 fps (changes frame every 5-6 ticks at 60fps)
+          const ticksPerFrame = Math.max(4, Math.round(5.5 - (s.gameSpeed - 3.5) * 0.3));
+          if (hero.animTimer >= ticksPerFrame) {
+            hero.animTimer = 0;
+            hero.frameIndex = (hero.frameIndex + 1) % 6;
+          }
+        } else {
+          // Dynamic jump frame in the air
+          if (hero.vy < 0) {
+            hero.frameIndex = 1; // Leaping upward
+          } else {
+            hero.frameIndex = 4; // Falling/landing
+          }
         }
 
         // Spawn Enemies
@@ -765,101 +808,71 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
         ctx.restore();
       });
 
-      // ── 6. Draw Hero ──────────────────────────────────────────────────
+      // ── 6. Draw Hero (Animated Adventurer Sprite Frames) ──────────────
       const hero = s.hero;
       ctx.save();
 
       // Invulnerability flicker
       if (hero.invulnerableTimer > 0 && Math.floor(hero.invulnerableTimer / 4) % 2 === 0) {
-        ctx.globalAlpha = 0.35;
+        ctx.globalAlpha = 0.4;
       }
 
       const hx = hero.x;
       const hy = hero.y;
 
-      // Cyan Glowing Energy Cape
-      ctx.fillStyle = "#00f2fe";
-      ctx.shadowColor = "#00f2fe";
-      ctx.shadowBlur = 12;
+      const spriteW = 86;
+      const spriteH = 64;
+      const spriteX = hx - 14;
+      const spriteY = hy + hero.height - spriteH;
+
+      // Ground subtle shadow & cyan energy aura
+      ctx.fillStyle = "rgba(0, 242, 254, 0.22)";
       ctx.beginPath();
-      const capeFlutter = Math.sin(Date.now() / 120) * 8;
-      ctx.moveTo(hx + 12, hy + 18);
-      ctx.lineTo(hx - 18 + capeFlutter, hy + 36);
-      ctx.lineTo(hx - 12 + capeFlutter, hy + 48);
-      ctx.lineTo(hx + 20, hy + 32);
-      ctx.closePath();
-      ctx.fill();
-      ctx.shadowBlur = 0;
-
-      // Hero Body / Armor
-      ctx.fillStyle = "#0f172a";
-      ctx.fillRect(hx + 12, hy + 20, 20, 22);
-
-      // Gold Trim
-      ctx.strokeStyle = "#fbbf24";
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(hx + 12, hy + 20, 20, 22);
-
-      // Hero Head / Helmet
-      ctx.fillStyle = "#1e293b";
-      ctx.beginPath();
-      ctx.arc(hx + 22, hy + 12, 12, 0, Math.PI * 2);
+      ctx.ellipse(hx + hero.width / 2, groundY - 2, 22, 6, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Helmet Cyan Visor
-      ctx.fillStyle = "#00f2fe";
-      ctx.shadowColor = "#00f2fe";
-      ctx.shadowBlur = 8;
-      ctx.fillRect(hx + 22, hy + 10, 10, 4);
-      ctx.shadowBlur = 0;
-
-      // Running Legs animation
-      const legOffset = Math.sin(hero.legCycle) * 7;
-      ctx.strokeStyle = "#0f172a";
-      ctx.lineWidth = 5;
-      ctx.lineCap = "round";
-
-      // Left Leg
-      ctx.beginPath();
-      ctx.moveTo(hx + 16, hy + 42);
-      ctx.lineTo(hx + 12 - legOffset, hy + 54);
-      ctx.stroke();
-
-      // Right Leg
-      ctx.beginPath();
-      ctx.moveTo(hx + 26, hy + 42);
-      ctx.lineTo(hx + 28 + legOffset, hy + 54);
-      ctx.stroke();
-
-      // Sword
-      if (!hero.isAttacking) {
-        ctx.strokeStyle = "#00f2fe";
-        ctx.lineWidth = 3;
-        ctx.shadowColor = "#00f2fe";
-        ctx.shadowBlur = 10;
-        ctx.beginPath();
-        ctx.moveTo(hx + 28, hy + 28);
-        ctx.lineTo(hx + 44, hy + 12);
-        ctx.stroke();
-        ctx.shadowBlur = 0;
+      const currentImg = heroRunImagesRef.current[hero.frameIndex];
+      if (currentImg && currentImg.complete && currentImg.naturalWidth > 0) {
+        // Pixel-crisp 2D rendering for authentic pixel-art
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(currentImg, spriteX, spriteY, spriteW, spriteH);
+        ctx.imageSmoothingEnabled = true;
       } else {
-        // Attack Slashing Arc FX
+        // Fallback procedural hero rendering while frames load
+        ctx.fillStyle = "#00f2fe";
+        ctx.fillRect(hx + 8, hy + 10, hero.width - 16, hero.height - 10);
+      }
+
+      // Attack / Slash Arc FX
+      if (hero.isAttacking) {
         const slashProgress = 1 - hero.attackTimer / 16;
-        const arcCenter = { x: hx + 34, y: hy + 26 };
-        const radius = 52;
+        const arcCenter = { x: hx + 44, y: hy + 26 };
+        const radius = 56;
 
         ctx.strokeStyle = "#00f2fe";
-        ctx.lineWidth = 5;
+        ctx.lineWidth = 6;
         ctx.shadowColor = "#00f2fe";
-        ctx.shadowBlur = 16;
+        ctx.shadowBlur = 18;
         ctx.beginPath();
-        ctx.arc(arcCenter.x, arcCenter.y, radius, -Math.PI * 0.45 + slashProgress * 0.6, Math.PI * 0.35 + slashProgress * 0.6);
+        ctx.arc(
+          arcCenter.x,
+          arcCenter.y,
+          radius,
+          -Math.PI * 0.45 + slashProgress * 0.7,
+          Math.PI * 0.35 + slashProgress * 0.7
+        );
         ctx.stroke();
 
         ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 2.5;
+        ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(arcCenter.x, arcCenter.y, radius - 4, -Math.PI * 0.35 + slashProgress * 0.6, Math.PI * 0.25 + slashProgress * 0.6);
+        ctx.arc(
+          arcCenter.x,
+          arcCenter.y,
+          radius - 4,
+          -Math.PI * 0.35 + slashProgress * 0.7,
+          Math.PI * 0.25 + slashProgress * 0.7
+        );
         ctx.stroke();
         ctx.shadowBlur = 0;
       }
