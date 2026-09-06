@@ -21,6 +21,7 @@ export function calculateUserMining(
   globalMiningRate?: number
 ) {
   const goBal = Math.max(0, parseFloat(user.goBalance ?? user.balance ?? "0") || 0);
+  const gramBal = Math.max(0, parseFloat(user.gramBalance ?? "0") || 0);
   const defaultRate = globalMiningRate ?? 0.00125; // 0.125% daily rate
   const rate = Math.max(0, parseFloat(String(globalMiningRate ?? user.miningRate ?? "0.001250")) || defaultRate);
   
@@ -31,18 +32,20 @@ export function calculateUserMining(
   const elapsedSec = Math.min(rawElapsedSec, cycleDurationSec);
   const remainingSec = Math.max(0, cycleDurationSec - rawElapsedSec);
 
-  const dailyYield = goBal * rate; // Daily GO yield
-  const perSecondYield = dailyYield / cycleDurationSec; // GO per second
-  const unclaimedGo = elapsedSec * perSecondYield;
+  // User GO power generates Gram yield: e.g. 800 GO * 0.00125 = 1.000000 Gram / 24h
+  const dailyYield = goBal * rate; // Gram per 24h
+  const perSecondYield = dailyYield / cycleDurationSec; // Gram per second
+  const unclaimedGram = elapsedSec * perSecondYield;
   const isMining = goBal > 0;
 
   return {
     goBalance: goBal,
+    gramBalance: gramBal,
     miningRate: rate,
     dailyYield,
     perSecondYield,
-    unclaimedGo,
-    unclaimedGram: unclaimedGo, // for backwards-compatibility
+    unclaimedGram,
+    unclaimedGo: unclaimedGram, // for backwards-compatibility
     isMining,
     lastMiningAt: user.lastMiningAt || new Date(now),
     elapsedSeconds: elapsedSec,
@@ -76,8 +79,9 @@ router.get("/status", requireSession, async (req, res) => {
     res.json({
       isMining: calc.isMining,
       goBalance: calc.goBalance.toFixed(4),
-      unclaimedGo: calc.unclaimedGo.toFixed(6),
-      unclaimedGram: calc.unclaimedGo.toFixed(6),
+      gramBalance: calc.gramBalance.toFixed(6),
+      unclaimedGram: calc.unclaimedGram.toFixed(6),
+      unclaimedGo: calc.unclaimedGram.toFixed(6),
       miningRate: calc.miningRate,
       dailyYield: calc.dailyYield.toFixed(6),
       perSecondYield: calc.perSecondYield.toFixed(8),
@@ -115,20 +119,19 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
     }
 
     const calc = calculateUserMining(user, globalRate);
-    if (calc.unclaimedGo < 0.000001) {
+    if (calc.unclaimedGram < 0.000001) {
       res.status(400).json({ error: "لا توجد أرباح كافية للتجميع حالياً" });
       return;
     }
 
-    const claimed = calc.unclaimedGo;
+    const claimed = calc.unclaimedGram;
     const claimedStr = claimed.toFixed(6);
 
-    // Atomically credit GO to user's unified goBalance & balance
+    // Atomically credit Gram to user's gramBalance
     await db
       .update(usersTable)
       .set({
-        goBalance: sql`COALESCE(go_balance, 0) + ${sql.raw(claimedStr)}`,
-        balance: sql`COALESCE(balance, 0) + ${sql.raw(claimedStr)}`,
+        gramBalance: sql`COALESCE(gram_balance, 0) + ${sql.raw(claimedStr)}`,
         lastMiningAt: new Date(),
       })
       .where(eq(usersTable.id, userId));
@@ -138,6 +141,7 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
     res.json({
       success: true,
       claimedAmount: claimedStr,
+      gramBalance: updatedUser.gramBalance,
       goBalance: updatedUser.goBalance,
       remainingSeconds: 86400,
       user: {

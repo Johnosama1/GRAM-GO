@@ -28,8 +28,10 @@ import {
   X,
   Sparkles,
   Download,
+  ArrowDownUp,
 } from "lucide-react";
 import { useLocation } from "wouter";
+import SwapModal from "../components/SwapModal";
 
 const MIN_WITHDRAWAL = 0.1;
 
@@ -89,7 +91,7 @@ export default function ProfilePage() {
   const [depositSuccess, setDepositSuccess] = useState(false);
   const [depositError, setDepositError] = useState("");
   const [showQrModal, setShowQrModal] = useState(false);
-
+  const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
 
   // History state
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
@@ -549,8 +551,49 @@ export default function ProfilePage() {
               <ChevronRight size={18} color="rgba(255, 255, 255, 0.35)" />
             </div>
 
+            {/* 2. Swap Card */}
+            <div
+              onClick={() => setIsSwapModalOpen(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "16px",
+                borderRadius: 20,
+                background: "rgba(18, 16, 32, 0.85)",
+                border: "1px solid rgba(245, 158, 11, 0.25)",
+                boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 14,
+                    background: "rgba(245, 158, 11, 0.18)",
+                    border: "1px solid rgba(245, 158, 11, 0.3)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#f59e0b",
+                  }}
+                >
+                  <ArrowDownUp size={20} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: "#ffffff" }}>Swap GO ↔ Gram</div>
+                  <div style={{ fontSize: 12, color: "rgba(255, 255, 255, 0.45)", marginTop: 2 }}>
+                    1 Gram = {gramRate} GO
+                  </div>
+                </div>
+              </div>
+              <ChevronRight size={18} color="rgba(255, 255, 255, 0.35)" />
+            </div>
 
-            {/* 4. Settings Card */}
+            {/* 3. Settings Card */}
             <div
               onClick={() => setCurrentView("settings")}
               style={{
@@ -1467,6 +1510,16 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {/* ── Swap Modal ──────────────────────────────────────────────── */}
+      <SwapModal
+        isOpen={isSwapModalOpen}
+        onClose={() => setIsSwapModalOpen(false)}
+        onSuccess={() => {
+          if (user?.id) invalidateUserCaches(user.id);
+          refresh();
+        }}
+      />
     </div>
   );
 }

@@ -78,6 +78,13 @@ export async function swapGramToGo(userId: number, gramAmount: number) {
   );
 }
 
+export async function swapGoToGram(userId: number, goAmount: number) {
+  return apiCall<{ success: boolean; goAmount: string; gramAmount: string; rate: number; user: User }>(
+    `/users/${userId}/swap-go-to-gram`,
+    { method: "POST", body: JSON.stringify({ goAmount }) }
+  );
+}
+
 export async function recordDeposit(data: { userId: number; amount: string; walletAddress?: string; txHash?: string }) {
   return apiCall<{ success: boolean; deposit: Deposit }>(
     "/withdrawals/deposit",
@@ -342,6 +349,7 @@ export const api = {
 export interface MiningStatus {
   isMining: boolean;
   goBalance: string;
+  gramBalance?: string;
   unclaimedGo?: string;
   unclaimedGram?: string;
   miningRate: number;
@@ -356,6 +364,7 @@ export interface MiningStatus {
 export interface ClaimMiningResult {
   success: boolean;
   claimedAmount: string;
+  gramBalance?: string;
   goBalance: string;
   user: User;
 }
