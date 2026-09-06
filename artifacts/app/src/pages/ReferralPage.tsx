@@ -9,7 +9,6 @@ import {
   User,
   Trophy,
   Sparkles,
-  Gift,
   Link2,
   Lock,
   CheckCircle2,
@@ -384,14 +383,8 @@ export default function ReferralPage() {
             }}
           />
 
-          {/* Top Tag & Subtitle */}
+          {/* Subtitle */}
           <div>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "3px 10px", borderRadius: 999, background: "rgba(0, 242, 254, 0.12)", border: "1px solid rgba(0, 242, 254, 0.35)", marginBottom: 6 }}>
-              <Gift size={13} color="#00f2fe" />
-              <span style={{ color: "#00f2fe", fontSize: 11, fontWeight: 900, letterSpacing: "0.06em" }}>
-                INVITE &amp; EARN
-              </span>
-            </div>
             <p style={{ color: "rgba(255, 255, 255, 0.8)", fontSize: 12.5, fontWeight: 600, margin: 0, lineHeight: 1.4 }}>
               Invite your friends and earn rewards together!
             </p>
