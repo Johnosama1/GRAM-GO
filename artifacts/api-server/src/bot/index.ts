@@ -476,6 +476,14 @@ export async function sendWelcomeMessage(chatId: number, userId?: number, firstN
             web_app: { url: MINI_APP_URL },
           } as any,
         ],
+        [
+          {
+            text: "News",
+            url: "https://t.me/GramGO1News",
+            icon_custom_emoji_id: "5424818078833715060",
+            style: "primary",
+          } as any,
+        ],
       ],
     },
   });
