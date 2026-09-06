@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import { HealthCheckResponse } from "@workspace/api-zod";
 import { db } from "@workspace/db";
-import { sql } from "drizzle-orm";
+import { milestonesTable } from "@workspace/db/schema";
+import { sql, asc, eq } from "drizzle-orm";
 import { getSetting } from "../lib/settingsCache";
 
 const router: IRouter = Router();
@@ -29,6 +30,37 @@ router.get("/config", async (_req, res) => {
     minDeposit: Math.max(0.01, parseFloat(rawMinDeposit ?? "0.1") || 0.1),
     gramToGoRate: Math.max(1, parseFloat(rawGramRate ?? "800") || 800),
   });
+});
+
+// ── Public milestones endpoint for referrals ────────────────────────────────
+router.get("/milestones", async (_req, res) => {
+  try {
+    const list = await db
+      .select()
+      .from(milestonesTable)
+      .where(eq(milestonesTable.isActive, true))
+      .orderBy(asc(milestonesTable.requiredReferrals));
+
+    if (list.length > 0) {
+      res.setHeader("Cache-Control", "public, max-age=60");
+      res.json(list);
+      return;
+    }
+  } catch (err) {
+    // If table doesn't exist yet or query fails, fall back to default tiers
+  }
+
+  // Fallback default tiers
+  const defaultMilestones = [
+    { id: 1, requiredReferrals: 5, rewardAmount: "3", rewardCurrency: "GO", isRepeatable: false, isActive: true },
+    { id: 2, requiredReferrals: 10, rewardAmount: "10", rewardCurrency: "GO", isRepeatable: false, isActive: true },
+    { id: 3, requiredReferrals: 25, rewardAmount: "25", rewardCurrency: "GO", isRepeatable: false, isActive: true },
+    { id: 4, requiredReferrals: 50, rewardAmount: "60", rewardCurrency: "GO", isRepeatable: false, isActive: true },
+    { id: 5, requiredReferrals: 100, rewardAmount: "150", rewardCurrency: "GO", isRepeatable: false, isActive: true },
+  ];
+
+  res.setHeader("Cache-Control", "public, max-age=60");
+  res.json(defaultMilestones);
 });
 
 // ── Diagnostic endpoint — shows DB + env status (safe, no secrets exposed) ──

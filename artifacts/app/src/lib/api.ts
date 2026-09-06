@@ -318,6 +318,8 @@ export const api = {
 
   getUserReferrals: (userId: number) => apiCall<ReferralEntry[]>(`/users/${userId}/referrals`),
 
+  getMilestones: () => apiCall<MilestoneItem[]>("/milestones"),
+
   getLeaderboard: (userId?: number) =>
     apiCall<{
       top: Array<{
