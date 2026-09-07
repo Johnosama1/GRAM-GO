@@ -69,6 +69,20 @@ const HERO_RUN_FRAMES = [
   "/games/adventurer-run-05.png",
 ];
 
+const HERO_ATTACK_FRAMES = [
+  "/games/adventurer-attack2-01.png",
+  "/games/IMG_20260907_030232_058.png",
+  "/games/IMG_20260907_030234_571.png",
+  "/games/IMG_20260907_030236_226.png",
+  "/games/IMG_20260907_030238_999.png",
+  "/games/IMG_20260907_030300_377.png",
+  "/games/IMG_20260907_030305_391.png",
+  "/games/IMG_20260907_030316_538.png",
+  "/games/IMG_20260907_030317_840.png",
+  "/games/IMG_20260907_030320_124.png",
+  "/games/IMG_20260907_030322_984.png",
+];
+
 export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps) {
   const { refresh } = useUser();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -77,11 +91,12 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
   // Audio Context ref for lazy user-gesture initialization
   const audioCtxRef = useRef<AudioContext | null>(null);
 
-  // Animated Hero Run Sprite Frames (Game Engine Preload & Cache)
+  // Animated Hero Sprite Frames (Game Engine Preload & Cache)
   const heroRunImagesRef = useRef<HTMLImageElement[]>([]);
+  const heroAttackImagesRef = useRef<HTMLImageElement[]>([]);
 
   useEffect(() => {
-    const images: HTMLImageElement[] = [];
+    const runImages: HTMLImageElement[] = [];
     HERO_RUN_FRAMES.forEach((src, idx) => {
       const img = new Image();
       img.src = src;
@@ -89,9 +104,22 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
         // Fallback to root path if /games/ fails
         img.src = `/adventurer-run-0${idx}.png`;
       };
-      images.push(img);
+      runImages.push(img);
     });
-    heroRunImagesRef.current = images;
+    heroRunImagesRef.current = runImages;
+
+    const attackImages: HTMLImageElement[] = [];
+    HERO_ATTACK_FRAMES.forEach((src) => {
+      const filename = src.split("/").pop();
+      const img = new Image();
+      img.src = src;
+      img.onerror = () => {
+        // Fallback to root path if /games/ fails
+        img.src = `/${filename}`;
+      };
+      attackImages.push(img);
+    });
+    heroAttackImagesRef.current = attackImages;
   }, []);
 
   // React State for HUD & Modals
@@ -327,7 +355,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
 
     if (hero.attackTimer <= 0) {
       hero.isAttacking = true;
-      hero.attackTimer = 16;
+      hero.attackTimer = 18;
       playSound("slash");
 
       // Energy wave particles
@@ -831,7 +859,19 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
       ctx.ellipse(hx + hero.width / 2, groundY - 2, 22, 6, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      const currentImg = heroRunImagesRef.current[hero.frameIndex];
+      let currentImg: HTMLImageElement | undefined;
+      if (hero.isAttacking && hero.attackTimer > 0) {
+        // Compute attack frame from remaining timer (18 ticks smoothly cycle through 11 frames)
+        const attackProgress = Math.max(0, Math.min(1, 1 - hero.attackTimer / 18));
+        const attackFrameIdx = Math.min(
+          HERO_ATTACK_FRAMES.length - 1,
+          Math.floor(attackProgress * HERO_ATTACK_FRAMES.length)
+        );
+        currentImg = heroAttackImagesRef.current[attackFrameIdx];
+      } else {
+        currentImg = heroRunImagesRef.current[hero.frameIndex];
+      }
+
       if (currentImg && currentImg.complete && currentImg.naturalWidth > 0) {
         // Pixel-crisp 2D rendering for authentic pixel-art
         ctx.imageSmoothingEnabled = false;
@@ -845,8 +885,8 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
 
       // Attack / Slash Arc FX
       if (hero.isAttacking) {
-        const slashProgress = 1 - hero.attackTimer / 16;
-        const arcCenter = { x: hx + 44, y: hy + 26 };
+        const slashProgress = 1 - hero.attackTimer / 18;
+        const arcCenter = { x: hx + 46, y: hy + 26 };
         const radius = 56;
 
         ctx.strokeStyle = "#00f2fe";
