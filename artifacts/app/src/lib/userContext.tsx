@@ -32,6 +32,7 @@ interface UserContextType {
   canClaimCheckin: boolean;
   setCanClaimCheckin: (can: boolean) => void;
   checkCheckinStatus: () => Promise<void>;
+  updateUser: (updates: Partial<User>) => void;
 }
 
 const UserContext = createContext<UserContextType>({
@@ -49,6 +50,7 @@ const UserContext = createContext<UserContextType>({
   canClaimCheckin: false,
   setCanClaimCheckin: () => {},
   checkCheckinStatus: async () => {},
+  updateUser: () => {},
 });
 
 // ── LocalStorage cache helpers ──────────────────────────────────────
@@ -301,6 +303,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     init();
   };
 
+  const updateUser = (updates: Partial<User>) => {
+    if (!user) return;
+    const updatedUser = { ...user, ...updates };
+    setUser(updatedUser);
+    writeCache(`user:${updatedUser.id}`, updatedUser);
+  };
+
   const refresh = async () => {
     if (!user) return;
     try {
@@ -333,7 +342,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     <UserContext.Provider value={{
       user, loading, initialized, refresh, retryInit, isAdmin: effectiveIsAdmin, banned, slots,
       sessionState, blockedInfo, recheckSession,
-      canClaimCheckin, setCanClaimCheckin, checkCheckinStatus,
+      canClaimCheckin, setCanClaimCheckin, checkCheckinStatus, updateUser,
     }}>
       {children}
     </UserContext.Provider>
