@@ -182,7 +182,7 @@ export default function HomePage() {
   const [miningStatus, setMiningStatus] = useState<MiningStatus | null>(null);
   const [liveUnclaimed, setLiveUnclaimed] = useState<number>(0);
   const [claiming, setClaiming] = useState(false);
-  const [claimedPopup, setClaimedPopup] = useState<string | null>(null);
+  const [floatingAmount, setFloatingAmount] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
 
@@ -309,7 +309,8 @@ export default function HomePage() {
     try {
       const res = await api.claimMining();
       if (res.success) {
-        setClaimedPopup(res.claimedAmount);
+        setFloatingAmount(res.claimedAmount);
+        setTimeout(() => setFloatingAmount(null), 2500);
         setLiveUnclaimed(0);
         setTimerSeconds(86400);
         lastFetchRef.current.baseUnclaimed = 0;
@@ -386,92 +387,11 @@ export default function HomePage() {
           from { opacity: 0; transform: scale(0.9); }
           to { opacity: 1; transform: scale(1); }
         }
+        @keyframes floatUpAndFade {
+          0% { opacity: 1; transform: translateY(0); }
+          100% { opacity: 0; transform: translateY(-40px); }
+        }
       `}</style>
-
-      {/* ── Claimed Reward Success Popup ───────────────────────────────── */}
-      {claimedPopup && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(0,0,0,0.85)",
-            backdropFilter: "blur(14px)",
-            padding: 20,
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: 330,
-              background: "linear-gradient(165deg, #0d152c 0%, #060a18 100%)",
-              border: "1.5px solid rgba(0, 242, 254, 0.5)",
-              borderRadius: 26,
-              padding: "32px 24px 24px",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              boxShadow: "0 20px 60px rgba(0, 242, 254, 0.35)",
-              animation: "popInModal 0.25s cubic-bezier(0.34,1.56,0.64,1)",
-              textAlign: "center",
-            }}
-          >
-            <div style={{ position: "relative", marginBottom: 12 }}>
-              <img
-                src="/gram.png"
-                alt="Gram"
-                style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: "50%",
-                  objectFit: "cover",
-                  filter: "drop-shadow(0 0 16px rgba(0, 242, 254, 0.8))",
-                }}
-              />
-            </div>
-            <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase" }}>
-              Mining Claimed!
-            </div>
-            <div
-              style={{
-                fontSize: 32,
-                fontWeight: 900,
-                margin: "6px 0",
-                background: "linear-gradient(135deg, #00f2fe 0%, #c084fc 100%)",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-                filter: "drop-shadow(0 0 10px rgba(0, 242, 254, 0.5))",
-                fontFamily: "monospace",
-              }}
-            >
-              +{parseFloat(claimedPopup).toFixed(6)}
-            </div>
-            <div style={{ color: "#38bdf8", fontSize: 13, fontWeight: 800, marginBottom: 16 }}>
-              Gram Added to Gram Balance
-            </div>
-            <button
-              onClick={() => setClaimedPopup(null)}
-              style={{
-                width: "100%",
-                padding: "14px",
-                borderRadius: 16,
-                border: "none",
-                background: "linear-gradient(90deg, #00c6ff 0%, #0072ff 100%)",
-                color: "#ffffff",
-                fontSize: 14,
-                fontWeight: 900,
-                cursor: "pointer",
-                boxShadow: "0 6px 20px rgba(0, 242, 254, 0.4)",
-              }}
-            >
-              Continue Mining ⚡
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ── Swap Modal Component ───────────────────────────────────────── */}
       <SwapModal
@@ -687,7 +607,7 @@ export default function HomePage() {
             boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45), 0 0 16px rgba(0, 242, 254, 0.12)",
             cursor: "pointer",
             position: "relative",
-            overflow: "hidden",
+            overflow: "visible",
             transition: "transform 0.15s ease",
           }}
         >
@@ -713,20 +633,45 @@ export default function HomePage() {
             </span>
           </div>
 
-          <div
-            style={{
-              color: "#00f2fe",
-              fontSize: 20,
-              fontWeight: 900,
-              letterSpacing: -0.5,
-              fontFamily: "monospace",
-              lineHeight: 1.1,
-              whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-            }}
-          >
-            {gramBalanceNum.toFixed(6)}
+          <div style={{ position: "relative" }}>
+            <div
+              style={{
+                color: "#00f2fe",
+                fontSize: 20,
+                fontWeight: 900,
+                letterSpacing: -0.5,
+                fontFamily: "monospace",
+                lineHeight: 1.1,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              {gramBalanceNum.toFixed(6)}
+            </div>
+
+            {floatingAmount && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: -20,
+                  left: 0,
+                  color: "#c084fc",
+                  fontSize: 20,
+                  fontWeight: 900,
+                  fontFamily: "monospace",
+                  animation: "floatUpAndFade 2.5s ease-out forwards",
+                  pointerEvents: "none",
+                  zIndex: 50,
+                  textShadow: "0 0 10px rgba(192, 132, 252, 0.8)",
+                  background: "linear-gradient(135deg, #00f2fe 0%, #c084fc 100%)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                }}
+              >
+                +{parseFloat(floatingAmount).toFixed(6)}
+              </div>
+            )}
           </div>
 
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: -2 }}>
