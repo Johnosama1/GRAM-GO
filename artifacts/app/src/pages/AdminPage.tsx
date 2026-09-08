@@ -2022,12 +2022,25 @@ export default function AdminPage() {
                 );
               })}
             </div>
-            <button
-              onClick={() => showToast("تم حفظ عناصر كومبو اليوم بنجاح ✅")}
-              style={{ width: "100%", height: 42, background: "linear-gradient(135deg, #0FA0D6, #11ABEC)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 900, fontSize: 12, cursor: "pointer" }}
-            >
-              حفظ كومبو اليوم
-            </button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => {
+                  const items = [1, 2, 3, 4, 5];
+                  const shuffled = items.sort(() => 0.5 - Math.random());
+                  setSelectedComboItems(shuffled.slice(0, 3));
+                  showToast("تم اختيار 3 عناصر عشوائياً 🎲");
+                }}
+                style={{ flex: 1, height: 42, background: "rgba(17, 171, 236, 0.2)", border: "1px solid #11ABEC", borderRadius: 12, color: "#11ABEC", fontWeight: 900, fontSize: 12, cursor: "pointer" }}
+              >
+                تحديد عشوائي 🎲
+              </button>
+              <button
+                onClick={() => showToast("تم حفظ عناصر كومبو اليوم بنجاح ✅")}
+                style={{ flex: 2, height: 42, background: "linear-gradient(135deg, #0FA0D6, #11ABEC)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 900, fontSize: 12, cursor: "pointer" }}
+              >
+                حفظ كومبو اليوم
+              </button>
+            </div>
           </AdminAccordionSection>
 
           {/* Section 4: التسجيل اليومي */}
