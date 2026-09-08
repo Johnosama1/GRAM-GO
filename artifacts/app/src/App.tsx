@@ -18,6 +18,7 @@ const AdminPage       = lazy(() => import("./pages/AdminPage"));
 const LeaderboardPage = lazy(() => import("./pages/LeaderboardPage"));
 const ProfilePage     = lazy(() => import("./pages/ProfilePage"));
 const GamesPage       = lazy(() => import("./pages/GamesPage"));
+const ComboPage       = lazy(() => import("./pages/ComboPage"));
 
 const queryClient = new QueryClient();
 
@@ -271,7 +272,7 @@ const PageFallback = () => (
 const ROUTES = [
   { path: "/",            Component: HomePage,        lazy: false },
   { path: "/games",       Component: GamesPage,       lazy: true  },
-  { path: "/combo",       Component: GamesPage,       lazy: true  },
+  { path: "/combo",       Component: ComboPage,       lazy: true  },
   { path: "/tasks",       Component: TasksPage,       lazy: true  },
   { path: "/referral",    Component: ReferralPage,    lazy: true  },
   { path: "/leaderboard", Component: LeaderboardPage, lazy: true  },
@@ -309,7 +310,7 @@ function PersistentRouter() {
     );
   }
 
-  const hideTopBar = location === "/referral" || location === "/leaderboard" || location === "/profile" || location === "/wallet" || location === "/admin";
+  const hideTopBar = location === "/referral" || location === "/leaderboard" || location === "/profile" || location === "/wallet" || location === "/admin" || location === "/combo";
 
   return (
     <>

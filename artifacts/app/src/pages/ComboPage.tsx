@@ -1,17 +1,20 @@
 import { useState, useEffect } from "react";
 import { api, ComboStatus, ComboItem } from "../lib/api";
 import { useUser } from "../lib/userContext";
+import { useLocation } from "wouter";
 import {
   Sparkles,
   Clock,
   CheckCircle2,
   XCircle,
+  X,
   Zap,
   ShieldCheck,
 } from "lucide-react";
 
 export default function ComboPage() {
   const { refresh } = useUser();
+  const [, setLocation] = useLocation();
 
   const [status, setStatus] = useState<ComboStatus | null>(null);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
@@ -223,7 +226,7 @@ export default function ComboPage() {
         flexDirection: "column",
         justifyContent: "flex-start",
         color: "#ffffff",
-        paddingTop: "6px",
+        paddingTop: "calc(max(env(safe-area-inset-top, 0px), 12px) + 54px)",
         paddingBottom: "85px",
         paddingLeft: "14px",
         paddingRight: "14px",
@@ -237,6 +240,57 @@ export default function ComboPage() {
           100% { transform: scale(1); opacity: 1; }
         }
       `}</style>
+
+      {/* ── Custom Top Header ─────────────────────────────────────────── */}
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: "calc(max(env(safe-area-inset-top, 0px), 12px) + 48px)",
+          paddingTop: "max(env(safe-area-inset-top, 0px), 12px)",
+          paddingLeft: "16px",
+          paddingRight: "16px",
+          display: "flex",
+          alignItems: "center",
+          background: "rgba(3,6,18,0.75)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          borderBottom: "1px solid rgba(0,242,254,0.08)",
+          zIndex: 100,
+        }}
+      >
+        <button
+          onClick={() => setLocation("/games")}
+          style={{
+            background: "transparent",
+            border: "none",
+            color: "#ffffff",
+            padding: "8px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
+            marginLeft: "-8px",
+          }}
+        >
+          <X size={24} />
+        </button>
+
+        <h1
+          style={{
+            fontFamily: "'Cairo', 'Tajawal', sans-serif",
+            fontSize: "18px",
+            fontWeight: 800,
+            margin: "0 0 0 16px",
+            color: "#ffffff",
+            letterSpacing: "0.5px",
+          }}
+        >
+          GRAM GO
+        </h1>
+      </div>
 
       {/* ── Compact Header (Pushed to Top) ────────────────────────────── */}
       <div style={{ textAlign: "center", marginBottom: "10px" }}>
