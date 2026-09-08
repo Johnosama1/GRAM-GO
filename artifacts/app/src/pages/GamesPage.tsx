@@ -3,6 +3,7 @@ import { api, ComboStatus, ComboItem } from "../lib/api";
 import { useUser } from "../lib/userContext";
 import { useLanguage } from "../lib/i18nContext";
 import SwordAdventureGame from "../components/games/SwordAdventureGame";
+import { useLocation } from "wouter";
 import {
   Gamepad2,
   Sparkles,
@@ -21,13 +22,10 @@ import {
 export default function GamesPage() {
   const { user, refresh } = useUser();
   const { isRtl } = useLanguage();
+  const [, setLocation] = useLocation();
 
   // Combo states
   const [status, setStatus] = useState<ComboStatus | null>(null);
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [warningMsg, setWarningMsg] = useState<string | null>(null);
-  const [isComboModalOpen, setIsComboModalOpen] = useState(false);
   // Sword Adventure full-screen state
   const [isSwordGameOpen, setIsSwordGameOpen] = useState(false);
 
@@ -71,60 +69,7 @@ export default function GamesPage() {
     return () => clearInterval(interval);
   }, [status?.nextComboAt]);
 
-  const handleSelectItem = (id: number) => {
-    if (status?.attempted) return;
 
-    if (selectedIds.includes(id)) {
-      setSelectedIds((prev) => prev.filter((i) => i !== id));
-      setWarningMsg(null);
-    } else {
-      if (selectedIds.length < 3) {
-        setSelectedIds((prev) => [...prev, id]);
-        setWarningMsg(null);
-      } else {
-        setWarningMsg("You can only choose 3 items.");
-        setTimeout(() => setWarningMsg(null), 2500);
-      }
-    }
-  };
-
-  const handleCheckCombo = async () => {
-    if (status?.attempted || submitting) return;
-
-    if (selectedIds.length !== 3) {
-      setWarningMsg("Please select 3 items first.");
-      setTimeout(() => setWarningMsg(null), 3000);
-      return;
-    }
-
-    setSubmitting(true);
-    setWarningMsg(null);
-    try {
-      const res = await api.checkCombo(selectedIds);
-      setStatus((prev) =>
-        prev
-          ? {
-              ...prev,
-              attempted: true,
-              isSuccess: res.isSuccess,
-              rewardClaimed: res.isSuccess,
-              selectedItems: selectedIds,
-            }
-          : null
-      );
-
-      if (res.isSuccess) {
-        await refresh();
-      }
-    } catch (err: unknown) {
-      const msg =
-        err && typeof err === "object" && "body" in err
-          ? (err as { body?: { error?: string } }).body?.error
-          : "Failed to check combo";
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
   const itemsList: ComboItem[] = status?.items || [
     { id: 1, name: "Crystal Shard", image: "/combo/combo_1.png", description: "High-resonance energy crystal" },
@@ -376,13 +321,13 @@ export default function GamesPage() {
                 }}
               >
                 {[0, 1, 2].map((slotIdx) => {
-                  const itemId = selectedIds[slotIdx];
+                  const itemId = status?.selectedItems ? status.selectedItems[slotIdx] : null;
                   const item = itemsList.find((i) => i.id === itemId);
 
                   return (
                     <div
                       key={slotIdx}
-                      onClick={() => setIsComboModalOpen(true)}
+                      onClick={() => setLocation("/combo")}
                       style={{
                         width: "56px",
                         height: "64px",
@@ -494,7 +439,7 @@ export default function GamesPage() {
 
             {/* Play Button */}
             <button
-              onClick={() => setIsComboModalOpen(true)}
+              onClick={() => setLocation("/combo")}
               style={{
                 background: status?.rewardClaimed
                   ? "rgba(34, 197, 94, 0.2)"
@@ -799,403 +744,6 @@ export default function GamesPage() {
           </div>
         </div>
       </div>
-
-      {/* ── 3. Interactive Daily Combo Selection Modal ──────────────────── */}
-      {isComboModalOpen && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 120,
-            background: "rgba(0, 0, 0, 0.85)",
-            backdropFilter: "blur(14px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "16px",
-          }}
-          onClick={() => setIsComboModalOpen(false)}
-        >
-          <div
-            style={{
-              background: "linear-gradient(145deg, rgba(8, 16, 40, 0.98), rgba(4, 7, 20, 0.99))",
-              border: "1.5px solid rgba(0, 242, 254, 0.4)",
-              borderRadius: "24px",
-              padding: "20px 16px",
-              maxWidth: "360px",
-              width: "100%",
-              boxShadow: "0 0 40px rgba(0, 242, 254, 0.35)",
-              animation: "popIn 0.25s ease",
-              position: "relative",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: "12px",
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                <Sparkles size={16} color="#00f2fe" />
-                <h3 style={{ fontSize: "16px", fontWeight: 900, margin: 0, color: "#ffffff" }}>
-                  DAILY COMBO
-                </h3>
-              </div>
-
-              <button
-                onClick={() => setIsComboModalOpen(false)}
-                style={{
-                  background: "rgba(255, 255, 255, 0.1)",
-                  border: "none",
-                  borderRadius: "50%",
-                  width: "28px",
-                  height: "28px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  color: "#ffffff",
-                  cursor: "pointer",
-                }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-
-            {/* Status & Attempt Info */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: "12px",
-                fontSize: "11px",
-                fontWeight: 800,
-              }}
-            >
-              <div style={{ color: "#93c5fd", display: "flex", alignItems: "center", gap: 4 }}>
-                <Clock size={12} color="#00f2fe" />
-                <span>Next in {timeLeft}</span>
-              </div>
-              <div
-                style={{
-                  color: status?.attempted ? "#f87171" : "#4ade80",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
-                <ShieldCheck size={12} />
-                <span>{status?.attempted ? "0 / 1 Attempts Left" : "1 / 1 Attempts Left"}</span>
-              </div>
-            </div>
-
-            {/* 3 Chosen Slots */}
-            <div
-              style={{
-                background: "rgba(4, 7, 18, 0.8)",
-                border: "1px solid rgba(0, 242, 254, 0.25)",
-                borderRadius: "16px",
-                padding: "10px 8px",
-                marginBottom: "14px",
-                display: "grid",
-                gridTemplateColumns: "repeat(3, 1fr)",
-                gap: "8px",
-              }}
-            >
-              {[0, 1, 2].map((slotIdx) => {
-                const itemId = selectedIds[slotIdx];
-                const item = itemsList.find((i) => i.id === itemId);
-
-                return (
-                  <div
-                    key={slotIdx}
-                    onClick={() => itemId && handleSelectItem(itemId)}
-                    style={{
-                      height: "76px",
-                      borderRadius: "12px",
-                      background: item
-                        ? "linear-gradient(145deg, rgba(168, 85, 247, 0.25), rgba(0, 242, 254, 0.2))"
-                        : "rgba(2, 4, 12, 0.8)",
-                      border: item
-                        ? "1.5px solid #00f2fe"
-                        : "1.5px dashed rgba(0, 242, 254, 0.3)",
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      cursor: item && !status?.attempted ? "pointer" : "default",
-                      boxShadow: item ? "0 0 12px rgba(0, 242, 254, 0.3)" : "none",
-                    }}
-                  >
-                    {item ? (
-                      <>
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          style={{ width: "36px", height: "36px", objectFit: "contain", marginBottom: "2px" }}
-                        />
-                        <span
-                          style={{
-                            fontSize: "9.5px",
-                            fontWeight: 800,
-                            color: "#e2e8f0",
-                            maxWidth: "90%",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {item.name}
-                        </span>
-                      </>
-                    ) : (
-                      <span style={{ fontSize: "18px", fontWeight: 900, color: "rgba(0, 242, 254, 0.4)" }}>
-                        {slotIdx + 1}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Selectable Items Grid (5 Items) */}
-            <div style={{ marginBottom: "14px" }}>
-              <div
-                style={{
-                  fontSize: "11px",
-                  fontWeight: 800,
-                  color: "rgba(255, 255, 255, 0.7)",
-                  marginBottom: "8px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                }}
-              >
-                <span>Select 3 Cards ({selectedIds.length}/3)</span>
-                <span style={{ color: "#00f2fe" }}>Tap to select</span>
-              </div>
-
-              {/* 5 Items: Top row has 3 items, bottom row has 2 centered */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(6, 1fr)",
-                  gap: "6px",
-                }}
-              >
-                {/* Top Row: 3 items */}
-                {itemsList.slice(0, 3).map((item) => {
-                  const isSelected = selectedIds.includes(item.id);
-                  const isFull = selectedIds.length >= 3 && !isSelected;
-
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => handleSelectItem(item.id)}
-                      style={{
-                        gridColumn: "span 2",
-                        background: isSelected
-                          ? "linear-gradient(145deg, rgba(8, 20, 50, 0.95), rgba(168, 85, 247, 0.35))"
-                          : "rgba(8, 14, 32, 0.85)",
-                        border: isSelected
-                          ? "2px solid #00f2fe"
-                          : "1px solid rgba(255, 255, 255, 0.1)",
-                        borderRadius: "14px",
-                        padding: "8px 4px",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: status?.attempted ? "default" : isFull ? "not-allowed" : "pointer",
-                        opacity: isFull ? 0.45 : 1,
-                        boxShadow: isSelected ? "0 0 14px rgba(0, 242, 254, 0.4)" : "none",
-                      }}
-                    >
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        style={{ width: "40px", height: "40px", objectFit: "contain", marginBottom: "3px" }}
-                      />
-                      <span
-                        style={{
-                          color: isSelected ? "#00f2fe" : "#ffffff",
-                          fontSize: "10px",
-                          fontWeight: 800,
-                          maxWidth: "94%",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {item.name}
-                      </span>
-                    </div>
-                  );
-                })}
-
-                {/* Bottom Row: Spacer + 2 items + Spacer */}
-                <div style={{ gridColumn: "span 1" }} />
-                {itemsList.slice(3, 5).map((item) => {
-                  const isSelected = selectedIds.includes(item.id);
-                  const isFull = selectedIds.length >= 3 && !isSelected;
-
-                  return (
-                    <div
-                      key={item.id}
-                      onClick={() => handleSelectItem(item.id)}
-                      style={{
-                        gridColumn: "span 2",
-                        background: isSelected
-                          ? "linear-gradient(145deg, rgba(8, 20, 50, 0.95), rgba(168, 85, 247, 0.35))"
-                          : "rgba(8, 14, 32, 0.85)",
-                        border: isSelected
-                          ? "2px solid #00f2fe"
-                          : "1px solid rgba(255, 255, 255, 0.1)",
-                        borderRadius: "14px",
-                        padding: "8px 4px",
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: status?.attempted ? "default" : isFull ? "not-allowed" : "pointer",
-                        opacity: isFull ? 0.45 : 1,
-                        boxShadow: isSelected ? "0 0 14px rgba(0, 242, 254, 0.4)" : "none",
-                      }}
-                    >
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        style={{ width: "40px", height: "40px", objectFit: "contain", marginBottom: "3px" }}
-                      />
-                      <span
-                        style={{
-                          color: isSelected ? "#00f2fe" : "#ffffff",
-                          fontSize: "10px",
-                          fontWeight: 800,
-                          maxWidth: "94%",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {item.name}
-                      </span>
-                    </div>
-                  );
-                })}
-                <div style={{ gridColumn: "span 1" }} />
-              </div>
-            </div>
-
-            {/* Warning / Error Message */}
-            {warningMsg && (
-              <div
-                style={{
-                  padding: "8px",
-                  borderRadius: "10px",
-                  background: "rgba(239, 68, 68, 0.15)",
-                  border: "1px solid rgba(239, 68, 68, 0.4)",
-                  color: "#f87171",
-                  fontSize: "11px",
-                  fontWeight: 800,
-                  textAlign: "center",
-                  marginBottom: "10px",
-                }}
-              >
-                ⚠️ {warningMsg}
-              </div>
-            )}
-
-            {/* Action Check Button */}
-            {status?.rewardClaimed ? (
-              <div
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  borderRadius: "14px",
-                  background: "rgba(34, 197, 94, 0.15)",
-                  border: "1px solid rgba(34, 197, 94, 0.4)",
-                  color: "#4ade80",
-                  fontWeight: 900,
-                  fontSize: "13px",
-                  textAlign: "center",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "6px",
-                }}
-              >
-                <CheckCircle2 size={16} />
-                <span>🎉 +5 GO CLAIMED TODAY</span>
-              </div>
-            ) : status?.attempted ? (
-              <div
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  borderRadius: "14px",
-                  background: "rgba(239, 68, 68, 0.15)",
-                  border: "1px solid rgba(239, 68, 68, 0.4)",
-                  color: "#f87171",
-                  fontWeight: 900,
-                  fontSize: "13px",
-                  textAlign: "center",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "6px",
-                }}
-              >
-                <XCircle size={16} />
-                <span>ATTEMPT USED TODAY (Next in {timeLeft})</span>
-              </div>
-            ) : (
-              <button
-                onClick={handleCheckCombo}
-                disabled={submitting}
-                style={{
-                  width: "100%",
-                  padding: "14px",
-                  borderRadius: "14px",
-                  background:
-                    selectedIds.length === 3
-                      ? "linear-gradient(135deg, #00f2fe 0%, #4facfe 50%, #7c3aed 100%)"
-                      : "rgba(255, 255, 255, 0.08)",
-                  border:
-                    selectedIds.length === 3
-                      ? "1px solid rgba(0, 242, 254, 0.6)"
-                      : "1px solid rgba(255, 255, 255, 0.05)",
-                  color: selectedIds.length === 3 ? "#040714" : "rgba(255, 255, 255, 0.4)",
-                  fontWeight: 900,
-                  fontSize: "14px",
-                  letterSpacing: "0.5px",
-                  cursor: submitting ? "not-allowed" : "pointer",
-                  boxShadow:
-                    selectedIds.length === 3
-                      ? "0 4px 20px rgba(0, 242, 254, 0.4)"
-                      : "none",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: "6px",
-                }}
-              >
-                {submitting ? (
-                  <span>Checking...</span>
-                ) : (
-                  <>
-                    <Zap size={16} />
-                    <span>CHECK COMBO ({selectedIds.length}/3)</span>
-                  </>
-                )}
-              </button>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* ── 5. Full-Screen Interactive Sword Adventure Game ────────────── */}
       {isSwordGameOpen && (
