@@ -883,40 +883,6 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
         ctx.fillRect(hx + 8, hy + 10, hero.width - 16, hero.height - 10);
       }
 
-      // Attack / Slash Arc FX
-      if (hero.isAttacking) {
-        const slashProgress = 1 - hero.attackTimer / 18;
-        const arcCenter = { x: hx + 46, y: hy + 26 };
-        const radius = 56;
-
-        ctx.strokeStyle = "#00f2fe";
-        ctx.lineWidth = 6;
-        ctx.shadowColor = "#00f2fe";
-        ctx.shadowBlur = 18;
-        ctx.beginPath();
-        ctx.arc(
-          arcCenter.x,
-          arcCenter.y,
-          radius,
-          -Math.PI * 0.45 + slashProgress * 0.7,
-          Math.PI * 0.35 + slashProgress * 0.7
-        );
-        ctx.stroke();
-
-        ctx.strokeStyle = "#ffffff";
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.arc(
-          arcCenter.x,
-          arcCenter.y,
-          radius - 4,
-          -Math.PI * 0.35 + slashProgress * 0.7,
-          Math.PI * 0.25 + slashProgress * 0.7
-        );
-        ctx.stroke();
-        ctx.shadowBlur = 0;
-      }
-
       ctx.restore();
 
       // ── 7. Draw Particles ─────────────────────────────────────────────
