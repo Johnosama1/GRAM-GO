@@ -28,12 +28,6 @@ export default function GamesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [warningMsg, setWarningMsg] = useState<string | null>(null);
   const [isComboModalOpen, setIsComboModalOpen] = useState(false);
-  const [resultModal, setResultModal] = useState<{
-    open: boolean;
-    isSuccess: boolean;
-    message: string;
-  } | null>(null);
-
   // Sword Adventure full-screen state
   const [isSwordGameOpen, setIsSwordGameOpen] = useState(false);
 
@@ -119,12 +113,6 @@ export default function GamesPage() {
           : null
       );
 
-      setResultModal({
-        open: true,
-        isSuccess: res.isSuccess,
-        message: res.message,
-      });
-
       if (res.isSuccess) {
         await refresh();
       }
@@ -133,11 +121,6 @@ export default function GamesPage() {
         err && typeof err === "object" && "body" in err
           ? (err as { body?: { error?: string } }).body?.error
           : "Failed to check combo";
-      setResultModal({
-        open: true,
-        isSuccess: false,
-        message: msg || "Failed to submit combo attempt",
-      });
     } finally {
       setSubmitting(false);
     }
@@ -1210,105 +1193,6 @@ export default function GamesPage() {
                 )}
               </button>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* ── 4. Combo Result Alert Modal ─────────────────────────────────── */}
-      {resultModal && resultModal.open && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 150,
-            background: "rgba(0, 0, 0, 0.8)",
-            backdropFilter: "blur(10px)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "20px",
-          }}
-          onClick={() => setResultModal(null)}
-        >
-          <div
-            style={{
-              background: "rgba(10, 16, 36, 0.95)",
-              border: resultModal.isSuccess
-                ? "2px solid #00f2fe"
-                : "2px solid #ef4444",
-              borderRadius: "24px",
-              padding: "28px 20px",
-              maxWidth: "320px",
-              width: "100%",
-              textAlign: "center",
-              boxShadow: resultModal.isSuccess
-                ? "0 0 40px rgba(0, 242, 254, 0.4)"
-                : "0 0 40px rgba(239, 68, 68, 0.4)",
-              animation: "popIn 0.3s ease",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div
-              style={{
-                width: "64px",
-                height: "64px",
-                borderRadius: "50%",
-                background: resultModal.isSuccess
-                  ? "rgba(0, 242, 254, 0.15)"
-                  : "rgba(239, 68, 68, 0.15)",
-                border: resultModal.isSuccess
-                  ? "2px solid #00f2fe"
-                  : "2px solid #ef4444",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                margin: "0 auto 14px",
-                fontSize: "32px",
-              }}
-            >
-              {resultModal.isSuccess ? "🎉" : "❌"}
-            </div>
-
-            <h3
-              style={{
-                fontSize: "18px",
-                fontWeight: 900,
-                color: resultModal.isSuccess ? "#00f2fe" : "#f87171",
-                margin: "0 0 6px",
-              }}
-            >
-              {resultModal.isSuccess ? "COMBO SOLVED!" : "INCORRECT COMBO"}
-            </h3>
-
-            <p
-              style={{
-                color: "rgba(255, 255, 255, 0.7)",
-                fontSize: "13px",
-                margin: "0 0 18px",
-                lineHeight: 1.4,
-              }}
-            >
-              {resultModal.message}
-            </p>
-
-            <button
-              onClick={() => setResultModal(null)}
-              style={{
-                width: "100%",
-                padding: "12px",
-                borderRadius: "12px",
-                background: resultModal.isSuccess
-                  ? "linear-gradient(135deg, #00f2fe, #7c3aed)"
-                  : "rgba(255, 255, 255, 0.1)",
-                border: "none",
-                color: resultModal.isSuccess ? "#040714" : "#ffffff",
-                fontWeight: 900,
-                fontSize: "14px",
-                cursor: "pointer",
-              }}
-            >
-              Close
-            </button>
           </div>
         </div>
       )}
