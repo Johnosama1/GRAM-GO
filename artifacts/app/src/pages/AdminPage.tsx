@@ -1989,11 +1989,11 @@ export default function AdminPage() {
             <div style={{ fontSize: 11, color: "#8A8F98", marginBottom: 8 }}>اختر 3 عناصر لكومبو اليوم ({selectedComboItems.length}/3):</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6, marginBottom: 12 }}>
               {[
-                { id: 1, name: "GRAM Box" },
-                { id: 2, name: "Crystal" },
-                { id: 3, name: "Flag" },
-                { id: 4, name: "Cart" },
-                { id: 5, name: "Coins" },
+                { id: 1, name: "Crystal Shard", image: "/combo/combo_1.png" },
+                { id: 2, name: "GRAM Box", image: "/combo/combo_2.png" },
+                { id: 3, name: "GRAM Coins", image: "/combo/combo_3.png" },
+                { id: 4, name: "GRAM Flag", image: "/combo/combo_4.png" },
+                { id: 5, name: "GRAM Pickaxe", image: "/combo/combo_5.png" },
               ].map((item) => {
                 const isSel = selectedComboItems.includes(item.id);
                 return (
@@ -2007,6 +2007,10 @@ export default function AdminPage() {
                       }
                     }}
                     style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
                       background: isSel ? "rgba(17, 171, 236, 0.25)" : "rgba(255,255,255,0.04)",
                       border: isSel ? "2px solid #11ABEC" : "1px solid rgba(255,255,255,0.08)",
                       borderRadius: 8,
@@ -2015,9 +2019,11 @@ export default function AdminPage() {
                       fontSize: 10,
                       fontWeight: 800,
                       cursor: "pointer",
+                      gap: "4px"
                     }}
                   >
-                    {item.name}
+                    <img src={item.image} alt={item.name} style={{ width: 40, height: 40, objectFit: "contain" }} />
+                    <span style={{ textAlign: "center", lineHeight: "1.2" }}>{item.name}</span>
                   </button>
                 );
               })}
