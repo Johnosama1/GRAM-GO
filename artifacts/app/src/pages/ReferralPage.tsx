@@ -81,7 +81,7 @@ function formatJoinDate(dateStr: string): string {
 export default function ReferralPage() {
   const { user, initialized, retryInit } = useUser();
   const [copied, setCopied] = useState(false);
-  const [botUsername, setBotUsername] = useState("Jojox1bot");
+  const [botUsername, setBotUsername] = useState("GRAMGO1_bot");
   const [referrals, setReferrals] = useState<ReferralEntry[]>([]);
   const [loadingReferrals, setLoadingReferrals] = useState(false);
   const [milestones, setMilestones] = useState<MilestoneItem[]>(DEFAULT_MILESTONES);

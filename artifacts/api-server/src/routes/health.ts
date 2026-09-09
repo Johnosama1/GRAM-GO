@@ -22,7 +22,7 @@ router.get("/config", async (_req, res) => {
     getSetting("gram_to_go_rate").catch(() => null),
   ]);
   res.json({
-    botUsername: process.env.BOT_USERNAME || "Jojox1bot",
+    botUsername: process.env.BOT_USERNAME || "GRAMGO1_bot",
     referralThreshold: Math.max(1, parseInt(rawRef ?? "5") || 5),
     taskThreshold: Math.max(1, parseInt(rawTask ?? "5") || 5),
     minWithdrawal: Math.max(0.01, parseFloat(rawMin ?? "0.1") || 0.1),
