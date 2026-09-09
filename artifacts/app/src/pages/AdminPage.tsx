@@ -378,7 +378,12 @@ export default function AdminPage() {
       if (lms) setLimits((prev) => ({ ...prev, ...lms }));
       if (ts) setTasks(ts);
       if (cs) setContests(cs);
-      if (cb) setComboStats(cb);
+      if (cb) {
+        setComboStats(cb);
+        if (cb.combo) {
+          setSelectedComboItems([cb.combo.item1.id, cb.combo.item2.id, cb.combo.item3.id]);
+        }
+      }
       if (chk) setCheckinRewards(chk);
       if (ab) setAutoBannedList(ab);
       if (rf) setReferralSettings({
@@ -2041,7 +2046,18 @@ export default function AdminPage() {
                 تحديد عشوائي 🎲
               </button>
               <button
-                onClick={() => showToast("تم حفظ عناصر كومبو اليوم بنجاح ✅")}
+                onClick={async () => {
+                  try {
+                    const res = await api.adminSetCombo(selectedComboItems);
+                    if (res.ok) {
+                      showToast("تم حفظ عناصر كومبو اليوم بنجاح ✅");
+                    } else {
+                      showToast("حدث خطأ أثناء الحفظ", "err");
+                    }
+                  } catch {
+                    showToast("حدث خطأ أثناء الحفظ", "err");
+                  }
+                }}
                 style={{ flex: 2, height: 42, background: "linear-gradient(135deg, #0FA0D6, #11ABEC)", border: "none", borderRadius: 12, color: "#fff", fontWeight: 900, fontSize: 12, cursor: "pointer" }}
               >
                 حفظ كومبو اليوم

@@ -1118,6 +1118,35 @@ router.post("/contests/:id/finalize", async (req, res) => {
 });
 
 // 3. Daily Combo Admin
+router.post("/combo", async (req, res) => {
+  const { items } = req.body as { items: number[] };
+  if (!items || !Array.isArray(items) || items.length !== 3) {
+    res.status(400).json({ error: "Invalid items array." });
+    return;
+  }
+
+  const todayStr = getTodayDateString();
+  const [item1, item2, item3] = items;
+
+  await db.insert(dailyCombosTable).values({
+    comboDate: todayStr,
+    item1,
+    item2,
+    item3,
+    rewardAmount: "5.000000",
+  }).onConflictDoUpdate({
+    target: dailyCombosTable.comboDate,
+    set: { item1, item2, item3 },
+  });
+
+  const adminUser = (req as any).adminUser;
+  if (adminUser) {
+    await logAudit(adminUser.id, "set_daily_combo", { comboDate: todayStr, items });
+  }
+
+  res.json({ ok: true });
+});
+
 router.get("/combo/stats", async (_req, res) => {
   const todayStr = getTodayDateString();
   const todayCombo = await getOrCreateTodayCombo(todayStr);
