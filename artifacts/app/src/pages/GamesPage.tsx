@@ -37,7 +37,6 @@ export default function GamesPage() {
       const data = await api.getComboStatus();
       setStatus(data);
       if (data.attempted && data.selectedItems) {
-        setSelectedIds(data.selectedItems);
       }
     } catch (err) {
       console.error("Failed to load combo status:", err);
