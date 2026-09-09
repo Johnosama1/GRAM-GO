@@ -238,6 +238,7 @@ export const api = {
   adminCreateContest: (data: Partial<ContestItem>) => apiCall<ContestItem>("/admin/contests", { method: "POST", body: JSON.stringify(data) }),
   adminFinalizeContest: (id: number) => apiCall<{ ok: boolean; contestId: number; winners: unknown[] }>(`/admin/contests/${id}/finalize`, { method: "POST" }),
   adminGetComboStats: () => apiCall<ComboAdminStats>("/admin/combo/stats"),
+  adminSetCombo: (items: number[]) => apiCall<{ ok: boolean }>("/admin/combo", { method: "POST", body: JSON.stringify({ items }) }),
   adminGetCheckinSettings: () => apiCall<Record<number, number>>("/admin/checkin/settings"),
   adminUpdateCheckinSettings: (rewards: Record<number, number>) => apiCall<{ ok: boolean; rewards: Record<number, number> }>("/admin/checkin/settings", { method: "PUT", body: JSON.stringify({ rewards }) }),
   adminGetUsers: (search?: string, limit?: number, offset?: number) =>
