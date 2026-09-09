@@ -4,6 +4,8 @@ import { useUser } from "../lib/userContext";
 import { api, MiningStatus } from "../lib/api";
 import { useTonAddress, useTonConnectUI } from "@tonconnect/ui-react";
 import SwapModal from "../components/SwapModal";
+import { AnimatedSticker } from "../components/AnimatedSticker";
+import premiumStarData from "../assets/stickers/TgSticker_660377c5.json";
 import {
   Wallet,
   ChevronDown,
@@ -478,7 +480,7 @@ export default function HomePage() {
               >
                 {fullName}
               </span>
-              <span style={{ color: "#a855f7", fontSize: 13 }}>👑</span>
+              <AnimatedSticker animationData={premiumStarData} size={16} loop={true} />
             </div>
             <div
               style={{
