@@ -24,12 +24,16 @@ export interface AutoWithdrawalResult {
 
 export async function executeAutoWithdrawal(
   withdrawalId: number,
-  adminChatId?: number
+  adminChatId?: number,
 ): Promise<AutoWithdrawalResult> {
   const bot = getBot();
 
   // Fetch withdrawal record from DB — single source of truth
-  const [wd] = await db.select().from(withdrawalsTable).where(eq(withdrawalsTable.id, withdrawalId)).limit(1);
+  const [wd] = await db
+    .select()
+    .from(withdrawalsTable)
+    .where(eq(withdrawalsTable.id, withdrawalId))
+    .limit(1);
   if (!wd) {
     return { success: false, error: "Withdrawal not found" };
   }
@@ -37,13 +41,21 @@ export async function executeAutoWithdrawal(
   const { userId, walletAddress, amount } = wd;
 
   try {
-    await db.update(withdrawalsTable)
+    await db
+      .update(withdrawalsTable)
       .set({ status: "processing" })
       .where(eq(withdrawalsTable.id, withdrawalId));
 
     const result = await sendTon(walletAddress, amount);
 
-    await db.update(withdrawalsTable)
+    // Only deduct balance after successful on-chain execution
+    await db
+      .update(usersTable)
+      .set({ tonBalance: sql`ton_balance - ${amount}` })
+      .where(eq(usersTable.id, userId));
+
+    await db
+      .update(withdrawalsTable)
       .set({
         status: "completed",
         txHash: result.txRef,
@@ -60,11 +72,13 @@ export async function executeAutoWithdrawal(
         await bot.sendMessage(
           userId,
           `✅ <b>تم الموافقة على سحبك بنجاح!</b>\n\n` +
-          `💵 المبلغ: <b>${amtStr} TON</b>\n` +
-          `👛 العنوان: <code>${esc(walletAddress)}</code>`,
-          { parse_mode: "HTML" }
+            `💵 المبلغ: <b>${amtStr} TON</b>\n` +
+            `👛 العنوان: <code>${esc(walletAddress)}</code>`,
+          { parse_mode: "HTML" },
         );
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
 
       // Notify admin
       if (adminChatId) {
@@ -73,29 +87,27 @@ export async function executeAutoWithdrawal(
           await bot.sendMessage(
             adminChatId,
             `✅ <b>تم إرسال ${amtStr} TON بنجاح!</b>\n\n` +
-            `💲 المبلغ للمستخدم: <b>${amtStr} TON</b>\n` +
-            `⚡ الرسم المخصوم: <b>${estimatedFee} TON</b>\n` +
-            `👛 العنوان: <code>${esc(walletAddress)}</code>\n` +
-            `🔗 المرجع: <code>${esc(result.txRef)}</code>`,
-            { parse_mode: "HTML" }
+              `💲 المبلغ للمستخدم: <b>${amtStr} TON</b>\n` +
+              `⚡ الرسم المخصوم: <b>${estimatedFee} TON</b>\n` +
+              `👛 العنوان: <code>${esc(walletAddress)}</code>\n` +
+              `🔗 المرجع: <code>${esc(result.txRef)}</code>`,
+            { parse_mode: "HTML" },
           );
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
     }
 
     return { success: true, txHash: result.txRef };
-
   } catch (err) {
     logger.error({ err, withdrawalId }, "TON transfer failed");
 
     const errMsg = err instanceof Error ? err.message : String(err);
 
-    // Refund ton_balance (not USDT balance — withdrawal deducted ton_balance)
-    await db.update(usersTable)
-      .set({ tonBalance: sql`ton_balance + ${amount}` })
-      .where(eq(usersTable.id, userId));
-
-    await db.update(withdrawalsTable)
+    // Do not refund because we no longer deduct beforehand!
+    await db
+      .update(withdrawalsTable)
       .set({ status: "failed", errorMsg: errMsg })
       .where(eq(withdrawalsTable.id, withdrawalId));
 
@@ -104,13 +116,16 @@ export async function executeAutoWithdrawal(
         await bot.sendMessage(
           userId,
           `❌ فشل إرسال ${parseFloat(amount).toFixed(4)} TON.\n` +
-          `تم إعادة المبلغ لرصيدك. حاول مرة أخرى لاحقاً.`
+            `تم إعادة المبلغ لرصيدك. حاول مرة أخرى لاحقاً.`,
         );
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
 
       if (adminChatId) {
         try {
-          const isNotFunded = errMsg.includes("not funded") || errMsg.includes("Hot wallet");
+          const isNotFunded =
+            errMsg.includes("not funded") || errMsg.includes("Hot wallet");
           const addrMatch = errMsg.match(/Send TON to: (\S+)/);
           const addrHint = addrMatch
             ? `\n\n💳 اشحن المحفظة:\n<code>${esc(addrMatch[1])}</code>`
@@ -118,12 +133,14 @@ export async function executeAutoWithdrawal(
           await bot.sendMessage(
             adminChatId,
             `❌ <b>فشل إرسال ${parseFloat(amount).toFixed(4)} TON</b>\n` +
-            (isNotFunded
-              ? `⚠️ <b>محفظة البوت الساخنة فارغة!</b>${addrHint}\n\nأرسل TON لهذا العنوان ثم أعد الموافقة على طلب السحب.`
-              : `السبب: ${esc(errMsg)}`),
-            { parse_mode: "HTML" }
+              (isNotFunded
+                ? `⚠️ <b>محفظة البوت الساخنة فارغة!</b>${addrHint}\n\nأرسل TON لهذا العنوان ثم أعد الموافقة على طلب السحب.`
+                : `السبب: ${esc(errMsg)}`),
+            { parse_mode: "HTML" },
           );
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
       }
     }
 
