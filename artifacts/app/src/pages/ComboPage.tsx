@@ -183,7 +183,7 @@ export default function ComboPage() {
     return (
       <button
         onClick={handleCheckCombo}
-        disabled={submitting}
+        disabled={submitting || selectedIds.length !== 3}
         style={{
           width: "100%",
           padding: "14px",
@@ -200,7 +200,8 @@ export default function ComboPage() {
           fontWeight: 900,
           fontSize: "15px",
           letterSpacing: "0.5px",
-          cursor: submitting ? "not-allowed" : "pointer",
+          cursor: (submitting || selectedIds.length !== 3) ? "not-allowed" : "pointer",
+          opacity: selectedIds.length === 3 ? 1 : 0.5,
           boxShadow:
             selectedIds.length === 3
               ? "0 6px 25px rgba(0, 242, 254, 0.4), 0 0 12px rgba(124, 58, 237, 0.3)"
@@ -433,10 +434,18 @@ export default function ComboPage() {
                 style={{
                   height: "86px",
                   borderRadius: "14px",
-                  background: item
+                  background: status?.attempted && item
+                    ? (status.isSuccess
+                        ? "rgba(34, 197, 94, 0.15)"
+                        : "rgba(239, 68, 68, 0.15)")
+                    : item
                     ? "linear-gradient(145deg, rgba(168, 85, 247, 0.22), rgba(0, 242, 254, 0.18))"
                     : "rgba(4, 7, 18, 0.8)",
-                  border: item
+                  border: status?.attempted && item
+                    ? (status.isSuccess
+                        ? "1.5px solid #4ade80"
+                        : "1.5px solid #f87171")
+                    : item
                     ? "1.5px solid #00f2fe"
                     : "1.5px dashed rgba(0, 242, 254, 0.35)",
                   display: "flex",
@@ -446,7 +455,13 @@ export default function ComboPage() {
                   position: "relative",
                   cursor: item && !status?.attempted ? "pointer" : "default",
                   transition: "all 0.2s ease",
-                  boxShadow: item ? "0 0 16px rgba(0, 242, 254, 0.3)" : "none",
+                  boxShadow: status?.attempted && item
+                    ? (status.isSuccess
+                        ? "0 0 16px rgba(34, 197, 94, 0.3)"
+                        : "0 0 16px rgba(239, 68, 68, 0.3)")
+                    : item
+                    ? "0 0 16px rgba(0, 242, 254, 0.3)"
+                    : "none",
                   animation: item ? "popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)" : "none",
                 }}
               >

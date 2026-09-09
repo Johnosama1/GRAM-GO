@@ -331,10 +331,18 @@ export default function GamesPage() {
                         width: "56px",
                         height: "64px",
                         borderRadius: "12px",
-                        background: item
+                        background: status?.attempted
+                          ? (status.isSuccess
+                              ? "rgba(34, 197, 94, 0.15)"
+                              : "rgba(239, 68, 68, 0.15)")
+                          : item
                           ? "linear-gradient(145deg, rgba(168, 85, 247, 0.3), rgba(0, 242, 254, 0.25))"
                           : "rgba(4, 7, 18, 0.85)",
-                        border: item
+                        border: status?.attempted
+                          ? (status.isSuccess
+                              ? "1.5px solid #4ade80"
+                              : "1.5px solid #f87171")
+                          : item
                           ? "1.5px solid #00f2fe"
                           : "1.5px dashed rgba(0, 242, 254, 0.4)",
                         display: "flex",
