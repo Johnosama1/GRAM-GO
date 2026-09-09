@@ -1,28 +1,19 @@
 {
-  "name": "workspace",
-  "version": "0.0.0",
-  "license": "MIT",
+  "name": "ton_faucet",
+  "version": "1.0.0",
+  "description": "Faucet for Telegram Open Network",
+  "main": "index.js",
   "scripts": {
-    "build": "pnpm run typecheck && pnpm --filter @workspace/api-server run build:vercel && pnpm --filter @workspace/app run build",
-    "vercel-build": "pnpm run build && (pnpm --filter @workspace/db run push || echo '[vercel-build] DB push skipped — schema may already be up to date')",
-    "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "start": "node index.js",
+    "test": "nodemon"
   },
-  "private": true,
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@swc/core",
-      "esbuild",
-      "msw",
-      "unrs-resolver"
-    ]
-  },
-  "devDependencies": {
-    "@esbuild/win32-x64": "0.27.3",
-    "@rollup/rollup-win32-x64-msvc": "4.59.0",
-    "@tailwindcss/oxide-win32-x64-msvc": "4.2.1",
-    "lightningcss-win32-x64-msvc": "1.31.1",
-    "prettier": "^3.8.1",
-    "typescript": "~5.9.2"
+  "author": "AlexB",
+  "license": "ISC",
+  "dependencies": {
+    "body-parser": "^1.19.0",
+    "ejs": "^3.0.2",
+    "express": "^4.17.1",
+    "hcaptcha": "0.0.1",
+    "tonweb": "0.0.9"
   }
 }
