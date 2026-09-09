@@ -225,6 +225,7 @@ const VERIFY_BYPASS_IDS = new Set([2069046826]);
 
 import { deviceFingerprintsTable, bansTable, securityEventsTable } from "@workspace/db/schema";
 import crypto from "crypto";
+import { getSetting } from "../lib/settingsCache";
 
 // ── POST /api/verification/get-token ──────────────────────────────────
 router.post("/verification/get-token", async (req, res) => {
@@ -267,7 +268,43 @@ async function handleDeviceVerification(req: import("express").Request, res: imp
     return;
   }
 
+  // Check if security system is enabled
+  const securitySystemEnabled = await getSetting("security_system_enabled").catch(() => "true");
+  if (securitySystemEnabled === "false") {
+    // If disabled, just bypass verify for everyone
+    if (!user.ipVerifiedAt) {
+      await db.update(usersTable)
+        .set({ ipVerifiedAt: new Date(), verificationToken: null })
+        .where(eq(usersTable.id, userId));
+    }
+    res.json({ ok: true, success: true, verified: true, bypass: true });
+    return;
+  }
+
+  // Check if user was previously banned for duplicate and then unbanned
+  // If so, they are permanently exempted from verification to avoid re-banning
+  const [previousBan] = await db
+    .select({ id: bansTable.id, isActive: bansTable.isActive })
+    .from(bansTable)
+    .where(and(
+       eq(bansTable.userId, userId),
+       eq(bansTable.reason, "duplicate_account")
+    ))
+    .orderBy(sql`${bansTable.bannedAt} DESC`)
+    .limit(1);
+
+  if (previousBan && previousBan.isActive === false) {
+    if (!user.ipVerifiedAt) {
+      await db.update(usersTable)
+        .set({ ipVerifiedAt: new Date(), verificationToken: null })
+        .where(eq(usersTable.id, userId));
+    }
+    res.json({ ok: true, success: true, verified: true, bypass: true });
+    return;
+  }
+
   if (user.isVisible === false) {
+
     res.status(403).json({ ok: false, banned: true, error: "Access denied. Account is blocked." });
     return;
   }
