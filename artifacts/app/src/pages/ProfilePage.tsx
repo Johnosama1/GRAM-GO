@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useUser } from "../lib/userContext";
 import { useLanguage } from "../lib/i18nContext";
+import { AnimatedSticker } from "../components/AnimatedSticker";
+import premiumStarData from "../assets/premium_star.json";
 import {
   api,
   Withdrawal,
@@ -389,7 +391,7 @@ export default function ProfilePage() {
             <span style={{ fontSize: 24, fontWeight: 900, color: "#ffffff", letterSpacing: -0.3 }}>
               {fullName}
             </span>
-            <span style={{ fontSize: 20 }}>🧢</span>
+            <AnimatedSticker animationData={premiumStarData} size={24} loop={true} />
           </div>
 
           {/* @Username in Purple (Only if user has a username) */}
