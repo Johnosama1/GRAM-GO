@@ -12,6 +12,12 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
+import { AnimatedSticker } from "../components/AnimatedSticker";
+import StickerNeutral from "../assets/stickers/TgSticker_9fbf5006.json";
+import StickerWrong from "../assets/stickers/TgSticker_b26478ff.json";
+import StickerCorrect from "../assets/stickers/TgSticker_ba66b046.json";
+
+
 export default function ComboPage() {
   const { refresh } = useUser();
   const [, setLocation] = useLocation();
@@ -211,7 +217,7 @@ export default function ComboPage() {
         ) : (
           <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
             <Zap size={16} />
-            <span>⚡ CHECK COMBO ({selectedIds.length}/3)</span>
+            <span>⚡ تحقق من الكومبو ({selectedIds.length}/3)</span>
           </span>
         )}
       </button>
@@ -315,6 +321,17 @@ export default function ComboPage() {
           DAILY REWARD EVENT
         </div>
 
+
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+          {!status?.attempted ? (
+            <AnimatedSticker animationData={StickerNeutral} size={80} />
+          ) : status?.isSuccess ? (
+            <AnimatedSticker animationData={StickerCorrect} size={80} loop={false} />
+          ) : (
+            <AnimatedSticker animationData={StickerWrong} size={80} loop={false} />
+          )}
+        </div>
+
         <h1
           style={{
             fontSize: "22px",
@@ -371,17 +388,17 @@ export default function ComboPage() {
               display: "flex",
               alignItems: "center",
               gap: "5px",
-              background: status?.attempted ? "rgba(239, 68, 68, 0.15)" : "rgba(34, 197, 94, 0.15)",
-              border: status?.attempted ? "1px solid rgba(239, 68, 68, 0.4)" : "1px solid rgba(34, 197, 94, 0.4)",
+              background: !status?.attempted ? "rgba(8, 14, 32, 0.85)" : (status?.isSuccess ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)"),
+              border: !status?.attempted ? "1px solid rgba(0, 242, 254, 0.25)" : (status?.isSuccess ? "1px solid rgba(34, 197, 94, 0.4)" : "1px solid rgba(239, 68, 68, 0.4)"),
               borderRadius: "10px",
               padding: "4px 10px",
               fontSize: "11px",
               fontWeight: 800,
-              color: status?.attempted ? "#f87171" : "#4ade80",
+              color: !status?.attempted ? "#93c5fd" : (status?.isSuccess ? "#4ade80" : "#f87171"),
             }}
           >
             <ShieldCheck size={12} />
-            <span>{status?.attempted ? "0 / 1 Attempts Left" : "1 / 1 Attempts Left"}</span>
+            <span>{!status?.attempted ? "1 / 1 كومبو" : "0 / 1 كومبو"}</span>
           </div>
         </div>
       </div>
