@@ -64,6 +64,8 @@ router.get("/status", requireSession, async (req, res) => {
     return;
   }
 
+  res.setHeader("Cache-Control", "no-store");
+
   const todayStr = getTodayDateString();
   await getOrCreateTodayCombo(todayStr);
 
@@ -107,6 +109,8 @@ router.post("/check", requireSession, verifyAccessMiddleware, async (req, res) =
     return;
   }
 
+  res.setHeader("Cache-Control", "no-store");
+
   const { selectedItems } = req.body as { selectedItems?: number[] };
 
   if (!Array.isArray(selectedItems) || selectedItems.length !== 3) {
@@ -132,10 +136,31 @@ router.post("/check", requireSession, verifyAccessMiddleware, async (req, res) =
   tomorrow.setUTCHours(24, 0, 0, 0);
 
   try {
+    // 1. Check existing attempt outside transaction to fail fast
+    const [existingAttempt] = await db
+      .select()
+      .from(userComboAttemptsTable)
+      .where(
+        and(
+          eq(userComboAttemptsTable.userId, userId),
+          eq(userComboAttemptsTable.comboDate, todayStr),
+        )
+      )
+      .limit(1);
+
+    if (existingAttempt) {
+      res.status(400).json({
+        error: "You have already used your daily combo attempt for today.",
+        attempted: true,
+        isSuccess: existingAttempt.isSuccess,
+      });
+      return;
+    }
+
     // Database Transaction for safety & anti-duplicate protection
     const result = await db.transaction(async (tx) => {
-      // 1. Check existing attempt inside transaction
-      const [existingAttempt] = await tx
+      // Re-check existing attempt inside transaction to prevent race conditions
+      const [txExistingAttempt] = await tx
         .select()
         .from(userComboAttemptsTable)
         .where(
@@ -146,10 +171,10 @@ router.post("/check", requireSession, verifyAccessMiddleware, async (req, res) =
         )
         .limit(1);
 
-      if (existingAttempt) {
+      if (txExistingAttempt) {
         return {
           alreadyAttempted: true,
-          isSuccess: existingAttempt.isSuccess,
+          isSuccess: txExistingAttempt.isSuccess,
         };
       }
 
