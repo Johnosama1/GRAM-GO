@@ -16,11 +16,18 @@ import { getSetting } from "./settingsCache";
 async function getClient(): Promise<TonClient> {
   const dbApiKey = await getSetting("ton_api_key");
   const apiKey = process.env.TON_API_KEY || dbApiKey || undefined;
+
+  const tonNetwork = (process.env.TON_NETWORK || "mainnet").toLowerCase();
+  if (tonNetwork !== "mainnet") {
+    throw new Error(
+      "TON_NETWORK must be 'mainnet'. Testnet is not allowed for security reasons.",
+    );
+  }
+
   const endpoint =
     process.env.TON_ENDPOINT || "https://toncenter.com/api/v2/jsonRPC";
   return new TonClient({ endpoint, ...(apiKey ? { apiKey } : {}) });
 }
-
 
 // Wallet versions to probe in priority order
 const WALLET_VERSIONS = ["V5R1", "V4", "V3R2"] as const;
@@ -28,7 +35,7 @@ const WALLET_VERSIONS = ["V5R1", "V4", "V3R2"] as const;
 function buildContracts(publicKey: Buffer) {
   return {
     V5R1: WalletContractV5R1.create({ publicKey, workchain: 0 }),
-    V4:   WalletContractV4.create({ publicKey, workchain: 0 }),
+    V4: WalletContractV4.create({ publicKey, workchain: 0 }),
     V3R2: WalletContractV3R2.create({ publicKey, workchain: 0 }),
   };
 }
@@ -38,7 +45,10 @@ async function detectWallet(client: TonClient, publicKey: Buffer) {
   for (const ver of WALLET_VERSIONS) {
     const c = contracts[ver];
     if (await client.isContractDeployed(c.address)) {
-      logger.info({ version: ver, address: c.address.toString({ bounceable: false }) }, "Detected wallet version");
+      logger.info(
+        { version: ver, address: c.address.toString({ bounceable: false }) },
+        "Detected wallet version",
+      );
       return { contract: c, version: ver };
     }
   }
@@ -47,16 +57,21 @@ async function detectWallet(client: TonClient, publicKey: Buffer) {
   const balance = await client.getBalance(c.address);
   if (balance === 0n) {
     throw new Error(
-      `Hot wallet not funded. Send TON to: ${c.address.toString({ bounceable: false })}`
+      `Hot wallet not funded. Send TON to: ${c.address.toString({ bounceable: false })}`,
     );
   }
-  logger.info({ version: "V5R1", address: c.address.toString({ bounceable: false }) }, "Wallet not deployed yet — will deploy on first send");
+  logger.info(
+    { version: "V5R1", address: c.address.toString({ bounceable: false }) },
+    "Wallet not deployed yet — will deploy on first send",
+  );
   return { contract: c, version: "V5R1" };
 }
 
 async function getEffectiveMnemonic(): Promise<string | null> {
+  // We use OWNER_SECRET_KEY for signing withdrawals as requested.
+  // The mnemonic strings are 24 words separated by spaces.
   const dbMnemonic = await getSetting("ton_wallet_mnemonic");
-  return process.env.TON_WALLET_MNEMONIC || dbMnemonic || null;
+  return process.env.OWNER_SECRET_KEY || dbMnemonic || null;
 }
 
 export interface TonSendResult {
@@ -65,7 +80,7 @@ export interface TonSendResult {
 
 export async function sendTon(
   toAddress: string,
-  amountTon: string
+  amountTon: string,
 ): Promise<TonSendResult> {
   const mnemonic = await getEffectiveMnemonic();
   if (!mnemonic) throw new Error("TON_WALLET_MNEMONIC not configured");
@@ -99,7 +114,10 @@ export async function sendTon(
     seqno = 0;
   }
 
-  logger.info({ to: toAddress, amount: amountTon, seqno }, "Sending TON transfer");
+  logger.info(
+    { to: toAddress, amount: amountTon, seqno },
+    "Sending TON transfer",
+  );
 
   await wallet.sendTransfer({
     secretKey: keyPair.secretKey,
@@ -116,7 +134,34 @@ export async function sendTon(
   });
 
   const txRef = `seqno-${seqno}-${Date.now()}`;
-  logger.info({ to: toAddress, amount: amountTon, seqno, txRef }, "TON transfer submitted");
+  logger.info(
+    { to: toAddress, amount: amountTon, seqno, txRef },
+    "TON transfer submitted",
+  );
+
+  // Wait for seqno to update (which means transaction left the wallet)
+  let currentSeqno = seqno;
+  let attempts = 0;
+  while (currentSeqno === seqno && attempts < 30) {
+    await new Promise((r) => setTimeout(r, 2000));
+    try {
+      currentSeqno = await wallet.getSeqno();
+    } catch {
+      // ignore
+    }
+    attempts++;
+  }
+
+  if (currentSeqno === seqno) {
+    throw new Error(
+      "Transaction was submitted but not confirmed on the blockchain within the timeout.",
+    );
+  }
+
+  logger.info(
+    { to: toAddress, amount: amountTon, txRef },
+    "TON transfer confirmed on blockchain",
+  );
 
   return { txRef };
 }
@@ -128,11 +173,13 @@ export async function getWalletAddress(): Promise<string | null> {
     const words = mnemonic.trim().split(/\s+/);
     const keyPair = await mnemonicToPrivateKey(words);
     const client = await getClient();
-    const { contract } = await detectWallet(client, keyPair.publicKey).catch(() => {
-      // If not funded, still return V5R1 address
-      const contracts = buildContracts(keyPair.publicKey);
-      return { contract: contracts.V5R1, version: "V5R1" };
-    });
+    const { contract } = await detectWallet(client, keyPair.publicKey).catch(
+      () => {
+        // If not funded, still return V5R1 address
+        const contracts = buildContracts(keyPair.publicKey);
+        return { contract: contracts.V5R1, version: "V5R1" };
+      },
+    );
     return contract.address.toString({ bounceable: false, testOnly: false });
   } catch {
     return null;
@@ -167,4 +214,3 @@ export async function isTonConfigured(): Promise<boolean> {
   const mnemonic = await getEffectiveMnemonic();
   return !!mnemonic;
 }
-

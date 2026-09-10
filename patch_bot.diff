@@ -1,0 +1,14 @@
+<<<<<<< SEARCH
+    // Always execute TON transfer on admin approval
+    if (await isTonConfigured()) {
+      try {
+        const result = await executeAutoWithdrawal(w.id, chatId);
+        if (result.success) {
+=======
+    // Always execute TON transfer on admin approval
+    if (await isTonConfigured()) {
+      try {
+        await bot.sendMessage(chatId, `⏳ جاري معالجة التحويل لطلب #${wId} وتأكيده على البلوكشين...`);
+        const result = await executeAutoWithdrawal(w.id, chatId);
+        if (result.success) {
+>>>>>>> REPLACE
