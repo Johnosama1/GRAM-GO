@@ -214,11 +214,11 @@ export default function ComboPage() {
         }}
       >
         {submitting ? (
-          <span>Checking...</span>
+          <span>جاري التحقق...</span>
         ) : (
           <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
             <Zap size={16} />
-            <span>⚡ تحقق من الكومبو ({selectedIds.length}/3)</span>
+            <span>⚡ تحقق من الكومبو</span>
           </span>
         )}
       </button>

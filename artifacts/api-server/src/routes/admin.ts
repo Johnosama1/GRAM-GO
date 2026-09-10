@@ -1148,6 +1148,7 @@ router.post("/combo", async (req, res) => {
 });
 
 router.get("/combo/stats", async (_req, res) => {
+  res.setHeader("Cache-Control", "no-store");
   const todayStr = getTodayDateString();
   const todayCombo = await getOrCreateTodayCombo(todayStr);
 
