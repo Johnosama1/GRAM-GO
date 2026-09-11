@@ -233,7 +233,6 @@ export async function sendTon(
         to: cleanDest,
         value: neededNano,
         bounce: false,
-        body: "@GRAMGO1_bot withdrawal",
       }),
     ],
   });
