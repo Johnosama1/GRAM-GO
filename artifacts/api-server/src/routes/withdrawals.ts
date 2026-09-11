@@ -559,6 +559,10 @@ router.post(
       const ownerId =
         ownerIdRow.length > 0 && ownerIdRow[0].value ? parseInt(ownerIdRow[0].value) : null;
 
+      const explorerUrl = confirmedTxHash && !confirmedTxHash.startsWith("tx_")
+        ? `https://tonviewer.com/transaction/${encodeURIComponent(confirmedTxHash)}`
+        : null;
+
       if (bot && ownerId) {
         try {
           const userFullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || "—";
@@ -569,23 +573,22 @@ router.post(
           });
 
           const adminMsg =
-            `💰 <b>NEW DEPOSIT</b>\n\n` +
-            `👤 <b>User</b>\n` +
+            `💎 <b>NEW CONFIRMED TON DEPOSIT</b>\n\n` +
+            `👤 <b>User:</b>\n` +
             `Name: ${esc(userFullName)}\n` +
             `Username: ${usernameStr}\n` +
             `Telegram ID: <code>${user.id}</code>\n\n` +
-            `💎 <b>Amount</b>\n` +
+            `💰 <b>Amount:</b>\n` +
             `<b>${verifiedAmt.toFixed(4)} TON</b>\n\n` +
-            `💳 <b>Wallet</b>\n` +
+            `💳 <b>Sender Wallet:</b>\n` +
             `<code>${esc(senderWallet || "—")}</code>\n\n` +
-            `🔗 <b>Transaction</b>\n` +
+            `🔗 <b>Transaction Hash:</b>\n` +
             `<code>${esc(confirmedTxHash)}</code>\n\n` +
-            `📅 <b>Date</b>\n` +
-            `${formattedDate}\n\n` +
-            `Status:\n` +
-            `✅ <b>CONFIRMED</b>`;
+            (explorerUrl ? `🌐 <a href="${explorerUrl}">🔍 View on TON Blockchain Explorer (TonViewer)</a>\n\n` : "") +
+            `📅 <b>Date:</b> ${formattedDate}\n\n` +
+            `Status: ✅ <b>VERIFIED REAL TON ON-CHAIN</b>`;
 
-          await bot.sendMessage(ownerId, adminMsg, { parse_mode: "HTML" });
+          await bot.sendMessage(ownerId, adminMsg, { parse_mode: "HTML", disable_web_page_preview: true });
         } catch (botErr) {
           logger.warn({ err: botErr }, "Failed to send deposit notification to admin");
         }
@@ -600,9 +603,12 @@ router.post(
             `<b>${verifiedAmt.toFixed(4)} TON</b>\n\n` +
             `💰 <b>New Balance:</b>\n` +
             `<b>${parseFloat(newTonBalance).toFixed(4)} TON</b>\n\n` +
-            `Your deposit has been confirmed successfully.`;
+            `🔗 <b>Transaction Hash:</b>\n` +
+            `<code>${esc(confirmedTxHash)}</code>\n\n` +
+            (explorerUrl ? `🌐 <a href="${explorerUrl}">🔍 View on TON Blockchain Explorer (TonViewer)</a>\n\n` : "") +
+            `Your real TON deposit has been verified & confirmed on the TON blockchain.`;
 
-          await bot.sendMessage(numUserId, userMsg, { parse_mode: "HTML" });
+          await bot.sendMessage(numUserId, userMsg, { parse_mode: "HTML", disable_web_page_preview: true });
         } catch (botErr) {
           logger.warn({ err: botErr }, "Failed to send deposit confirmation to user");
         }

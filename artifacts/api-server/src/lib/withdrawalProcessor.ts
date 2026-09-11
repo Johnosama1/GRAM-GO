@@ -48,12 +48,6 @@ export async function executeAutoWithdrawal(
 
     const result = await sendTon(walletAddress, amount);
 
-    // Only deduct balance after successful on-chain execution
-    await db
-      .update(usersTable)
-      .set({ tonBalance: sql`ton_balance - ${amount}` })
-      .where(eq(usersTable.id, userId));
-
     await db
       .update(withdrawalsTable)
       .set({
@@ -64,6 +58,12 @@ export async function executeAutoWithdrawal(
       .where(eq(withdrawalsTable.id, withdrawalId));
 
     const estimatedFee = wd?.fee ? parseFloat(wd.fee).toFixed(4) : "0.05";
+    const txRefStr = result.txRef || "";
+    const explorerUrl = txRefStr && txRefStr.length >= 20
+      ? (txRefStr.length === 64 || /^[0-9a-fA-F]+$/.test(txRefStr)
+          ? `https://tonviewer.com/transaction/${encodeURIComponent(txRefStr)}`
+          : `https://tonviewer.com/${encodeURIComponent(walletAddress)}`)
+      : `https://tonviewer.com/${encodeURIComponent(walletAddress)}`;
 
     if (bot) {
       // Notify user
@@ -71,10 +71,13 @@ export async function executeAutoWithdrawal(
         const amtStr = parseFloat(amount).toFixed(4);
         await bot.sendMessage(
           userId,
-          `✅ <b>تم الموافقة على سحبك بنجاح!</b>\n\n` +
-            `💵 المبلغ: <b>${amtStr} TON</b>\n` +
-            `👛 العنوان: <code>${esc(walletAddress)}</code>`,
-          { parse_mode: "HTML" },
+          `✅ <b>Withdrawal Completed Successfully! (تم تنفيذ السحب بنجاح)</b>\n\n` +
+            `💎 <b>Amount:</b> <b>${amtStr} TON</b>\n` +
+            `👛 <b>Destination Wallet:</b> <code>${esc(walletAddress)}</code>\n` +
+            (txRefStr ? `🔗 <b>Transaction:</b> <code>${esc(txRefStr)}</code>\n` : "") +
+            `🌐 <a href="${explorerUrl}">🔍 View on TON Blockchain Explorer (TonViewer)</a>\n\n` +
+            `Your withdrawal has been verified & executed directly on the TON blockchain.`,
+          { parse_mode: "HTML", disable_web_page_preview: true },
         );
       } catch {
         /* ignore */
@@ -86,12 +89,15 @@ export async function executeAutoWithdrawal(
           const amtStr = parseFloat(amount).toFixed(4);
           await bot.sendMessage(
             adminChatId,
-            `✅ <b>تم إرسال ${amtStr} TON بنجاح!</b>\n\n` +
-              `💲 المبلغ للمستخدم: <b>${amtStr} TON</b>\n` +
-              `⚡ الرسم المخصوم: <b>${estimatedFee} TON</b>\n` +
-              `👛 العنوان: <code>${esc(walletAddress)}</code>\n` +
-              `🔗 المرجع: <code>${esc(result.txRef)}</code>`,
-            { parse_mode: "HTML" },
+            `✅ <b>TON Transfer Executed On-Chain!</b>\n\n` +
+              `👤 <b>User ID:</b> <code>${userId}</code>\n` +
+              `💎 <b>Amount Sent:</b> <b>${amtStr} TON</b>\n` +
+              `⚡ <b>Fee:</b> <b>${estimatedFee} TON</b>\n` +
+              `👛 <b>Destination:</b> <code>${esc(walletAddress)}</code>\n` +
+              (txRefStr ? `🔗 <b>Transaction:</b> <code>${esc(txRefStr)}</code>\n` : "") +
+              `🌐 <a href="${explorerUrl}">🔍 View on TonViewer Explorer</a>\n\n` +
+              `Status: ✅ <b>CONFIRMED ON-CHAIN</b>`,
+            { parse_mode: "HTML", disable_web_page_preview: true },
           );
         } catch {
           /* ignore */
@@ -105,7 +111,12 @@ export async function executeAutoWithdrawal(
 
     const errMsg = err instanceof Error ? err.message : String(err);
 
-    // Do not refund because we no longer deduct beforehand!
+    // Refund deducted balance back to user
+    await db
+      .update(usersTable)
+      .set({ tonBalance: sql`ton_balance + ${amount}` })
+      .where(eq(usersTable.id, userId));
+
     await db
       .update(withdrawalsTable)
       .set({ status: "failed", errorMsg: errMsg })

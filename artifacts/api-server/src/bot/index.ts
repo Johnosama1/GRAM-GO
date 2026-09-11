@@ -819,12 +819,20 @@ async function handleWithdrawalCallback(
         );
         const result = await executeAutoWithdrawal(w.id, chatId);
         if (result.success) {
+          const txHashStr = result.txHash || "";
+          const explorerUrl = txHashStr && txHashStr.length >= 20
+            ? (txHashStr.length === 64 || /^[0-9a-fA-F]+$/.test(txHashStr)
+                ? `https://tonviewer.com/transaction/${encodeURIComponent(txHashStr)}`
+                : `https://tonviewer.com/${encodeURIComponent(w.walletAddress)}`)
+            : `https://tonviewer.com/${encodeURIComponent(w.walletAddress)}`;
+
           await bot.editMessageText(
-            `✅ <b>تم التحويل بنجاح</b>\n\n` +
-              `طلب #${wId} — ${parseFloat(w.amount).toFixed(4)} TON\n` +
-              `📍 <code>${esc(w.walletAddress)}</code>\n` +
-              `🔗 المرجع: <code>${esc(result.txHash ?? "")}</code>`,
-            { chat_id: chatId, message_id: msgId, parse_mode: "HTML" },
+            `✅ <b>تم التحويل والتأكيد على البلوكشين بنجاح</b>\n\n` +
+              `طلب #${wId} — <b>${parseFloat(w.amount).toFixed(4)} TON</b>\n` +
+              `📍 المحفظة: <code>${esc(w.walletAddress)}</code>\n` +
+              (txHashStr ? `🔗 المعاملة: <code>${esc(txHashStr)}</code>\n` : "") +
+              `🌐 <a href="${explorerUrl}">🔍 فتح على مستكشف البلوكشين (TonViewer)</a>`,
+            { chat_id: chatId, message_id: msgId, parse_mode: "HTML", disable_web_page_preview: true },
           );
         } else {
           await bot.sendMessage(
