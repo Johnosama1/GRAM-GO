@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useUser } from "../lib/userContext";
 import { useLanguage } from "../lib/i18nContext";
-import { AnimatedSticker } from "../components/AnimatedSticker";
-import premiumStarData from "../assets/premium_star.json";
 import {
   api,
   Withdrawal,
@@ -35,11 +33,25 @@ import {
 import { useLocation } from "wouter";
 import SwapModal from "../components/SwapModal";
 
-const MIN_WITHDRAWAL = 0.1;
+const MIN_WITHDRAWAL = 0.2;
 
 function maskWallet(addr: string) {
   if (!addr || addr.length < 10) return addr;
   return addr.slice(0, 4) + " . . . " + addr.slice(-4);
+}
+
+function formatTxTime(dStr: string | null | undefined) {
+  if (!dStr) return "—";
+  try {
+    const d = new Date(dStr);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const timeStr = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    if (isToday) return `Today, ${timeStr}`;
+    return `${d.toLocaleDateString([], { month: "short", day: "numeric" })}, ${timeStr}`;
+  } catch {
+    return dStr;
+  }
 }
 
 export default function ProfilePage() {
@@ -63,6 +75,9 @@ export default function ProfilePage() {
 
   // Wallet mode: "deposit" | "withdraw"
   const [walletMode, setWalletMode] = useState<"deposit" | "withdraw">("deposit");
+
+  // History tab: "deposits" | "withdrawals"
+  const [historyTab, setHistoryTab] = useState<"deposits" | "withdrawals">("deposits");
 
   // TonConnect UI hook
   const [tonConnectUI] = useTonConnectUI();
@@ -92,7 +107,6 @@ export default function ProfilePage() {
   const [depositing, setDepositing] = useState(false);
   const [depositSuccess, setDepositSuccess] = useState(false);
   const [depositError, setDepositError] = useState("");
-  const [showQrModal, setShowQrModal] = useState(false);
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
 
   // History state
@@ -248,7 +262,7 @@ export default function ProfilePage() {
 
     const amt = parseFloat(depositAmount);
     if (isNaN(amt) || amt < minDeposit) {
-      setDepositError(`Min ${minDeposit} GRAM`);
+      setDepositError(`Min ${minDeposit} TON`);
       return;
     }
 
@@ -259,7 +273,7 @@ export default function ProfilePage() {
 
     setDepositing(true);
     try {
-      const nanoTon = BigInt(Math.floor(amt * 1e9)).toString();
+      const nanoTon = BigInt(Math.round(amt * 1e9)).toString();
       const result = await tonConnectUI.sendTransaction({
         validUntil: Math.floor(Date.now() / 1000) + 300,
         messages: [
@@ -271,16 +285,24 @@ export default function ProfilePage() {
         ],
       });
 
-      await recordDeposit({
+      const res = await recordDeposit({
         userId: user.id,
         amount: String(amt),
         walletAddress: connectedAddress,
-        txHash: result.boc ? "tc_boc_" + Date.now() : undefined,
-      }).catch(() => {});
+        boc: result.boc,
+      });
+
+      if (res.success && res.verified) {
+        setDepositSuccess(true);
+        setDepositAmount("0.00");
+      } else if (res.pending) {
+        setDepositError("⏳ المعاملة قيد التأكيد على شبكة TON. سيتم إضافة الرصيد فور تأكيدها.");
+      } else {
+        setDepositError(res.error || "فشل التحقق من معاملة الإيداع على شبكة TON");
+      }
 
       invalidateUserCaches(user.id);
-      setDepositSuccess(true);
-      setDepositAmount("0.00");
+      await refresh();
       loadHistory();
       setTimeout(() => setDepositSuccess(false), 5000);
     } catch (err: unknown) {
@@ -391,7 +413,7 @@ export default function ProfilePage() {
             <span style={{ fontSize: 24, fontWeight: 900, color: "#ffffff", letterSpacing: -0.3 }}>
               {fullName}
             </span>
-            <AnimatedSticker animationData={premiumStarData} size={24} loop={true} />
+            <span style={{ fontSize: 20 }}>🧢</span>
           </div>
 
           {/* @Username in Purple (Only if user has a username) */}
@@ -641,7 +663,7 @@ export default function ProfilePage() {
       )}
 
       {/* ══════════════════════════════════════════════════════════════════
-          VIEW 2: WALLET SUBPAGE (Screenshot 3)
+          VIEW 2: WALLET SUBPAGE
       ══════════════════════════════════════════════════════════════════ */}
       {currentView === "wallet" && (
         <div
@@ -657,8 +679,8 @@ export default function ProfilePage() {
             gap: 14,
           }}
         >
-          {/* Header with Back Button (Screenshot 3) */}
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
+          {/* Header with Back Button */}
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 4 }}>
             <button
               onClick={() => setCurrentView("menu")}
               style={{
@@ -679,85 +701,6 @@ export default function ProfilePage() {
             <div style={{ fontSize: 20, fontWeight: 900, color: "#ffffff" }}>Wallet</div>
           </div>
 
-          {/* WALLET CONNECTION Card */}
-          <div
-            style={{
-              borderRadius: 18,
-              padding: "16px 18px",
-              background: "rgba(18, 16, 32, 0.9)",
-              border: "1px solid rgba(139, 92, 246, 0.16)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  color: "rgba(255, 255, 255, 0.45)",
-                  fontSize: 10,
-                  fontWeight: 800,
-                  letterSpacing: 1,
-                  textTransform: "uppercase",
-                  marginBottom: 3,
-                }}
-              >
-                WALLET CONNECTION
-              </div>
-              <div style={{ color: "#ffffff", fontSize: 13, fontWeight: 800, fontFamily: "monospace" }}>
-                {isWalletConnected ? maskWallet(savedWallet || "") : "Not Connected"}
-              </div>
-            </div>
-            {isWalletConnected ? (
-              <button
-                type="button"
-                onClick={handleDisconnectWallet}
-                disabled={disconnecting}
-                style={{
-                  padding: "6px 12px",
-                  borderRadius: 10,
-                  border: "1px solid rgba(239, 68, 68, 0.35)",
-                  background: "rgba(239, 68, 68, 0.12)",
-                  color: "#f87171",
-                  fontSize: 11,
-                  fontWeight: 800,
-                  cursor: disconnecting ? "not-allowed" : "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 5,
-                }}
-              >
-                {disconnecting ? (
-                  <Loader2 size={11} style={{ animation: "spin 1s linear infinite" }} />
-                ) : (
-                  <X size={11} strokeWidth={2.5} />
-                )}
-                Disconnect
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={handleConnectWallet}
-                style={{
-                  padding: "7px 14px",
-                  borderRadius: 10,
-                  border: "none",
-                  background: "linear-gradient(135deg, #0098EA 0%, #0077c2 100%)",
-                  color: "#ffffff",
-                  fontSize: 12,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  boxShadow: "0 4px 12px rgba(0, 152, 234, 0.35)",
-                }}
-              >
-                <Wallet size={13} /> Connect
-              </button>
-            )}
-          </div>
-
           {/* Switcher Pills (Deposit vs Withdraw) */}
           <div
             style={{
@@ -770,6 +713,7 @@ export default function ProfilePage() {
             }}
           >
             <button
+              type="button"
               onClick={() => setWalletMode("deposit")}
               style={{
                 padding: "12px 0",
@@ -795,6 +739,7 @@ export default function ProfilePage() {
               Deposit
             </button>
             <button
+              type="button"
               onClick={() => setWalletMode("withdraw")}
               style={{
                 padding: "12px 0",
@@ -821,7 +766,7 @@ export default function ProfilePage() {
             </button>
           </div>
 
-          {/* ── DEPOSIT MODE CONTENT (Screenshot 3) ────────────────── */}
+          {/* ── DEPOSIT MODE CONTENT ───────────────────────────────── */}
           {walletMode === "deposit" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               {/* Green Wallet Address Card */}
@@ -945,6 +890,7 @@ export default function ProfilePage() {
                 {["0.5", "1.0", "2.0", "5.0"].map((v) => (
                   <button
                     key={v}
+                    type="button"
                     onClick={() => setDepositAmount(v)}
                     style={{
                       padding: "10px 0",
@@ -974,7 +920,7 @@ export default function ProfilePage() {
                     fontWeight: 700,
                   }}
                 >
-                  ✅ Deposit transaction sent successfully!
+                  ✅ Deposit confirmed & added to TON Balance successfully!
                 </div>
               )}
 
@@ -994,8 +940,9 @@ export default function ProfilePage() {
                 </div>
               )}
 
-              {/* Big Purple Deposit Button (Screenshot 3) */}
+              {/* Big Purple Deposit Button */}
               <button
+                type="button"
                 onClick={handleDepositViaTonConnect}
                 disabled={depositing}
                 style={{
@@ -1023,24 +970,6 @@ export default function ProfilePage() {
                   "Deposit"
                 )}
               </button>
-
-              {/* Manual Transfer / QR Button */}
-              <div style={{ textAlign: "center", marginTop: 4 }}>
-                <button
-                  onClick={() => setShowQrModal(true)}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "#818cf8",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    textDecoration: "underline",
-                  }}
-                >
-                  View Manual Deposit Address & QR Code
-                </button>
-              </div>
             </div>
           )}
 
@@ -1130,7 +1059,7 @@ export default function ProfilePage() {
                   type="number"
                   value={withdrawAmount}
                   onChange={(e) => setWithdrawAmount(e.target.value)}
-                  placeholder="0.00"
+                  placeholder="0.20"
                   step="any"
                   style={{
                     width: "100%",
@@ -1145,13 +1074,13 @@ export default function ProfilePage() {
                   }}
                 />
                 <div style={{ color: "#a78bfa", fontSize: 12, fontWeight: 700 }}>
-                  Min 0.1 TON
+                  Min 0.2 TON
                 </div>
               </div>
 
               {/* Presets */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                {[0.1, 0.5, 1.0, tonBalance].map((p, i) => {
+                {[0.2, 0.5, 1.0, tonBalance].map((p, i) => {
                   const isMax = i === 3;
                   const disabled = p <= 0 || p > tonBalance || withdrawing;
                   return (
@@ -1190,7 +1119,7 @@ export default function ProfilePage() {
                     fontWeight: 700,
                   }}
                 >
-                  ✅ Withdrawal request submitted!
+                  ✅ Withdrawal request submitted successfully!
                 </div>
               )}
 
@@ -1244,6 +1173,276 @@ export default function ProfilePage() {
               </button>
             </form>
           )}
+
+          {/* ══════════════════════════════════════════════════════════════
+              TRANSACTION HISTORY SECTION WITH SUB-TABS
+          ══════════════════════════════════════════════════════════════ */}
+          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* Sub-tabs [ Deposits ] [ Withdrawals ] */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                background: "rgba(18, 16, 32, 0.9)",
+                borderRadius: 14,
+                padding: 3,
+                border: "1px solid rgba(139, 92, 246, 0.16)",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setHistoryTab("deposits")}
+                style={{
+                  padding: "9px 0",
+                  borderRadius: 11,
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: 800,
+                  fontSize: 13,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  background:
+                    historyTab === "deposits"
+                      ? "linear-gradient(135deg, rgba(168, 85, 247, 0.35), rgba(126, 34, 206, 0.35))"
+                      : "transparent",
+                  color: historyTab === "deposits" ? "#c084fc" : "rgba(255, 255, 255, 0.45)",
+                  borderBottom: historyTab === "deposits" ? "2px solid #a855f7" : "none",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <Download size={13} />
+                Deposits
+              </button>
+              <button
+                type="button"
+                onClick={() => setHistoryTab("withdrawals")}
+                style={{
+                  padding: "9px 0",
+                  borderRadius: 11,
+                  border: "none",
+                  cursor: "pointer",
+                  fontWeight: 800,
+                  fontSize: 13,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  background:
+                    historyTab === "withdrawals"
+                      ? "linear-gradient(135deg, rgba(59, 130, 246, 0.35), rgba(29, 78, 216, 0.35))"
+                      : "transparent",
+                  color: historyTab === "withdrawals" ? "#60a5fa" : "rgba(255, 255, 255, 0.45)",
+                  borderBottom: historyTab === "withdrawals" ? "2px solid #3b82f6" : "none",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <Send size={12} />
+                Withdrawals
+              </button>
+            </div>
+
+            {/* History List Content */}
+            {historyLoading ? (
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "30px 0",
+                  color: "rgba(255, 255, 255, 0.3)",
+                  fontSize: 13,
+                }}
+              >
+                <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
+                Loading history...
+              </div>
+            ) : historyTab === "deposits" ? (
+              deposits.length === 0 ? (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "32px 16px",
+                    background: "rgba(18, 16, 32, 0.6)",
+                    borderRadius: 18,
+                    border: "1px solid rgba(139, 92, 246, 0.12)",
+                  }}
+                >
+                  <Download size={28} color="rgba(255, 255, 255, 0.2)" style={{ margin: "0 auto 8px" }} />
+                  <div style={{ color: "rgba(255, 255, 255, 0.45)", fontSize: 13, fontWeight: 700 }}>
+                    No deposits yet
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                  {deposits.map((dep) => {
+                    const st = dep.status?.toLowerCase();
+                    const isConfirmed = st === "confirmed";
+                    const isFailed = st === "failed" || st === "cancelled" || st === "expired";
+                    const statusText = isConfirmed ? "🟢 Confirmed" : isFailed ? "🔴 Failed" : "🟡 Pending";
+                    const badgeBg = isConfirmed
+                      ? "rgba(34, 197, 94, 0.15)"
+                      : isFailed
+                      ? "rgba(239, 68, 68, 0.15)"
+                      : "rgba(234, 179, 8, 0.15)";
+                    const badgeBorder = isConfirmed
+                      ? "rgba(34, 197, 94, 0.35)"
+                      : isFailed
+                      ? "rgba(239, 68, 68, 0.35)"
+                      : "rgba(234, 179, 8, 0.35)";
+                    const badgeColor = isConfirmed ? "#4ade80" : isFailed ? "#f87171" : "#facc15";
+
+                    return (
+                      <div
+                        key={dep.id}
+                        style={{
+                          borderRadius: 16,
+                          padding: "13px 15px",
+                          background: "rgba(18, 16, 32, 0.85)",
+                          border: "1px solid rgba(139, 92, 246, 0.14)",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 6,
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 15 }}>
+                            +{parseFloat(dep.amount).toFixed(2)} TON
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 800,
+                              padding: "3px 8px",
+                              borderRadius: 8,
+                              background: badgeBg,
+                              border: `1px solid ${badgeBorder}`,
+                              color: badgeColor,
+                            }}
+                          >
+                            {statusText}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            color: "rgba(255, 255, 255, 0.4)",
+                            fontSize: 11,
+                          }}
+                        >
+                          <span style={{ fontFamily: "monospace" }}>
+                            TX: {dep.txHash ? maskWallet(dep.txHash) : "—"}
+                          </span>
+                          <span>{formatTxTime(dep.confirmedAt || dep.createdAt)}</span>
+                        </div>
+                        {isFailed && dep.reason && (
+                          <div style={{ color: "#f87171", fontSize: 10, marginTop: 2 }}>
+                            {dep.reason}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )
+            ) : (
+              withdrawals.length === 0 ? (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "32px 16px",
+                    background: "rgba(18, 16, 32, 0.6)",
+                    borderRadius: 18,
+                    border: "1px solid rgba(139, 92, 246, 0.12)",
+                  }}
+                >
+                  <Send size={28} color="rgba(255, 255, 255, 0.2)" style={{ margin: "0 auto 8px" }} />
+                  <div style={{ color: "rgba(255, 255, 255, 0.45)", fontSize: 13, fontWeight: 700 }}>
+                    No withdrawals yet
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                  {withdrawals.map((w) => {
+                    const st = w.status?.toLowerCase();
+                    const isApproved = st === "approved" || st === "completed";
+                    const isRejected = st === "rejected" || st === "failed";
+                    const statusText = isApproved ? "🟢 Completed" : isRejected ? "🔴 Rejected" : "🟡 Pending";
+                    const badgeBg = isApproved
+                      ? "rgba(34, 197, 94, 0.15)"
+                      : isRejected
+                      ? "rgba(239, 68, 68, 0.15)"
+                      : "rgba(234, 179, 8, 0.15)";
+                    const badgeBorder = isApproved
+                      ? "rgba(34, 197, 94, 0.35)"
+                      : isRejected
+                      ? "rgba(239, 68, 68, 0.35)"
+                      : "rgba(234, 179, 8, 0.35)";
+                    const badgeColor = isApproved ? "#4ade80" : isRejected ? "#f87171" : "#facc15";
+
+                    const errorMsg = (w as any).errorMsg || (w as any).reason;
+
+                    return (
+                      <div
+                        key={w.id}
+                        style={{
+                          borderRadius: 16,
+                          padding: "13px 15px",
+                          background: "rgba(18, 16, 32, 0.85)",
+                          border: "1px solid rgba(139, 92, 246, 0.14)",
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 6,
+                        }}
+                      >
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                          <span style={{ color: "#ffffff", fontWeight: 900, fontSize: 15 }}>
+                            -{parseFloat(w.amount).toFixed(2)} TON
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 800,
+                              padding: "3px 8px",
+                              borderRadius: 8,
+                              background: badgeBg,
+                              border: `1px solid ${badgeBorder}`,
+                              color: badgeColor,
+                            }}
+                          >
+                            {statusText}
+                          </span>
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                            color: "rgba(255, 255, 255, 0.4)",
+                            fontSize: 11,
+                          }}
+                        >
+                          <span style={{ fontFamily: "monospace" }}>
+                            Wallet: {maskWallet(w.walletAddress)}
+                          </span>
+                          <span>{formatTxTime(w.createdAt)}</span>
+                        </div>
+                        {isRejected && errorMsg && (
+                          <div style={{ color: "#f87171", fontSize: 10, marginTop: 2 }}>
+                            السبب: {errorMsg}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )
+            )}
+          </div>
         </div>
       )}
 
@@ -1417,83 +1616,6 @@ export default function ProfilePage() {
 
 
 
-      {/* ══════════════════════════════════════════════════════════════════
-          QR CODE MODAL
-      ══════════════════════════════════════════════════════════════════ */}
-      {showQrModal && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 9999,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(0,0,0,0.85)",
-            backdropFilter: "blur(12px)",
-            padding: 20,
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              maxWidth: 320,
-              background: "#121020",
-              border: "1px solid rgba(139, 92, 246, 0.35)",
-              borderRadius: 24,
-              padding: 24,
-              textAlign: "center",
-              position: "relative",
-            }}
-          >
-            <button
-              onClick={() => setShowQrModal(false)}
-              style={{
-                position: "absolute",
-                top: 14,
-                right: 14,
-                background: "rgba(255,255,255,0.1)",
-                border: "none",
-                borderRadius: "50%",
-                width: 28,
-                height: 28,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#fff",
-                cursor: "pointer",
-              }}
-            >
-              <X size={16} />
-            </button>
-
-            <h4 style={{ color: "#fff", fontSize: 16, fontWeight: 900, margin: "0 0 14px" }}>
-              Deposit Address
-            </h4>
-
-            <div style={{ color: "#818cf8", fontSize: 11, fontFamily: "monospace", marginBottom: 12 }}>
-              {maskWallet(depositWallet)}
-            </div>
-
-            <button
-              onClick={copyDepositAddress}
-              style={{
-                width: "100%",
-                padding: "12px",
-                borderRadius: 12,
-                border: "none",
-                background: "linear-gradient(135deg, #7c3aed, #6d28d9)",
-                color: "#fff",
-                fontSize: 13,
-                fontWeight: 800,
-                cursor: "pointer",
-              }}
-            >
-              {copiedDepAddress ? "Address Copied!" : "Copy Address"}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ── Swap Modal ──────────────────────────────────────────────── */}
       <SwapModal

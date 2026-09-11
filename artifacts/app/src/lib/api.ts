@@ -85,8 +85,8 @@ export async function swapGoToGram(userId: number, goAmount: number) {
   );
 }
 
-export async function recordDeposit(data: { userId: number; amount: string; walletAddress?: string; txHash?: string }) {
-  return apiCall<{ success: boolean; deposit: Deposit }>(
+export async function recordDeposit(data: { userId: number; amount: string; walletAddress?: string; txHash?: string; boc?: string }) {
+  return apiCall<{ success: boolean; verified?: boolean; pending?: boolean; deposit: Deposit; newBalance?: string; message?: string; error?: string }>(
     "/withdrawals/deposit",
     { method: "POST", body: JSON.stringify(data) }
   );

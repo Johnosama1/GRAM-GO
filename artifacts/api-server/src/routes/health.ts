@@ -13,14 +13,7 @@ router.get("/healthz", (_req, res) => {
 });
 
 router.get("/config", async (_req, res) => {
-  const [
-    rawRef,
-    rawTask,
-    rawMin,
-    rawDepositWallet,
-    rawMinDeposit,
-    rawGramRate,
-  ] = await Promise.all([
+  const [rawRef, rawTask, rawMin, rawDepositWallet, rawMinDeposit, rawGramRate] = await Promise.all([
     getSetting("referral_threshold").catch(() => null),
     getSetting("task_threshold").catch(() => null),
     getSetting("min_withdrawal").catch(() => null),
@@ -29,14 +22,11 @@ router.get("/config", async (_req, res) => {
     getSetting("gram_to_go_rate").catch(() => null),
   ]);
   res.json({
-    botUsername: process.env.BOT_USERNAME || "GRAMGO1_bot",
+    botUsername: process.env.BOT_USERNAME || "Jojox1bot",
     referralThreshold: Math.max(1, parseInt(rawRef ?? "5") || 5),
     taskThreshold: Math.max(1, parseInt(rawTask ?? "5") || 5),
-    minWithdrawal: Math.max(0.01, parseFloat(rawMin ?? "0.1") || 0.1),
-    depositWalletAddress:
-      rawDepositWallet ||
-      process.env.WALLET_ADDRESS ||
-      "UQD2_1mZ8p4Fk8_e2m8pWq98bWbV57YkXj5Xv_9Xb4vB2B_1",
+    minWithdrawal: Math.max(0.2, parseFloat(rawMin ?? "0.2") || 0.2),
+    depositWalletAddress: rawDepositWallet || process.env.DEPOSIT_WALLET_ADDRESS || "UQD2_1mZ8p4Fk8_e2m8pWq98bWbV57YkXj5Xv_9Xb4vB2B_1",
     minDeposit: Math.max(0.01, parseFloat(rawMinDeposit ?? "0.1") || 0.1),
     gramToGoRate: Math.max(1, parseFloat(rawGramRate ?? "800") || 800),
   });
@@ -62,46 +52,11 @@ router.get("/milestones", async (_req, res) => {
 
   // Fallback default tiers
   const defaultMilestones = [
-    {
-      id: 1,
-      requiredReferrals: 5,
-      rewardAmount: "3",
-      rewardCurrency: "GO",
-      isRepeatable: false,
-      isActive: true,
-    },
-    {
-      id: 2,
-      requiredReferrals: 10,
-      rewardAmount: "10",
-      rewardCurrency: "GO",
-      isRepeatable: false,
-      isActive: true,
-    },
-    {
-      id: 3,
-      requiredReferrals: 25,
-      rewardAmount: "25",
-      rewardCurrency: "GO",
-      isRepeatable: false,
-      isActive: true,
-    },
-    {
-      id: 4,
-      requiredReferrals: 50,
-      rewardAmount: "60",
-      rewardCurrency: "GO",
-      isRepeatable: false,
-      isActive: true,
-    },
-    {
-      id: 5,
-      requiredReferrals: 100,
-      rewardAmount: "150",
-      rewardCurrency: "GO",
-      isRepeatable: false,
-      isActive: true,
-    },
+    { id: 1, requiredReferrals: 5, rewardAmount: "3", rewardCurrency: "GO", isRepeatable: false, isActive: true },
+    { id: 2, requiredReferrals: 10, rewardAmount: "10", rewardCurrency: "GO", isRepeatable: false, isActive: true },
+    { id: 3, requiredReferrals: 25, rewardAmount: "25", rewardCurrency: "GO", isRepeatable: false, isActive: true },
+    { id: 4, requiredReferrals: 50, rewardAmount: "60", rewardCurrency: "GO", isRepeatable: false, isActive: true },
+    { id: 5, requiredReferrals: 100, rewardAmount: "150", rewardCurrency: "GO", isRepeatable: false, isActive: true },
   ];
 
   res.setHeader("Cache-Control", "public, max-age=60");
@@ -123,22 +78,15 @@ router.get("/debug", async (_req, res) => {
     db: dbOk ? "✅ connected" : `❌ ${dbError}`,
     env: {
       NODE_ENV: process.env.NODE_ENV || "—",
-      NEON_DATABASE_URL: process.env.NEON_DATABASE_URL
-        ? "✅ set"
-        : "❌ missing",
+      NEON_DATABASE_URL: process.env.NEON_DATABASE_URL ? "✅ set" : "❌ missing",
       DATABASE_URL: process.env.DATABASE_URL ? "✅ set" : "❌ missing",
-      TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN
-        ? "✅ set"
-        : "❌ missing",
+      TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN ? "✅ set" : "❌ missing",
       BOT_TOKEN: process.env.BOT_TOKEN ? "✅ set" : "❌ missing",
-      SESSION_TOKEN_SECRET: process.env.SESSION_TOKEN_SECRET
-        ? "✅ set"
-        : "— (using BOT_TOKEN fallback)",
+      SESSION_TOKEN_SECRET: process.env.SESSION_TOKEN_SECRET ? "✅ set" : "— (using BOT_TOKEN fallback)",
       BOT_WEBHOOK_URL: process.env.BOT_WEBHOOK_URL || "❌ missing",
       MINI_APP_URL: process.env.MINI_APP_URL || "— (using Vercel auto-detect)",
       VERCEL_URL: process.env.VERCEL_URL || "— (not Vercel)",
-      VERCEL_PROJECT_PRODUCTION_URL:
-        process.env.VERCEL_PROJECT_PRODUCTION_URL || "— (not Vercel)",
+      VERCEL_PROJECT_PRODUCTION_URL: process.env.VERCEL_PROJECT_PRODUCTION_URL || "— (not Vercel)",
     },
   });
 });

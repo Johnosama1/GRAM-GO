@@ -16,7 +16,7 @@ function maskWallet(addr: string): string {
 export default function WithdrawPage() {
   const { user, refresh } = useUser();
   const [, navigate] = useLocation();
-  const [minWithdrawal, setMinWithdrawal] = useState(0.1);
+  const [minWithdrawal, setMinWithdrawal] = useState(0.2);
 
   useEffect(() => {
     api.getConfig().then(cfg => {
@@ -54,7 +54,7 @@ export default function WithdrawPage() {
   const [error, setError]           = useState("");
 
 
-  const balance     = parseFloat(user?.balance || "0");
+  const balance     = parseFloat(user?.tonBalance || user?.balance || "0");
   const canWithdraw = balance >= minWithdrawal;
   const savedWallet = user?.savedWalletAddress ?? null;
 
