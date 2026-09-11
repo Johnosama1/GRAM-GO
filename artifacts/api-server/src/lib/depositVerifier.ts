@@ -25,7 +25,7 @@ export async function getDepositWalletAddress(): Promise<string> {
   const senderAddr = await getWalletAddress().catch(() => null);
   if (senderAddr && senderAddr.length > 10) return senderAddr;
 
-  return "UQD2_1mZ8p4Fk8_e2m8pWq98bWbV57YkXj5Xv_9Xb4vB2B_1";
+  return "";
 }
 
 function normalizeTonAddress(addr: string | null | undefined): string | null {

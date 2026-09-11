@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { milestonesTable } from "@workspace/db/schema";
 import { sql, asc, eq } from "drizzle-orm";
 import { getSetting } from "../lib/settingsCache";
+import { getWalletAddress } from "../lib/tonSender";
 
 const router: IRouter = Router();
 
@@ -21,12 +22,21 @@ router.get("/config", async (_req, res) => {
     getSetting("min_deposit").catch(() => null),
     getSetting("gram_to_go_rate").catch(() => null),
   ]);
+
+  let depositWallet = (rawDepositWallet || process.env.DEPOSIT_WALLET_ADDRESS || "").trim();
+  if (!depositWallet) {
+    try {
+      const autoAddr = await getWalletAddress();
+      if (autoAddr) depositWallet = autoAddr;
+    } catch {}
+  }
+
   res.json({
     botUsername: process.env.BOT_USERNAME || "Jojox1bot",
     referralThreshold: Math.max(1, parseInt(rawRef ?? "5") || 5),
     taskThreshold: Math.max(1, parseInt(rawTask ?? "5") || 5),
     minWithdrawal: Math.max(0.2, parseFloat(rawMin ?? "0.2") || 0.2),
-    depositWalletAddress: rawDepositWallet || process.env.DEPOSIT_WALLET_ADDRESS || "UQD2_1mZ8p4Fk8_e2m8pWq98bWbV57YkXj5Xv_9Xb4vB2B_1",
+    depositWalletAddress: depositWallet || undefined,
     minDeposit: Math.max(0.01, parseFloat(rawMinDeposit ?? "0.1") || 0.1),
     gramToGoRate: Math.max(1, parseFloat(rawGramRate ?? "800") || 800),
   });

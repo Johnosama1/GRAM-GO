@@ -87,7 +87,7 @@ export default function ProfilePage() {
 
   // Price & Config
   const [tonPrice, setTonPrice] = useState<number>(2.5);
-  const [depositWallet, setDepositWallet] = useState<string>("UQD2_1mZ8p4Fk8_e2m8pWq98bWbV57YkXj5Xv_9Xb4vB2B_1");
+  const [depositWallet, setDepositWallet] = useState<string>("");
   const [minDeposit, setMinDeposit] = useState<number>(0.1);
   const [gramRate, setGramRate] = useState<number>(800); // 1 GRAM = 800 GO
 
@@ -271,6 +271,22 @@ export default function ProfilePage() {
       return;
     }
 
+    let targetWallet = (depositWallet || "").trim();
+    if (!targetWallet) {
+      try {
+        const cfg = await api.getConfig();
+        if (cfg?.depositWalletAddress) {
+          targetWallet = cfg.depositWalletAddress.trim();
+          setDepositWallet(targetWallet);
+        }
+      } catch {}
+    }
+
+    if (!targetWallet || targetWallet.length < 40) {
+      setDepositError("⚠️ عنوان محفظة الإيداع غير مهيأ بعد في لوحة تحكم الإدارة (Deposit wallet is not configured in Admin panel)");
+      return;
+    }
+
     setDepositing(true);
     try {
       const nanoTon = BigInt(Math.round(amt * 1e9)).toString();
@@ -278,9 +294,8 @@ export default function ProfilePage() {
         validUntil: Math.floor(Date.now() / 1000) + 300,
         messages: [
           {
-            address: depositWallet,
+            address: targetWallet,
             amount: nanoTon,
-            payload: undefined,
           },
         ],
       });
@@ -306,7 +321,19 @@ export default function ProfilePage() {
       loadHistory();
       setTimeout(() => setDepositSuccess(false), 5000);
     } catch (err: unknown) {
-      setDepositError(err instanceof Error ? err.message : t.depositFailed);
+      const msg = err instanceof Error ? err.message : String(err || "");
+      if (
+        msg.toLowerCase().includes("cancel") ||
+        msg.toLowerCase().includes("reject") ||
+        msg.toLowerCase().includes("aborted") ||
+        msg.toLowerCase().includes("declined")
+      ) {
+        setDepositError("⚠️ تم إلغاء المعاملة من قبل المستخدم");
+      } else if (msg.includes("Wrong 'address' format") || msg.includes("address format")) {
+        setDepositError("⚠️ عنوان محفظة الإيداع غير صحيح. يرجى ضبط عنوان محفظة الإيداع من لوحة الإدارة.");
+      } else {
+        setDepositError(msg || t.depositFailed);
+      }
     } finally {
       setDepositing(false);
     }
