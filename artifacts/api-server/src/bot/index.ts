@@ -832,7 +832,23 @@ async function handleWithdrawalCallback(
               `📍 المحفظة: <code>${esc(w.walletAddress)}</code>\n` +
               (txHashStr ? `🔗 المعاملة: <code>${esc(txHashStr)}</code>\n` : "") +
               `🌐 <a href="${explorerUrl}">🔍 فتح على مستكشف البلوكشين (TonViewer)</a>`,
-            { chat_id: chatId, message_id: msgId, parse_mode: "HTML", disable_web_page_preview: true },
+            {
+              chat_id: chatId,
+              message_id: msgId,
+              parse_mode: "HTML",
+              disable_web_page_preview: true,
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    {
+                      text: "🔍 View on Blockchain",
+                      url: explorerUrl,
+                      icon_custom_emoji_id: "5314730683988458852",
+                    } as any,
+                  ],
+                ],
+              },
+            },
           );
         } else {
           await bot.sendMessage(

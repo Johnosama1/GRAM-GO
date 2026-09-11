@@ -65,6 +65,20 @@ export async function executeAutoWithdrawal(
           : `https://tonviewer.com/${encodeURIComponent(walletAddress)}`)
       : `https://tonviewer.com/${encodeURIComponent(walletAddress)}`;
 
+    const explorerReplyMarkup = explorerUrl
+      ? {
+          inline_keyboard: [
+            [
+              {
+                text: "🔍 View on Blockchain",
+                url: explorerUrl,
+                icon_custom_emoji_id: "5314730683988458852",
+              } as any,
+            ],
+          ],
+        }
+      : undefined;
+
     if (bot) {
       // Notify user
       try {
@@ -77,7 +91,11 @@ export async function executeAutoWithdrawal(
             (txRefStr ? `🔗 <b>Transaction:</b> <code>${esc(txRefStr)}</code>\n` : "") +
             `🌐 <a href="${explorerUrl}">🔍 View on TON Blockchain Explorer (TonViewer)</a>\n\n` +
             `Your withdrawal has been verified & executed directly on the TON blockchain.`,
-          { parse_mode: "HTML", disable_web_page_preview: true },
+          {
+            parse_mode: "HTML",
+            reply_markup: explorerReplyMarkup,
+            disable_web_page_preview: true,
+          },
         );
       } catch {
         /* ignore */
@@ -97,7 +115,11 @@ export async function executeAutoWithdrawal(
               (txRefStr ? `🔗 <b>Transaction:</b> <code>${esc(txRefStr)}</code>\n` : "") +
               `🌐 <a href="${explorerUrl}">🔍 View on TonViewer Explorer</a>\n\n` +
               `Status: ✅ <b>CONFIRMED ON-CHAIN</b>`,
-            { parse_mode: "HTML", disable_web_page_preview: true },
+            {
+              parse_mode: "HTML",
+              reply_markup: explorerReplyMarkup,
+              disable_web_page_preview: true,
+            },
           );
         } catch {
           /* ignore */

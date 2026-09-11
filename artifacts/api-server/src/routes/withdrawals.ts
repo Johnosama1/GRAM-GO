@@ -257,6 +257,7 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
 
   // Atomic database transaction: deduct ton_balance, insert withdrawal, insert transaction log
   let wdRecord: typeof withdrawalsTable.$inferSelect;
+  let updatedUserRecord: typeof usersTable.$inferSelect | undefined;
   try {
     const result = await db.transaction(async (tx) => {
       // Re-verify balance inside transaction lock
@@ -272,7 +273,7 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
 
       await tx
         .update(usersTable)
-        .set({ tonBalance: sql`ton_balance - ${amt}` })
+        .set({ tonBalance: sql`GREATEST(ton_balance - ${amt}, 0)` })
         .where(eq(usersTable.id, numUserId));
 
       const [newWd] = await tx
@@ -294,10 +295,17 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
         details: { withdrawalId: newWd.id, walletAddress: cleanAddress },
       });
 
-      return newWd;
+      const [uRecord] = await tx
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, numUserId))
+        .limit(1);
+
+      return { newWd, uRecord };
     });
 
-    wdRecord = result;
+    wdRecord = result.newWd;
+    updatedUserRecord = result.uRecord;
   } catch (txErr) {
     logger.error({ err: txErr }, "Withdrawal transaction failed");
     res.status(400).json({ error: txErr instanceof Error ? txErr.message : "فشلت عملية السحب" });
@@ -371,7 +379,7 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
     /* ignore */
   }
 
-  res.json({ success: true, withdrawal: wdRecord });
+  res.json({ success: true, withdrawal: wdRecord, user: updatedUserRecord });
 });
 
 // ── GET User Withdrawals ──────────────────────────────────────────────────────

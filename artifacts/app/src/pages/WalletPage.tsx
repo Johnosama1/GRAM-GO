@@ -75,7 +75,7 @@ function statusColor(s: string) {
 
 /* ═══════════════════════════════════════════════════════════════════ */
 export default function WalletPage() {
-  const { user, refresh } = useUser();
+  const { user, refresh, updateUser } = useUser();
   const [, setLocation] = useLocation();
   const [tab, setTab] = useState<"swap" | "withdraw">("swap");
 
@@ -184,7 +184,13 @@ export default function WalletPage() {
     if (amt > tonBalance) { setWdError("Insufficient TON balance"); return; }
     setSubmitting(true);
     try {
-      await api.requestWithdrawal({ userId: user.id, amount, walletAddress: savedWallet });
+      const res = (await api.requestWithdrawal({ userId: user.id, amount, walletAddress: savedWallet })) as { success?: boolean; user?: typeof user };
+      if (res?.user) {
+        updateUser(res.user);
+      } else {
+        const remaining = Math.max(0, tonBalance - amt);
+        updateUser({ tonBalance: remaining.toFixed(6) });
+      }
       invalidateUserCaches(user.id);
       setSuccess(true); setAmount("");
       await refresh();
@@ -636,7 +642,18 @@ export default function WalletPage() {
                     const isSelected = amtNum === p;
                     return (
                       <button key={i} type="button" disabled={disabled}
-                        onClick={() => setAmount(p.toFixed(isMax ? 4 : 1))}
+                        onClick={() => {
+                          if (isMax) {
+                            const maxVal = tonBalance > 0
+                              ? (Number.isInteger(tonBalance)
+                                  ? tonBalance.toString()
+                                  : parseFloat(tonBalance.toFixed(6)).toString())
+                              : "0.20";
+                            setAmount(maxVal);
+                          } else {
+                            setAmount(p.toFixed(1));
+                          }
+                        }}
                         style={{
                           padding: "9px 4px", borderRadius: 12, fontFamily: "inherit",
                           background: isSelected

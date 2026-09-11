@@ -14,7 +14,7 @@ function maskWallet(addr: string): string {
 
 
 export default function WithdrawPage() {
-  const { user, refresh } = useUser();
+  const { user, refresh, updateUser } = useUser();
   const [, navigate] = useLocation();
   const [minWithdrawal, setMinWithdrawal] = useState(0.2);
 
@@ -54,7 +54,7 @@ export default function WithdrawPage() {
   const [error, setError]           = useState("");
 
 
-  const balance     = parseFloat(user?.tonBalance || user?.balance || "0");
+  const balance     = parseFloat(user?.tonBalance || "0");
   const canWithdraw = balance >= minWithdrawal;
   const savedWallet = user?.savedWalletAddress ?? null;
 
@@ -68,7 +68,13 @@ export default function WithdrawPage() {
     if (amt > balance) { setError("Insufficient balance"); return; }
     setSubmitting(true);
     try {
-      await api.requestWithdrawal({ userId: user.id, amount, walletAddress: savedWallet });
+      const res = (await api.requestWithdrawal({ userId: user.id, amount, walletAddress: savedWallet })) as { success?: boolean; user?: typeof user };
+      if (res?.user) {
+        updateUser(res.user);
+      } else {
+        const remaining = Math.max(0, balance - amt);
+        updateUser({ tonBalance: remaining.toFixed(6) });
+      }
       invalidateUserCaches(user.id);
       setSuccess(true); setAmount("");
       await refresh();
@@ -263,7 +269,18 @@ export default function WithdrawPage() {
                       key={i}
                       type="button"
                       disabled={submitting}
-                      onClick={() => setAmount(isMax ? (balance > 0 ? balance.toFixed(4) : `${minWithdrawal}`) : v.toFixed(2))}
+                      onClick={() => {
+                        if (isMax) {
+                          const maxVal = balance > 0
+                            ? (Number.isInteger(balance)
+                                ? balance.toString()
+                                : parseFloat(balance.toFixed(6)).toString())
+                            : `${minWithdrawal}`;
+                          setAmount(maxVal);
+                        } else {
+                          setAmount(v.toFixed(2));
+                        }
+                      }}
                       style={{
                         padding: "8px 4px", borderRadius: 10,
                         background: isMax

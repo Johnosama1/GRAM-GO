@@ -55,7 +55,7 @@ function formatTxTime(dStr: string | null | undefined) {
 }
 
 export default function ProfilePage() {
-  const { user, refresh } = useUser();
+  const { user, refresh, updateUser } = useUser();
   const { t, language, setLanguage, isRtl } = useLanguage();
   const [, setLocation] = useLocation();
 
@@ -236,11 +236,17 @@ export default function ProfilePage() {
 
     setWithdrawing(true);
     try {
-      await api.requestWithdrawal({
+      const res = (await api.requestWithdrawal({
         userId: user.id,
         amount: withdrawAmount,
         walletAddress: savedWallet,
-      });
+      })) as { success?: boolean; user?: typeof user };
+      if (res?.user) {
+        updateUser(res.user);
+      } else {
+        const remaining = Math.max(0, tonBalance - amt);
+        updateUser({ tonBalance: remaining.toFixed(6) });
+      }
       invalidateUserCaches(user.id);
       setWithdrawSuccess(true);
       setWithdrawAmount("");
@@ -1114,7 +1120,18 @@ export default function ProfilePage() {
                       key={i}
                       type="button"
                       disabled={withdrawing}
-                      onClick={() => setWithdrawAmount(isMax ? (tonBalance > 0 ? tonBalance.toFixed(4) : "0.20") : p.toFixed(1))}
+                      onClick={() => {
+                        if (isMax) {
+                          const maxVal = tonBalance > 0
+                            ? (Number.isInteger(tonBalance)
+                                ? tonBalance.toString()
+                                : parseFloat(tonBalance.toFixed(6)).toString())
+                            : "0.20";
+                          setWithdrawAmount(maxVal);
+                        } else {
+                          setWithdrawAmount(p.toFixed(1));
+                        }
+                      }}
                       style={{
                         padding: "10px 0",
                         borderRadius: 12,
