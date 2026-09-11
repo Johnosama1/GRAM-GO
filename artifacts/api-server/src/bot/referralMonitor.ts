@@ -259,10 +259,10 @@ async function detectReferralSpam(bot: TelegramBot): Promise<void> {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "⚠️ إرسال تحذير للمستخدم", callback_data: `spam:warn:${row.id}` },
-              { text: "🚫 حظر المستخدم", callback_data: `spam:ban:${row.id}` },
+              { text: "⚠️ إرسال تحذير للمستخدم", callback_data: `spam:warn:${row.id}`, style: "primary" } as any,
+              { text: "🚫 حظر المستخدم", callback_data: `spam:ban:${row.id}`, style: "danger" } as any,
             ],
-            [{ text: "👁️ مراقبة فقط", callback_data: `spam:ignore:${row.id}` }],
+            [{ text: "👁️ مراقبة فقط", callback_data: `spam:ignore:${row.id}`, style: "primary" } as any],
           ],
         },
       }
@@ -326,8 +326,8 @@ async function sendRiskWarnings(bot: TelegramBot): Promise<void> {
             parse_mode: "HTML",
             reply_markup: {
               inline_keyboard: [[
-                { text: "🚫 حظر المستخدم", callback_data: `spam:ban:${row.id}` },
-                { text: "👁️ مراقبة فقط",  callback_data: `spam:ignore:${row.id}` },
+                { text: "🚫 حظر المستخدم", callback_data: `spam:ban:${row.id}`, style: "danger" } as any,
+                { text: "👁️ مراقبة فقط",  callback_data: `spam:ignore:${row.id}`, style: "primary" } as any,
               ]],
             },
           }
@@ -396,10 +396,10 @@ async function detectMultiAccounts(bot: TelegramBot): Promise<void> {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "🚫 حظر الكل",         callback_data: `multi:banall:${idsStr}` },
-              { text: "🚫 حظر الجديد فقط",   callback_data: `multi:bannew:${newestId}` },
+              { text: "🚫 حظر الكل",         callback_data: `multi:banall:${idsStr}`, style: "danger" } as any,
+              { text: "🚫 حظر الجديد فقط",   callback_data: `multi:bannew:${newestId}`, style: "danger" } as any,
             ],
-            [{ text: "👁️ تجاهل",            callback_data: `multi:ignore:${userIds[0]}` }],
+            [{ text: "👁️ تجاهل",            callback_data: `multi:ignore:${userIds[0]}`, style: "primary" } as any],
           ],
         },
       }

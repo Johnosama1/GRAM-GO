@@ -844,6 +844,7 @@ async function handleWithdrawalCallback(
                       text: "View on Blockchain",
                       url: explorerUrl,
                       icon_custom_emoji_id: "5314730683988458852",
+                      style: "primary",
                     } as any,
                   ],
                 ],
