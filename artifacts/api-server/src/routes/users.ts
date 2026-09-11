@@ -348,7 +348,7 @@ router.post("/:id/swap-go-to-gram", requireSession, verifyAccessMiddleware, asyn
 });
 
 // ── Save / update wallet address ────────────────────────────────────
-const TON_ADDRESS_RE = /^(EQ|UQ|kQ|0Q)[A-Za-z0-9_-]{46}$/;
+const TON_ADDRESS_RE = /^[a-zA-Z0-9:_-]+$/;
 
 router.put("/:id/wallet", requireSession, verifyAccessMiddleware, async (req, res) => {
   const id = parseInt(String(req.params.id));
@@ -367,7 +367,7 @@ router.put("/:id/wallet", requireSession, verifyAccessMiddleware, async (req, re
   if (!clear) {
     clean = String(walletAddress).trim();
     if (!TON_ADDRESS_RE.test(clean)) {
-      res.status(400).json({ error: "عنوان محفظة TON غير صحيح. يجب أن يبدأ بـ EQ أو UQ ويتكون من 48 حرفاً." });
+      res.status(400).json({ error: "عنوان محفظة TON غير صحيح." });
       return;
     }
   }
