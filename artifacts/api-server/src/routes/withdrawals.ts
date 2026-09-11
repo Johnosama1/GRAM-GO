@@ -581,7 +581,7 @@ router.post(
             inline_keyboard: [
               [
                 {
-                  text: "🔍 View on Blockchain",
+                  text: "View on Blockchain",
                   url: explorerUrl,
                   icon_custom_emoji_id: "5314730683988458852",
                 } as any,

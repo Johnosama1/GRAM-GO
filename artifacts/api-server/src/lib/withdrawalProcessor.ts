@@ -65,12 +65,26 @@ export async function executeAutoWithdrawal(
           : `https://tonviewer.com/${encodeURIComponent(walletAddress)}`)
       : `https://tonviewer.com/${encodeURIComponent(walletAddress)}`;
 
+    const [user] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, userId))
+      .limit(1);
+
+    const userFullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ");
+    const userDisplayName = user?.username
+      ? `@${esc(user.username)}` + (userFullName ? ` (${esc(userFullName)})` : "")
+      : esc(userFullName || `User #${userId}`);
+    const newGramBalance = parseFloat(String(user?.gramBalance ?? "0")).toFixed(4);
+    const wdCurrency = wd.currency || "Gram";
+    const amtStr = parseFloat(amount).toFixed(4);
+
     const explorerReplyMarkup = explorerUrl
       ? {
           inline_keyboard: [
             [
               {
-                text: "🔍 View on Blockchain",
+                text: "View on Blockchain",
                 url: explorerUrl,
                 icon_custom_emoji_id: "5314730683988458852",
               } as any,
@@ -80,23 +94,24 @@ export async function executeAutoWithdrawal(
       : undefined;
 
     if (bot) {
-      // Notify user
+      // Notify user with the exact same style as deposit message
       try {
-        const amtStr = parseFloat(amount).toFixed(4);
-        await bot.sendMessage(
-          userId,
-          `✅ <b>Withdrawal Completed Successfully! (تم تنفيذ السحب بنجاح)</b>\n\n` +
-            `💎 <b>Amount:</b> <b>${amtStr} TON</b>\n` +
-            `👛 <b>Destination Wallet:</b> <code>${esc(walletAddress)}</code>\n` +
-            (txRefStr ? `🔗 <b>Transaction:</b> <code>${esc(txRefStr)}</code>\n` : "") +
-            `🌐 <a href="${explorerUrl}">🔍 View on TON Blockchain Explorer (TonViewer)</a>\n\n` +
-            `Your withdrawal has been verified & executed directly on the TON blockchain.`,
-          {
-            parse_mode: "HTML",
-            reply_markup: explorerReplyMarkup,
-            disable_web_page_preview: true,
-          },
-        );
+        const userMsg =
+          `<tg-emoji emoji-id="6127223820764844602">✅</tg-emoji><b>Withdrawal Successful</b>\n\n` +
+          `<tg-emoji emoji-id="5260399854500191689">👤</tg-emoji>${userDisplayName}\n\n` +
+          `<tg-emoji emoji-id="5422683699130933153">🪪</tg-emoji><code>${userId}</code>\n\n` +
+          `<tg-emoji emoji-id="5945101187186433635">💎</tg-emoji><b>Amount:</b>\n` +
+          `<b>${amtStr} ${wdCurrency}</b>\n\n` +
+          `<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji><b>New Balance:</b>\n` +
+          `<b>${newGramBalance} ${wdCurrency}</b>\n\n` +
+          `<tg-emoji emoji-id="5039557485157942342">👛</tg-emoji><b>Transaction Hash:</b>\n` +
+          `<code>${esc(txRefStr || walletAddress)}</code>`;
+
+        await bot.sendMessage(userId, userMsg, {
+          parse_mode: "HTML",
+          reply_markup: explorerReplyMarkup,
+          disable_web_page_preview: true,
+        });
       } catch {
         /* ignore */
       }
@@ -104,23 +119,31 @@ export async function executeAutoWithdrawal(
       // Notify admin
       if (adminChatId) {
         try {
-          const amtStr = parseFloat(amount).toFixed(4);
-          await bot.sendMessage(
-            adminChatId,
-            `✅ <b>TON Transfer Executed On-Chain!</b>\n\n` +
-              `👤 <b>User ID:</b> <code>${userId}</code>\n` +
-              `💎 <b>Amount Sent:</b> <b>${amtStr} TON</b>\n` +
-              `⚡ <b>Fee:</b> <b>${estimatedFee} TON</b>\n` +
-              `👛 <b>Destination:</b> <code>${esc(walletAddress)}</code>\n` +
-              (txRefStr ? `🔗 <b>Transaction:</b> <code>${esc(txRefStr)}</code>\n` : "") +
-              `🌐 <a href="${explorerUrl}">🔍 View on TonViewer Explorer</a>\n\n` +
-              `Status: ✅ <b>CONFIRMED ON-CHAIN</b>`,
-            {
-              parse_mode: "HTML",
-              reply_markup: explorerReplyMarkup,
-              disable_web_page_preview: true,
-            },
-          );
+          const formattedDate = new Date().toLocaleString("en-US", {
+            dateStyle: "medium",
+            timeStyle: "short",
+          });
+
+          const adminMsg =
+            `<tg-emoji emoji-id="6127223820764844602">✅</tg-emoji><b>Withdrawal Executed On-Chain</b>\n\n` +
+            `<tg-emoji emoji-id="5260399854500191689">👤</tg-emoji>${userDisplayName}\n\n` +
+            `<tg-emoji emoji-id="5422683699130933153">🪪</tg-emoji><code>${userId}</code>\n\n` +
+            `<tg-emoji emoji-id="5945101187186433635">💎</tg-emoji><b>Amount Sent:</b>\n` +
+            `<b>${amtStr} TON</b>\n\n` +
+            `⚡ <b>Fee:</b> <b>${estimatedFee} TON</b>\n\n` +
+            `<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji><b>User Remaining Balance:</b>\n` +
+            `<b>${newGramBalance} ${wdCurrency}</b>\n\n` +
+            `<tg-emoji emoji-id="5039557485157942342">👛</tg-emoji><b>Transaction Hash:</b>\n` +
+            `<code>${esc(txRefStr || walletAddress)}</code>\n\n` +
+            `📍 <b>Destination:</b> <code>${esc(walletAddress)}</code>\n` +
+            `📅 <b>Date:</b> ${formattedDate}\n` +
+            `Status: ✅ <b>CONFIRMED ON-CHAIN</b>`;
+
+          await bot.sendMessage(adminChatId, adminMsg, {
+            parse_mode: "HTML",
+            reply_markup: explorerReplyMarkup,
+            disable_web_page_preview: true,
+          });
         } catch {
           /* ignore */
         }
