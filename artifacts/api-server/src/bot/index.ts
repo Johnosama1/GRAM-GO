@@ -849,27 +849,12 @@ async function handleWithdrawalCallback(
         );
       }
     } else {
-      // TON wallet not configured — mark approved but no transfer executed
-      await db
-        .update(withdrawalsTable)
-        .set({ status: "approved", processedAt: new Date() })
-        .where(eq(withdrawalsTable.id, wId));
-      try {
-        await bot.sendMessage(
-          w.userId,
-          `✅ <b>تمت الموافقة على طلب السحب #${wId}</b>\n` +
-            `💰 المبلغ: <b>${parseFloat(w.amount).toFixed(4)} TON</b>\n` +
-            `📍 العنوان: <code>${esc(w.walletAddress)}</code>\n\n` +
-            `سيتم معالجة التحويل قريباً.`,
-          { parse_mode: "HTML" },
-        );
-      } catch {
-        /* ignore */
-      }
-      await bot.editMessageText(
-        `✅ تمت الموافقة على الطلب #${wId}\n` +
-          `⚠️ محفظة TON غير مُهيَّأة — يُرجى إعداد المحفظة لإتمام التحويل.`,
-        { chat_id: chatId, message_id: msgId },
+      await bot.sendMessage(
+        chatId,
+        `⚠️ <b>محفظة السحب التلقائي للبوت غير مهيأة!</b>\n\n` +
+          `لم يتم ضبط الكلمات السرية أو المفتاح السري للبوت حتى الآن.\n` +
+          `يرجى الدخول إلى لوحة تحكم الأدمن > إعدادات المحفظة وإدخال الكلمات السرية (Mnemonic / 24 words) أو المفتاح السري لتفعيل التحويل المباشر على شبكة TON.`,
+        { parse_mode: "HTML" },
       );
     }
   } else if (data.startsWith("withdraw_reject_")) {

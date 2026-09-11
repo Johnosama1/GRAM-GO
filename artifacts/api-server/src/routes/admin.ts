@@ -31,6 +31,7 @@ import { setBotEnabled, clearBotEnabledCache } from "../bot/control";
 import { clearAllSubCache } from "../bot/subscription";
 import { getSetting, invalidateSetting } from "../lib/settingsCache";
 import { getWalletAddress, isTonConfigured } from "../lib/tonSender";
+import { executeAutoWithdrawal } from "../lib/withdrawalProcessor";
 import { logger } from "../lib/logger";
 import { getOrCreateTodayCombo, getTodayDateString } from "./combo";
 
@@ -667,20 +668,19 @@ router.post("/withdrawals/:id/action", async (req, res) => {
   }
 
   if (action === "approve") {
-    await db
-      .update(withdrawalsTable)
-      .set({ status: "approved", processedAt: new Date() })
-      .where(eq(withdrawalsTable.id, wId));
-
-    const botInstance = getBot();
-    if (botInstance) {
-      await botInstance
-        .sendMessage(
-          wd.userId,
-          "✅ <b>تمت الموافقة على طلب السحب #" + wId + "</b>\n💰 المبلغ: <b>" + parseFloat(wd.amount).toFixed(4) + " " + wd.currency + "</b>\n📍 العنوان: <code>" + wd.walletAddress + "</code>",
-          { parse_mode: "HTML" }
-        )
-        .catch(() => {});
+    if (await isTonConfigured()) {
+      const result = await executeAutoWithdrawal(wId);
+      if (!result.success) {
+        res.status(400).json({
+          error: "فشل تنفيذ السحب على شبكة TON: " + (result.error || "خطأ غير معروف"),
+        });
+        return;
+      }
+    } else {
+      res.status(400).json({
+        error: "محفظة السحب التلقائي للبوت غير مهيأة بعد! يرجى إدخال المفتاح السري/الكلمات السرية في إعدادات المحفظة أولاً.",
+      });
+      return;
     }
 
     await logAudit(adminUser.id, "approve_withdrawal", { withdrawalId: wId, amount: wd.amount, currency: wd.currency }, wd.userId);
