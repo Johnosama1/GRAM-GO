@@ -563,32 +563,50 @@ router.post(
         ? `https://tonviewer.com/transaction/${encodeURIComponent(confirmedTxHash)}`
         : null;
 
+      const userFullName = [user.firstName, user.lastName].filter(Boolean).join(" ");
+      const userDisplayName = user.username
+        ? `@${esc(user.username)}` + (userFullName ? ` (${esc(userFullName)})` : "")
+        : esc(userFullName || `User #${user.id}`);
+
+      const depositReplyMarkup = explorerUrl
+        ? {
+            inline_keyboard: [
+              [
+                {
+                  text: "🔍 View on Blockchain",
+                  url: explorerUrl,
+                  icon_custom_emoji_id: "5314730683988458852",
+                } as any,
+              ],
+            ],
+          }
+        : undefined;
+
       if (bot && ownerId) {
         try {
-          const userFullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || "—";
-          const usernameStr = user.username ? `@${esc(user.username)}` : "—";
           const formattedDate = new Date().toLocaleString("en-US", {
             dateStyle: "medium",
             timeStyle: "short",
           });
 
           const adminMsg =
-            `💎 <b>NEW CONFIRMED TON DEPOSIT</b>\n\n` +
-            `👤 <b>User:</b>\n` +
-            `Name: ${esc(userFullName)}\n` +
-            `Username: ${usernameStr}\n` +
-            `Telegram ID: <code>${user.id}</code>\n\n` +
-            `💰 <b>Amount:</b>\n` +
+            `<tg-emoji emoji-id="6127223820764844602">✅</tg-emoji><b>Deposit Successful (New Deposit)</b>\n\n` +
+            `<tg-emoji emoji-id="5260399854500191689">👤</tg-emoji>${userDisplayName}\n\n` +
+            `<tg-emoji emoji-id="5422683699130933153">🪪</tg-emoji><code>${user.id}</code>\n\n` +
+            `<tg-emoji emoji-id="5945101187186433635">💎</tg-emoji><b>Amount:</b>\n` +
             `<b>${verifiedAmt.toFixed(4)} TON</b>\n\n` +
-            `💳 <b>Sender Wallet:</b>\n` +
-            `<code>${esc(senderWallet || "—")}</code>\n\n` +
-            `🔗 <b>Transaction Hash:</b>\n` +
+            `<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji><b>User New Balance:</b>\n` +
+            `<b>${parseFloat(newTonBalance).toFixed(4)} TON</b>\n\n` +
+            `<tg-emoji emoji-id="5039557485157942342">👛</tg-emoji><b>Transaction Hash:</b>\n` +
             `<code>${esc(confirmedTxHash)}</code>\n\n` +
-            (explorerUrl ? `🌐 <a href="${explorerUrl}">🔍 View on TON Blockchain Explorer (TonViewer)</a>\n\n` : "") +
-            `📅 <b>Date:</b> ${formattedDate}\n\n` +
+            `📅 <b>Date:</b> ${formattedDate}\n` +
             `Status: ✅ <b>VERIFIED REAL TON ON-CHAIN</b>`;
 
-          await bot.sendMessage(ownerId, adminMsg, { parse_mode: "HTML", disable_web_page_preview: true });
+          await bot.sendMessage(ownerId, adminMsg, {
+            parse_mode: "HTML",
+            reply_markup: depositReplyMarkup,
+            disable_web_page_preview: true,
+          });
         } catch (botErr) {
           logger.warn({ err: botErr }, "Failed to send deposit notification to admin");
         }
@@ -598,17 +616,22 @@ router.post(
       if (bot) {
         try {
           const userMsg =
-            `✅ <b>Deposit Successful</b>\n\n` +
-            `💎 <b>Amount:</b>\n` +
+            `<tg-emoji emoji-id="6127223820764844602">✅</tg-emoji><b>Deposit Successful</b>\n\n` +
+            `<tg-emoji emoji-id="5260399854500191689">👤</tg-emoji>${userDisplayName}\n\n` +
+            `<tg-emoji emoji-id="5422683699130933153">🪪</tg-emoji><code>${user.id}</code>\n\n` +
+            `<tg-emoji emoji-id="5945101187186433635">💎</tg-emoji><b>Amount:</b>\n` +
             `<b>${verifiedAmt.toFixed(4)} TON</b>\n\n` +
-            `💰 <b>New Balance:</b>\n` +
+            `<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji><b>New Balance:</b>\n` +
             `<b>${parseFloat(newTonBalance).toFixed(4)} TON</b>\n\n` +
-            `🔗 <b>Transaction Hash:</b>\n` +
+            `<tg-emoji emoji-id="5039557485157942342">👛</tg-emoji><b>Transaction Hash:</b>\n` +
             `<code>${esc(confirmedTxHash)}</code>\n\n` +
-            (explorerUrl ? `🌐 <a href="${explorerUrl}">🔍 View on TON Blockchain Explorer (TonViewer)</a>\n\n` : "") +
             `Your real TON deposit has been verified & confirmed on the TON blockchain.`;
 
-          await bot.sendMessage(numUserId, userMsg, { parse_mode: "HTML", disable_web_page_preview: true });
+          await bot.sendMessage(numUserId, userMsg, {
+            parse_mode: "HTML",
+            reply_markup: depositReplyMarkup,
+            disable_web_page_preview: true,
+          });
         } catch (botErr) {
           logger.warn({ err: botErr }, "Failed to send deposit confirmation to user");
         }
