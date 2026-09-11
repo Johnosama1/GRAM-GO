@@ -1471,24 +1471,6 @@ export default function ProfilePage() {
               Deposit Address
             </h4>
 
-            <div
-              style={{
-                background: "#fff",
-                borderRadius: 16,
-                padding: 16,
-                display: "inline-block",
-                marginBottom: 14,
-              }}
-            >
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
-                  `ton://transfer/${depositWallet}?text=user_${user?.id}`
-                )}`}
-                alt="QR Code"
-                style={{ width: 180, height: 180, display: "block" }}
-              />
-            </div>
-
             <div style={{ color: "#818cf8", fontSize: 11, fontFamily: "monospace", marginBottom: 12 }}>
               {maskWallet(depositWallet)}
             </div>

@@ -22,7 +22,7 @@ const router = Router();
 const MAX_WITHDRAWAL = 10000;
 
 // TON address: EQ/UQ/kQ/0Q + 46 base64url chars
-const TON_ADDRESS_RE = /^(EQ|UQ|kQ|0Q)[A-Za-z0-9_-]{46}$/;
+const TON_ADDRESS_RE = /^[a-zA-Z0-9:_-]+$/;
 
 const esc = (s: string) =>
   String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -190,7 +190,7 @@ router.post(
         .status(400)
         .json({
           error:
-            "عنوان محفظة TON غير صحيح. يجب أن يبدأ بـ EQ أو UQ ويتكون من 48 حرفاً.",
+            "عنوان محفظة TON غير صحيح.",
         });
       return;
     }
