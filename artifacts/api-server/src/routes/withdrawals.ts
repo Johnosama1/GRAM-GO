@@ -227,11 +227,11 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
     }
   }
 
-  // Insufficient balance check
-  const currentTonBalance = parseFloat(String(user.tonBalance ?? "0"));
-  if (currentTonBalance < amt) {
+  // Insufficient balance check on Gram
+  const currentGramBalance = parseFloat(String(user.gramBalance ?? "0"));
+  if (currentGramBalance < amt) {
     res.status(400).json({
-      error: `رصيد TON غير كافٍ. رصيدك الحالي: ${currentTonBalance.toFixed(4)} TON`,
+      error: `رصيد Gram غير كافٍ. رصيدك الحالي: ${currentGramBalance.toFixed(4)} Gram`,
     });
     return;
   }
@@ -255,7 +255,7 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
     return;
   }
 
-  // Atomic database transaction: deduct ton_balance, insert withdrawal, insert transaction log
+  // Atomic database transaction: deduct gram_balance, insert withdrawal, insert transaction log
   let wdRecord: typeof withdrawalsTable.$inferSelect;
   let updatedUserRecord: typeof usersTable.$inferSelect | undefined;
   try {
@@ -267,13 +267,13 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
         .where(eq(usersTable.id, numUserId))
         .limit(1);
 
-      if (!lockedUser || parseFloat(String(lockedUser.tonBalance ?? "0")) < amt) {
-        throw new Error("رصيد TON غير كافٍ");
+      if (!lockedUser || parseFloat(String(lockedUser.gramBalance ?? "0")) < amt) {
+        throw new Error("رصيد Gram غير كافٍ");
       }
 
       await tx
         .update(usersTable)
-        .set({ tonBalance: sql`GREATEST(ton_balance - ${amt}, 0)` })
+        .set({ gramBalance: sql`GREATEST(gram_balance - ${amt}, 0)` })
         .where(eq(usersTable.id, numUserId));
 
       const [newWd] = await tx
@@ -281,7 +281,7 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
         .values({
           userId: numUserId,
           amount: String(amt),
-          currency: "TON",
+          currency: "Gram",
           walletAddress: cleanAddress,
           status: "pending",
         })
@@ -291,7 +291,7 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
         userId: numUserId,
         type: "withdrawal_request",
         amount: String(amt),
-        currency: "TON",
+        currency: "Gram",
         details: { withdrawalId: newWd.id, walletAddress: cleanAddress },
       });
 
@@ -369,7 +369,7 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
       await bot.sendMessage(
         numUserId,
         `⏳ <b>طلب سحب قيد المراجعة</b>\n\n` +
-          `💰 المبلغ: <b>${amt.toFixed(4)} TON</b>\n` +
+          `💰 المبلغ: <b>${amt.toFixed(4)} Gram</b>\n` +
           `📍 المحفظة: <code>${esc(cleanAddress)}</code>\n\n` +
           `تم استلام طلب السحب بنجاح وسيتم معالجته قريباً.`,
         { parse_mode: "HTML" }

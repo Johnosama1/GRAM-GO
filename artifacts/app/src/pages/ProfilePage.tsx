@@ -228,15 +228,21 @@ export default function ProfilePage() {
     if (!withdrawAmount || isNaN(amt) || amt < minWithdrawal) {
       setWithdrawError(
         language === "ar"
-          ? `الحد الأدنى للسحب: ${minWithdrawal} TON`
+          ? `الحد الأدنى للسحب: ${minWithdrawal} Gram`
           : language === "ru"
-          ? `Мин. вывод: ${minWithdrawal} TON`
-          : `Minimum withdrawal is ${minWithdrawal} TON`
+          ? `Мин. вывод: ${minWithdrawal} Gram`
+          : `Minimum withdrawal is ${minWithdrawal} Gram`
       );
       return;
     }
-    if (amt > tonBalance) {
-      setWithdrawError(`${t.insufficientTon || "Insufficient TON balance"} (Available: ${tonBalance.toFixed(4)} TON)`);
+    if (amt > gramBalance) {
+      setWithdrawError(
+        language === "ar"
+          ? `رصيد Gram غير كافٍ (المتاح: ${gramBalance.toFixed(4)} Gram)`
+          : language === "ru"
+          ? `Недостаточно Gram на балансе (Доступно: ${gramBalance.toFixed(4)} Gram)`
+          : `Insufficient Gram balance (Available: ${gramBalance.toFixed(4)} Gram)`
+      );
       return;
     }
 
@@ -250,8 +256,8 @@ export default function ProfilePage() {
       if (res?.user) {
         updateUser(res.user);
       } else {
-        const remaining = Math.max(0, tonBalance - amt);
-        updateUser({ tonBalance: remaining.toFixed(6) });
+        const remaining = Math.max(0, gramBalance - amt);
+        updateUser({ gramBalance: remaining.toFixed(6) });
       }
       invalidateUserCaches(user.id);
       setWithdrawSuccess(true);
@@ -1089,8 +1095,8 @@ export default function ProfilePage() {
                   <span style={{ color: "rgba(255, 255, 255, 0.45)", fontSize: 11, fontWeight: 800, textTransform: "uppercase" }}>
                     AMOUNT
                   </span>
-                  <span style={{ color: "#38bdf8", fontSize: 11, fontWeight: 800 }}>
-                    Available: {tonBalance.toFixed(4)} TON
+                  <span style={{ color: "#00f2fe", fontSize: 11, fontWeight: 800 }}>
+                    Available: {gramBalance.toFixed(4)} Gram
                   </span>
                 </div>
                 <input
@@ -1113,13 +1119,13 @@ export default function ProfilePage() {
                   }}
                 />
                 <div style={{ color: "#a78bfa", fontSize: 12, fontWeight: 700 }}>
-                  Min {minWithdrawal} TON
+                  Min {minWithdrawal} Gram
                 </div>
               </div>
 
               {/* Presets */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                {[minWithdrawal, 0.5, 1.0, tonBalance].map((p, i) => {
+                {[minWithdrawal, 0.5, 1.0, gramBalance].map((p, i) => {
                   const isMax = i === 3;
                   return (
                     <button
@@ -1128,10 +1134,10 @@ export default function ProfilePage() {
                       disabled={withdrawing}
                       onClick={() => {
                         if (isMax) {
-                          const maxVal = tonBalance > 0
-                            ? (Number.isInteger(tonBalance)
-                                ? tonBalance.toString()
-                                : parseFloat(tonBalance.toFixed(6)).toString())
+                          const maxVal = gramBalance > 0
+                            ? (Number.isInteger(gramBalance)
+                                ? gramBalance.toString()
+                                : parseFloat(gramBalance.toFixed(6)).toString())
                             : `${minWithdrawal}`;
                           setWithdrawAmount(maxVal);
                         } else {
@@ -1218,7 +1224,7 @@ export default function ProfilePage() {
                     <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> Submitting...
                   </>
                 ) : (
-                  "Withdraw TON"
+                  "Withdraw Gram"
                 )}
               </button>
             </form>
@@ -1451,7 +1457,7 @@ export default function ProfilePage() {
                       >
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                           <span style={{ color: "#ffffff", fontWeight: 900, fontSize: 15 }}>
-                            -{parseFloat(w.amount).toFixed(2)} TON
+                            -{parseFloat(w.amount).toFixed(4)} {w.currency || "Gram"}
                           </span>
                           <span
                             style={{

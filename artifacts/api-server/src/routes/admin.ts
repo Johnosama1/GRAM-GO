@@ -693,7 +693,7 @@ router.post("/withdrawals/:id/action", async (req, res) => {
 
       await tx
         .update(usersTable)
-        .set({ tonBalance: sql`ton_balance + ${wd.amount}` })
+        .set({ gramBalance: sql`gram_balance + ${wd.amount}` })
         .where(eq(usersTable.id, wd.userId));
 
       await tx.insert(transactionsTable).values({

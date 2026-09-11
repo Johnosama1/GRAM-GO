@@ -4,7 +4,6 @@ export default function TopBar() {
   const { user } = useUser();
 
   const goBalance = parseFloat(user?.goBalance || user?.balance || "0");
-  const tonBalance = parseFloat(user?.tonBalance || "0");
 
   return (
     <div
@@ -101,28 +100,9 @@ export default function TopBar() {
         </div>
       </div>
 
-      {/* Right: Balances (TON/Diamonds & GO) */}
+      {/* Right: Balances (GO) */}
       {user && (
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          {/* TON / Diamond Balance */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 4,
-              background: "rgba(8, 14, 32, 0.85)",
-              border: "1px solid rgba(0, 242, 254, 0.25)",
-              borderRadius: "10px",
-              padding: "3px 7px",
-              fontSize: "11px",
-              fontWeight: 800,
-              color: "#93c5fd",
-            }}
-          >
-            <span style={{ fontSize: "12px" }}>💎</span>
-            <span>{tonBalance.toFixed(3)}</span>
-          </div>
-
           {/* GO Balance */}
           <div
             style={{
@@ -132,7 +112,7 @@ export default function TopBar() {
               background: "rgba(8, 14, 32, 0.85)",
               border: "1px solid rgba(251, 191, 36, 0.35)",
               borderRadius: "10px",
-              padding: "3px 7px",
+              padding: "3px 8px",
               fontSize: "11px",
               fontWeight: 800,
               color: "#fbbf24",

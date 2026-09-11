@@ -143,7 +143,7 @@ export default function WalletPage() {
   const goBalance   = parseFloat(user?.goBalance   || user?.balance || "0");
   const tonBalance  = parseFloat(user?.tonBalance  || "0");
   const savedWallet = user?.savedWalletAddress ?? null;
-  const canWithdraw = tonBalance >= minWithdrawal;
+  const canWithdraw = gramBalance >= minWithdrawal;
   const swapAmtNum  = parseFloat(swapAmount) || 0;
   const canSwap     = (gramBalance > 0 || usdtBalance > 0) && !swapping;
   const tonEquiv    = tonPrice && swapAmtNum > 0 ? (swapAmtNum / tonPrice).toFixed(4) : null;
@@ -184,16 +184,16 @@ export default function WalletPage() {
     setWdError(""); setSuccess(false);
     if (!savedWallet) { setWdError("Connect your TON wallet first"); return; }
     const amt = parseFloat(amount);
-    if (isNaN(amt) || amt < minWithdrawal) { setWdError(`Minimum: ${minWithdrawal} TON`); return; }
-    if (amt > tonBalance) { setWdError("Insufficient TON balance"); return; }
+    if (isNaN(amt) || amt < minWithdrawal) { setWdError(`Minimum: ${minWithdrawal} Gram`); return; }
+    if (amt > gramBalance) { setWdError("Insufficient Gram balance"); return; }
     setSubmitting(true);
     try {
       const res = (await api.requestWithdrawal({ userId: user.id, amount, walletAddress: savedWallet })) as { success?: boolean; user?: typeof user };
       if (res?.user) {
         updateUser(res.user);
       } else {
-        const remaining = Math.max(0, tonBalance - amt);
-        updateUser({ tonBalance: remaining.toFixed(6) });
+        const remaining = Math.max(0, gramBalance - amt);
+        updateUser({ gramBalance: remaining.toFixed(6) });
       }
       invalidateUserCaches(user.id);
       setSuccess(true); setAmount("");
@@ -314,7 +314,7 @@ export default function WalletPage() {
               display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
             }}>
               {t === "swap" ? <ArrowDownUp size={13} /> : <Send size={13} />}
-              {t === "swap" ? "تبديل الجرام إلى TON" : "سحب TON"}
+              {t === "swap" ? "تبديل الجرام إلى TON" : "سحب Gram"}
             </button>
           ))}
         </div>
@@ -604,10 +604,10 @@ export default function WalletPage() {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                     <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5 }}>Amount</span>
                     <span style={{
-                      background: "rgba(0,152,234,0.14)", border: "1px solid rgba(0,152,234,0.26)",
+                      background: "rgba(251,191,36,0.14)", border: "1px solid rgba(251,191,36,0.28)",
                       borderRadius: 8, padding: "2px 8px",
-                      color: "#38bdf8", fontSize: 9, fontWeight: 800,
-                    }}>Available: {tonBalance.toFixed(4)} TON</span>
+                      color: "#fbbf24", fontSize: 9, fontWeight: 800,
+                    }}>Available: {gramBalance.toFixed(4)} Gram</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <input
@@ -624,34 +624,29 @@ export default function WalletPage() {
                     />
                     <div style={{
                       display: "flex", alignItems: "center", gap: 7, flexShrink: 0,
-                      background: "rgba(0,152,234,0.12)", border: "1px solid rgba(0,152,234,0.25)",
+                      background: "rgba(251,191,36,0.12)", border: "1px solid rgba(251,191,36,0.25)",
                       borderRadius: 12, padding: "6px 10px",
                     }}>
-                      <TonLogo size={20} />
-                      <span style={{ color: "#fff", fontWeight: 800, fontSize: 13 }}>TON</span>
+                      <GramLogo size={20} />
+                      <span style={{ color: "#fbbf24", fontWeight: 800, fontSize: 13 }}>Gram</span>
                     </div>
                   </div>
-                  {amtNum > 0 && tonPrice && (
-                    <div style={{ color: "rgba(255,255,255,0.30)", fontSize: 10, marginTop: 8 }}>
-                      ≈ ${(amtNum * tonPrice).toFixed(2)} USD
-                    </div>
-                  )}
                 </div>
 
                 {/* Presets */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
-                  {[minWithdrawal, 0.5, 1, tonBalance].map((p, i) => {
+                  {[minWithdrawal, 0.5, 1, gramBalance].map((p, i) => {
                     const isMax = i === 3;
-                    const disabled = !canWithdraw || p > tonBalance || p < minWithdrawal || submitting;
+                    const disabled = !canWithdraw || p > gramBalance || p < minWithdrawal || submitting;
                     const isSelected = amtNum === p;
                     return (
                       <button key={i} type="button" disabled={disabled}
                         onClick={() => {
                           if (isMax) {
-                            const maxVal = tonBalance > 0
-                              ? (Number.isInteger(tonBalance)
-                                  ? tonBalance.toString()
-                                  : parseFloat(tonBalance.toFixed(6)).toString())
+                            const maxVal = gramBalance > 0
+                              ? (Number.isInteger(gramBalance)
+                                  ? gramBalance.toString()
+                                  : parseFloat(gramBalance.toFixed(6)).toString())
                               : `${minWithdrawal}`;
                             setAmount(maxVal);
                           } else {
@@ -661,16 +656,16 @@ export default function WalletPage() {
                         style={{
                           padding: "9px 4px", borderRadius: 12, fontFamily: "inherit",
                           background: isSelected
-                            ? "linear-gradient(135deg,#0098EA,#005fa3)"
-                            : isMax ? "rgba(0,152,234,0.12)" : "rgba(255,255,255,0.05)",
+                            ? "linear-gradient(135deg,#fbbf24,#f59e0b)"
+                            : isMax ? "rgba(251,191,36,0.14)" : "rgba(255,255,255,0.05)",
                           border: isSelected
-                            ? "1px solid rgba(0,152,234,0.55)"
-                            : isMax ? "1px solid rgba(0,152,234,0.28)" : "1px solid rgba(255,255,255,0.08)",
-                          color: isSelected ? "#fff" : isMax ? "#38bdf8" : "rgba(255,255,255,0.50)",
+                            ? "1px solid rgba(251,191,36,0.55)"
+                            : isMax ? "1px solid rgba(251,191,36,0.28)" : "1px solid rgba(255,255,255,0.08)",
+                          color: isSelected ? "#080c1a" : isMax ? "#fbbf24" : "rgba(255,255,255,0.50)",
                           fontSize: 12, fontWeight: 800,
                           cursor: disabled ? "not-allowed" : "pointer",
                           opacity: disabled ? 0.30 : 1,
-                          boxShadow: isSelected ? "0 2px 10px rgba(0,152,234,0.35)" : "none",
+                          boxShadow: isSelected ? "0 2px 10px rgba(251,191,36,0.35)" : "none",
                         }}>
                         {isMax ? "MAX" : p}
                       </button>
@@ -702,7 +697,7 @@ export default function WalletPage() {
                   }}>
                   {submitting
                     ? <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Submitting…</>
-                    : <><Send size={15} /> {savedWallet ? "Withdraw TON" : "Connect wallet first"}</>}
+                    : <><Send size={15} /> {savedWallet ? "Withdraw Gram" : "Connect wallet first"}</>}
                 </button>
 
                 {!canWithdraw && (
@@ -711,7 +706,7 @@ export default function WalletPage() {
                     background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)",
                     color: "rgba(255,255,255,0.28)", fontSize: 11, textAlign: "center", lineHeight: 1.6,
                   }}>
-                    Swap USDT → TON first to get a withdrawable balance
+                    Mine Gram first to get a withdrawable balance
                   </div>
                 )}
               </form>
@@ -745,9 +740,9 @@ export default function WalletPage() {
                     background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)",
                     display: "flex", alignItems: "center", gap: 12,
                   }}>
-                    <TonLogo size={30} />
+                    <GramLogo size={30} />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>{parseFloat(w.amount).toFixed(4)} <span style={{ color: "rgba(255,255,255,0.45)", fontWeight: 700, fontSize: 11 }}>TON</span></div>
+                      <div style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>{parseFloat(w.amount).toFixed(4)} <span style={{ color: "rgba(255,255,255,0.45)", fontWeight: 700, fontSize: 11 }}>{w.currency || "Gram"}</span></div>
                       <div style={{ color: "rgba(255,255,255,0.28)", fontSize: 10, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {maskWallet(w.walletAddress)}
                       </div>

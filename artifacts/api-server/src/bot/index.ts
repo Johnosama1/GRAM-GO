@@ -513,7 +513,7 @@ export async function sendWithdrawalNotification(
     const msgText =
       `💸 <b>طلب سحب جديد #${withdrawalId}</b>\n` +
       `👤 ${userName} (${user.id})\n` +
-      `💰 المبلغ: <b>${parseFloat(amount).toFixed(4)} TON</b>\n` +
+      `💰 المبلغ: <b>${parseFloat(amount).toFixed(4)} Gram</b>\n` +
       `📍 العنوان: <code>${esc(shortAddr)}</code>\n\n` +
       `📢 <b>القنوات:</b> مشترك في ${subscribedCount} من ${required.length} قناة\n\n` +
       `👥 <b>الإحالات (${totalRefs} إجمالي):</b>\n` +
@@ -895,20 +895,20 @@ async function handleWithdrawalCallback(
       .where(eq(withdrawalsTable.id, wId));
     await db
       .update(usersTable)
-      .set({ tonBalance: sql`ton_balance + ${w.amount}` })
+      .set({ gramBalance: sql`gram_balance + ${w.amount}` })
       .where(eq(usersTable.id, w.userId));
     try {
       await bot.sendMessage(
         w.userId,
         `❌ <b>تم رفض طلب السحب #${wId}</b>\n` +
-          `💰 تم إعادة <b>${parseFloat(w.amount).toFixed(4)} TON</b> لرصيدك داخل البوت.`,
+          `💰 تم إعادة <b>${parseFloat(w.amount).toFixed(4)} Gram</b> لرصيدك داخل البوت.`,
         { parse_mode: "HTML" },
       );
     } catch {
       /* ignore */
     }
     await bot.editMessageText(
-      `❌ تم رفض الطلب #${wId}\n💰 أُعيد ${parseFloat(w.amount).toFixed(4)} TON لرصيد المستخدم.`,
+      `❌ تم رفض الطلب #${wId}\n💰 أُعيد ${parseFloat(w.amount).toFixed(4)} Gram لرصيد المستخدم.`,
       { chat_id: chatId, message_id: msgId },
     );
   } else if (data.startsWith("withdraw_ban_")) {
@@ -934,14 +934,14 @@ async function handleWithdrawalCallback(
         .where(eq(withdrawalsTable.id, wId));
       await db
         .update(usersTable)
-        .set({ tonBalance: sql`ton_balance + ${w.amount}` })
+        .set({ gramBalance: sql`gram_balance + ${w.amount}` })
         .where(eq(usersTable.id, w.userId));
     }
 
     await bot.editMessageText(
       `🚫 <b>تم حظر المستخدم #${targetUserId}</b>\n` +
         (w
-          ? `❌ الطلب #${wId} مرفوض وأُعيد ${parseFloat(w.amount).toFixed(4)} TON للرصيد.`
+          ? `❌ الطلب #${wId} مرفوض وأُعيد ${parseFloat(w.amount).toFixed(4)} Gram للرصيد.`
           : `❌ الطلب #${wId} مرفوض.`),
       { chat_id: chatId, message_id: msgId, parse_mode: "HTML" },
     );

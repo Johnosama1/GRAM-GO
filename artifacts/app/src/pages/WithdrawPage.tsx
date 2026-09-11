@@ -54,7 +54,7 @@ export default function WithdrawPage() {
   const [error, setError]           = useState("");
 
 
-  const balance     = parseFloat(user?.tonBalance || "0");
+  const balance     = parseFloat(user?.gramBalance || "0");
   const canWithdraw = balance >= minWithdrawal;
   const savedWallet = user?.savedWalletAddress ?? null;
 
@@ -63,9 +63,9 @@ export default function WithdrawPage() {
     if (!user || submitting || !savedWallet) return;
     setError(""); setSuccess(false);
     const amt = parseFloat(amount);
-    if (isNaN(amt) || amt < minWithdrawal) { setError(`Minimum withdrawal: ${minWithdrawal} TON`); return; }
-    if (amt > MAX_WITHDRAWAL) { setError(`Maximum withdrawal: ${MAX_WITHDRAWAL} TON`); return; }
-    if (amt > balance) { setError("Insufficient balance"); return; }
+    if (isNaN(amt) || amt < minWithdrawal) { setError(`Minimum withdrawal: ${minWithdrawal} Gram`); return; }
+    if (amt > MAX_WITHDRAWAL) { setError(`Maximum withdrawal: ${MAX_WITHDRAWAL} Gram`); return; }
+    if (amt > balance) { setError("Insufficient Gram balance"); return; }
     setSubmitting(true);
     try {
       const res = (await api.requestWithdrawal({ userId: user.id, amount, walletAddress: savedWallet })) as { success?: boolean; user?: typeof user };
@@ -73,7 +73,7 @@ export default function WithdrawPage() {
         updateUser(res.user);
       } else {
         const remaining = Math.max(0, balance - amt);
-        updateUser({ tonBalance: remaining.toFixed(6) });
+        updateUser({ gramBalance: remaining.toFixed(6) });
       }
       invalidateUserCaches(user.id);
       setSuccess(true); setAmount("");
@@ -109,7 +109,7 @@ export default function WithdrawPage() {
         </button>
         <div style={{ flex: 1 }}>
           <h1 style={{ color: "#fff", fontWeight: 900, fontSize: 18, margin: 0, letterSpacing: -0.3 }}>
-            Withdraw TON
+            Withdraw Gram
           </h1>
           <p style={{ color: "rgba(255,255,255,0.40)", fontSize: 11, margin: "1px 0 0" }}>
             Send your earnings to your wallet
@@ -241,7 +241,7 @@ export default function WithdrawPage() {
             <form onSubmit={handleWithdraw} style={{ display: "flex", flexDirection: "column", gap: 11 }}>
               <div>
                 <label style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, textTransform: "uppercase", letterSpacing: 1.5, display: "block", marginBottom: 7, fontWeight: 700 }}>
-                  Amount (TON)
+                  Amount (Gram)
                 </label>
                 <div style={{ position: "relative" }}>
                   <input
@@ -254,8 +254,8 @@ export default function WithdrawPage() {
                   />
                   <span style={{
                     position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)",
-                    color: "rgba(251,191,36,0.65)", fontSize: 13, fontWeight: 800, pointerEvents: "none",
-                  }}>TON</span>
+                    color: "rgba(0,242,254,0.85)", fontSize: 13, fontWeight: 800, pointerEvents: "none",
+                  }}>Gram</span>
                 </div>
               </div>
 

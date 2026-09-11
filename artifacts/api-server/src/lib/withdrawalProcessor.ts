@@ -133,10 +133,10 @@ export async function executeAutoWithdrawal(
 
     const errMsg = err instanceof Error ? err.message : String(err);
 
-    // Refund deducted balance back to user
+    // Refund deducted balance back to user's gramBalance
     await db
       .update(usersTable)
-      .set({ tonBalance: sql`ton_balance + ${amount}` })
+      .set({ gramBalance: sql`gram_balance + ${amount}` })
       .where(eq(usersTable.id, userId));
 
     await db
@@ -148,7 +148,7 @@ export async function executeAutoWithdrawal(
       try {
         await bot.sendMessage(
           userId,
-          `❌ فشل إرسال ${parseFloat(amount).toFixed(4)} TON.\n` +
+          `❌ فشل إرسال ${parseFloat(amount).toFixed(4)} Gram.\n` +
             `تم إعادة المبلغ لرصيدك. حاول مرة أخرى لاحقاً.`,
         );
       } catch {
