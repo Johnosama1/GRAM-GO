@@ -481,9 +481,14 @@ export interface Withdrawal {
   id: number;
   userId: number;
   amount: string;
+  currency?: string;
   walletAddress: string;
   status: string;
+  txHash?: string | null;
+  errorMsg?: string | null;
+  reason?: string | null;
   createdAt: string;
+  processedAt?: string | null;
 }
 
 export interface Deposit {
