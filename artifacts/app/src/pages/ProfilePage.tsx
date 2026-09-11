@@ -220,17 +220,17 @@ export default function ProfilePage() {
     setWithdrawSuccess(false);
 
     if (!savedWallet) {
-      setWithdrawError(t.connectWalletPrompt);
+      setWithdrawError(t.connectWalletPrompt || "Please connect your TON wallet first");
       return;
     }
 
     const amt = parseFloat(withdrawAmount);
-    if (isNaN(amt) || amt < MIN_WITHDRAWAL) {
-      setWithdrawError(`Min ${MIN_WITHDRAWAL} TON`);
+    if (!withdrawAmount || isNaN(amt) || amt < MIN_WITHDRAWAL) {
+      setWithdrawError(t.minWithdrawal || `Minimum withdrawal is ${MIN_WITHDRAWAL} TON`);
       return;
     }
     if (amt > tonBalance) {
-      setWithdrawError(t.insufficientTon);
+      setWithdrawError(`${t.insufficientTon || "Insufficient TON balance"} (Available: ${tonBalance.toFixed(4)} TON)`);
       return;
     }
 
@@ -1082,23 +1082,22 @@ export default function ProfilePage() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
                 {[0.2, 0.5, 1.0, tonBalance].map((p, i) => {
                   const isMax = i === 3;
-                  const disabled = p <= 0 || p > tonBalance || withdrawing;
                   return (
                     <button
                       key={i}
                       type="button"
-                      disabled={disabled}
-                      onClick={() => setWithdrawAmount(p.toFixed(isMax ? 4 : 1))}
+                      disabled={withdrawing}
+                      onClick={() => setWithdrawAmount(isMax ? (tonBalance > 0 ? tonBalance.toFixed(4) : "0.20") : p.toFixed(1))}
                       style={{
                         padding: "10px 0",
                         borderRadius: 12,
                         border: "1px solid rgba(59, 130, 246, 0.25)",
                         background: "rgba(18, 16, 32, 0.8)",
-                        color: isMax ? "#38bdf8" : "rgba(255, 255, 255, 0.6)",
+                        color: isMax ? "#38bdf8" : "rgba(255, 255, 255, 0.8)",
                         fontSize: 12,
                         fontWeight: 800,
-                        cursor: disabled ? "not-allowed" : "pointer",
-                        opacity: disabled ? 0.35 : 1,
+                        cursor: withdrawing ? "not-allowed" : "pointer",
+                        opacity: withdrawing ? 0.35 : 1,
                       }}
                     >
                       {isMax ? "MAX" : p}
@@ -1128,39 +1127,40 @@ export default function ProfilePage() {
                   style={{
                     borderRadius: 14,
                     padding: "12px 14px",
-                    background: "rgba(239, 68, 68, 0.15)",
-                    border: "1px solid rgba(239, 68, 68, 0.4)",
-                    color: "#f87171",
-                    fontSize: 12,
+                    background: "rgba(239, 68, 68, 0.18)",
+                    border: "1px solid rgba(239, 68, 68, 0.5)",
+                    color: "#fca5a5",
+                    fontSize: 13,
                     fontWeight: 700,
+                    lineHeight: 1.4,
                   }}
                 >
-                  {withdrawError}
+                  ⚠️ {withdrawError}
                 </div>
               )}
 
               {/* Big Blue Withdraw Button */}
               <button
                 type="submit"
-                disabled={withdrawing || tonBalance < MIN_WITHDRAWAL}
+                disabled={withdrawing}
                 style={{
                   width: "100%",
                   padding: "18px",
                   borderRadius: 18,
                   border: "none",
-                  background:
-                    tonBalance >= MIN_WITHDRAWAL
-                      ? "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)"
-                      : "rgba(255, 255, 255, 0.08)",
-                  color: tonBalance >= MIN_WITHDRAWAL ? "#ffffff" : "rgba(255, 255, 255, 0.3)",
+                  background: withdrawing
+                    ? "rgba(255, 255, 255, 0.12)"
+                    : "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                  color: "#ffffff",
                   fontSize: 16,
                   fontWeight: 900,
-                  cursor: tonBalance >= MIN_WITHDRAWAL && !withdrawing ? "pointer" : "not-allowed",
+                  cursor: withdrawing ? "not-allowed" : "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: 8,
-                  boxShadow: tonBalance >= MIN_WITHDRAWAL ? "0 8px 28px rgba(37, 99, 235, 0.45)" : "none",
+                  boxShadow: "0 8px 28px rgba(37, 99, 235, 0.45)",
+                  transition: "all 0.2s ease",
                 }}
               >
                 {withdrawing ? (

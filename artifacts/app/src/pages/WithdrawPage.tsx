@@ -243,7 +243,7 @@ export default function WithdrawPage() {
                     onChange={(e) => setAmount(e.target.value)}
                     placeholder={`${minWithdrawal}`}
                     step="any"
-                    disabled={!canWithdraw || submitting}
+                    disabled={submitting}
                     className="ton-input" style={{ paddingRight: 56, fontSize: 18, fontWeight: 800 }}
                   />
                   <span style={{
@@ -257,14 +257,13 @@ export default function WithdrawPage() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
                 {presets.map((p, i) => {
                   const v = p > 0 ? p : 0;
-                  const disabled = !canWithdraw || submitting || v > balance || v < minWithdrawal || v > MAX_WITHDRAWAL;
                   const isMax = i === presets.length - 1;
                   return (
                     <button
                       key={i}
                       type="button"
-                      disabled={disabled}
-                      onClick={() => setAmount(v.toFixed(isMax ? 2 : 2))}
+                      disabled={submitting}
+                      onClick={() => setAmount(isMax ? (balance > 0 ? balance.toFixed(4) : `${minWithdrawal}`) : v.toFixed(2))}
                       style={{
                         padding: "8px 4px", borderRadius: 10,
                         background: isMax
@@ -273,8 +272,8 @@ export default function WithdrawPage() {
                         border: isMax ? "1px solid rgba(251,191,36,0.35)" : "1px solid rgba(255,255,255,0.10)",
                         color: isMax ? "#fbbf24" : "rgba(255,255,255,0.70)",
                         fontSize: 11, fontWeight: 800,
-                        cursor: disabled ? "not-allowed" : "pointer",
-                        opacity: disabled ? 0.4 : 1,
+                        cursor: submitting ? "not-allowed" : "pointer",
+                        opacity: submitting ? 0.4 : 1,
                         fontFamily: "inherit",
                       }}
                     >
@@ -286,24 +285,22 @@ export default function WithdrawPage() {
 
               {error && (
                 <div style={{
-                  background: "rgba(248,113,113,0.10)", border: "1px solid rgba(248,113,113,0.28)",
+                  background: "rgba(248,113,113,0.14)", border: "1px solid rgba(248,113,113,0.38)",
                   borderRadius: 10, padding: "9px 11px", color: "#fca5a5", fontSize: 12, fontWeight: 600,
                 }}>
-                  {error}
+                  ⚠️ {error}
                 </div>
               )}
 
-              <button type="submit" disabled={!canWithdraw || submitting}
+              <button type="submit" disabled={submitting}
                 style={{
                   width: "100%", padding: "14px", borderRadius: 14,
                   fontSize: 14, fontWeight: 800, border: "none",
-                  cursor: canWithdraw && !submitting ? "pointer" : "not-allowed",
+                  cursor: submitting ? "not-allowed" : "pointer",
                   fontFamily: "inherit",
-                  background: canWithdraw
-                    ? "linear-gradient(135deg, #fde68a, #fbbf24, #f59e0b)"
-                    : "rgba(255,255,255,0.06)",
-                  color: canWithdraw ? "#0a0600" : "rgba(255,255,255,0.30)",
-                  boxShadow: canWithdraw ? "0 6px 22px rgba(251,191,36,0.40)" : "none",
+                  background: "linear-gradient(135deg, #fde68a, #fbbf24, #f59e0b)",
+                  color: "#0a0600",
+                  boxShadow: "0 6px 22px rgba(251,191,36,0.40)",
                   opacity: submitting ? 0.65 : 1,
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
                   transition: "all 0.2s",
