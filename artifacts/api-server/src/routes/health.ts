@@ -35,9 +35,9 @@ router.get("/config", async (_req, res) => {
     botUsername: process.env.BOT_USERNAME || "Jojox1bot",
     referralThreshold: Math.max(1, parseInt(rawRef ?? "5") || 5),
     taskThreshold: Math.max(1, parseInt(rawTask ?? "5") || 5),
-    minWithdrawal: Math.max(0.2, parseFloat(rawMin ?? "0.2") || 0.2),
+    minWithdrawal: Math.max(0.001, parseFloat(rawMin ?? "0.1") || 0.1),
     depositWalletAddress: depositWallet || undefined,
-    minDeposit: Math.max(0.01, parseFloat(rawMinDeposit ?? "0.1") || 0.1),
+    minDeposit: Math.max(0.001, parseFloat(rawMinDeposit ?? "0.1") || 0.1),
     gramToGoRate: Math.max(1, parseFloat(rawGramRate ?? "800") || 800),
   });
 });

@@ -33,8 +33,6 @@ import {
 import { useLocation } from "wouter";
 import SwapModal from "../components/SwapModal";
 
-const MIN_WITHDRAWAL = 0.2;
-
 function maskWallet(addr: string) {
   if (!addr || addr.length < 10) return addr;
   return addr.slice(0, 4) + " . . . " + addr.slice(-4);
@@ -89,6 +87,7 @@ export default function ProfilePage() {
   const [tonPrice, setTonPrice] = useState<number>(2.5);
   const [depositWallet, setDepositWallet] = useState<string>("");
   const [minDeposit, setMinDeposit] = useState<number>(0.1);
+  const [minWithdrawal, setMinWithdrawal] = useState<number>(0.1);
   const [gramRate, setGramRate] = useState<number>(800); // 1 GRAM = 800 GO
 
   // Copy states
@@ -170,6 +169,7 @@ export default function ProfilePage() {
       .then((cfg) => {
         if (cfg.depositWalletAddress) setDepositWallet(cfg.depositWalletAddress);
         if (cfg.minDeposit) setMinDeposit(cfg.minDeposit);
+        if (cfg.minWithdrawal && cfg.minWithdrawal > 0) setMinWithdrawal(cfg.minWithdrawal);
         if (cfg.gramToGoRate) setGramRate(cfg.gramToGoRate);
       })
       .catch(() => {});
@@ -225,8 +225,14 @@ export default function ProfilePage() {
     }
 
     const amt = parseFloat(withdrawAmount);
-    if (!withdrawAmount || isNaN(amt) || amt < MIN_WITHDRAWAL) {
-      setWithdrawError(t.minWithdrawal || `Minimum withdrawal is ${MIN_WITHDRAWAL} TON`);
+    if (!withdrawAmount || isNaN(amt) || amt < minWithdrawal) {
+      setWithdrawError(
+        language === "ar"
+          ? `الحد الأدنى للسحب: ${minWithdrawal} TON`
+          : language === "ru"
+          ? `Мин. вывод: ${minWithdrawal} TON`
+          : `Minimum withdrawal is ${minWithdrawal} TON`
+      );
       return;
     }
     if (amt > tonBalance) {
@@ -1092,7 +1098,7 @@ export default function ProfilePage() {
                   type="number"
                   value={withdrawAmount}
                   onChange={(e) => setWithdrawAmount(e.target.value)}
-                  placeholder="0.20"
+                  placeholder={`${minWithdrawal}`}
                   step="any"
                   style={{
                     width: "100%",
@@ -1107,13 +1113,13 @@ export default function ProfilePage() {
                   }}
                 />
                 <div style={{ color: "#a78bfa", fontSize: 12, fontWeight: 700 }}>
-                  Min 0.2 TON
+                  Min {minWithdrawal} TON
                 </div>
               </div>
 
               {/* Presets */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                {[0.2, 0.5, 1.0, tonBalance].map((p, i) => {
+                {[minWithdrawal, 0.5, 1.0, tonBalance].map((p, i) => {
                   const isMax = i === 3;
                   return (
                     <button
@@ -1126,7 +1132,7 @@ export default function ProfilePage() {
                             ? (Number.isInteger(tonBalance)
                                 ? tonBalance.toString()
                                 : parseFloat(tonBalance.toFixed(6)).toString())
-                            : "0.20";
+                            : `${minWithdrawal}`;
                           setWithdrawAmount(maxVal);
                         } else {
                           setWithdrawAmount(p.toFixed(1));

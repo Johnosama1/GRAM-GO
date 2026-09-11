@@ -177,8 +177,8 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
     getSetting("daily_withdrawal_limit").catch(() => null),
   ]);
 
-  // Enforce minimum withdrawal of at least 0.2 TON
-  const MIN_WITHDRAWAL = Math.max(0.2, parseFloat(rawMin ?? "0.2") || 0.2);
+  // Read dynamic settings configured by admin
+  const MIN_WITHDRAWAL = Math.max(0.001, parseFloat(rawMin ?? "0.1") || 0.1);
   const MAX_WITHDRAWAL_LIMIT = Math.max(MIN_WITHDRAWAL, parseFloat(rawMax ?? "10000") || 10000);
   const DAILY_LIMIT = rawDailyLimit ? parseFloat(rawDailyLimit) : null;
 

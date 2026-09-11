@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import { useLocation } from "wouter";
 
-const MIN_WITHDRAWAL = 0.1;
 const TON_IMG  = "https://assets.coingecko.com/coins/images/17980/standard/photo_2024-09-10_17.09.00.jpeg?1725963446";
 const USDT_IMG = "https://assets.coingecko.com/coins/images/325/large/Tether.png";
 
@@ -79,6 +78,7 @@ export default function WalletPage() {
   const [, setLocation] = useLocation();
   const [tab, setTab] = useState<"swap" | "withdraw">("swap");
 
+  const [minWithdrawal, setMinWithdrawal] = useState<number>(0.1);
   const [tonPrice, setTonPrice]         = useState<number | null>(null);
   const [priceLoading, setPriceLoading] = useState(true);
   const [swapAmount, setSwapAmount]     = useState("");
@@ -104,6 +104,10 @@ export default function WalletPage() {
     fetch("/api/price/ton")
       .then(r => r.json()).then(d => setTonPrice(d?.usd ?? null))
       .catch(() => setTonPrice(null)).finally(() => setPriceLoading(false));
+
+    api.getConfig().then(cfg => {
+      if (cfg.minWithdrawal && cfg.minWithdrawal > 0) setMinWithdrawal(cfg.minWithdrawal);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -139,7 +143,7 @@ export default function WalletPage() {
   const goBalance   = parseFloat(user?.goBalance   || user?.balance || "0");
   const tonBalance  = parseFloat(user?.tonBalance  || "0");
   const savedWallet = user?.savedWalletAddress ?? null;
-  const canWithdraw = tonBalance >= MIN_WITHDRAWAL;
+  const canWithdraw = tonBalance >= minWithdrawal;
   const swapAmtNum  = parseFloat(swapAmount) || 0;
   const canSwap     = (gramBalance > 0 || usdtBalance > 0) && !swapping;
   const tonEquiv    = tonPrice && swapAmtNum > 0 ? (swapAmtNum / tonPrice).toFixed(4) : null;
@@ -180,7 +184,7 @@ export default function WalletPage() {
     setWdError(""); setSuccess(false);
     if (!savedWallet) { setWdError("Connect your TON wallet first"); return; }
     const amt = parseFloat(amount);
-    if (isNaN(amt) || amt < MIN_WITHDRAWAL) { setWdError(`Minimum: ${MIN_WITHDRAWAL} TON`); return; }
+    if (isNaN(amt) || amt < minWithdrawal) { setWdError(`Minimum: ${minWithdrawal} TON`); return; }
     if (amt > tonBalance) { setWdError("Insufficient TON balance"); return; }
     setSubmitting(true);
     try {
@@ -636,9 +640,9 @@ export default function WalletPage() {
 
                 {/* Presets */}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8 }}>
-                  {[0.1, 0.5, 1, tonBalance].map((p, i) => {
+                  {[minWithdrawal, 0.5, 1, tonBalance].map((p, i) => {
                     const isMax = i === 3;
-                    const disabled = !canWithdraw || p > tonBalance || p < MIN_WITHDRAWAL || submitting;
+                    const disabled = !canWithdraw || p > tonBalance || p < minWithdrawal || submitting;
                     const isSelected = amtNum === p;
                     return (
                       <button key={i} type="button" disabled={disabled}
@@ -648,7 +652,7 @@ export default function WalletPage() {
                               ? (Number.isInteger(tonBalance)
                                   ? tonBalance.toString()
                                   : parseFloat(tonBalance.toFixed(6)).toString())
-                              : "0.20";
+                              : `${minWithdrawal}`;
                             setAmount(maxVal);
                           } else {
                             setAmount(p.toFixed(1));
