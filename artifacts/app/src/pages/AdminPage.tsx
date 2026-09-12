@@ -655,9 +655,12 @@ export default function AdminPage() {
       setSearchingUser(true);
       const res = await api.adminGetUsers(q, 10, 0);
       setUserSearchResults(res || []);
-      if (res && res.length === 1) {
+      if (res && res.length > 0) {
         const det = await api.adminGetUserDetail(res[0].id);
         setSelectedUserDetail(det);
+      } else {
+        setSelectedUserDetail(null);
+        showToast("لا يوجد مستخدم بهذا الـ ID أو اليوزر", "err");
       }
     } catch {
       showToast("فشل البحث عن المستخدم", "err");
@@ -2415,9 +2418,10 @@ export default function AdminPage() {
               />
               <button
                 onClick={handleSearchUser}
-                style={{ background: "linear-gradient(135deg, #0FA0D6, #11ABEC)", border: "none", borderRadius: 10, padding: "0 14px", color: "#fff", fontWeight: 800, cursor: "pointer" }}
+                style={{ background: "linear-gradient(135deg, #0FA0D6, #11ABEC)", border: "none", borderRadius: 10, padding: "0 14px", color: "#fff", fontWeight: 800, fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}
               >
                 <Search size={15} />
+                <span>بحث عن مستخدم</span>
               </button>
             </div>
 
