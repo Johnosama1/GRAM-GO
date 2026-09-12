@@ -53,6 +53,25 @@ import { processWithdrawalVote } from "../bot/consensus";
 
 const router = Router();
 
+// ── Live bot username resolver ──────────────────────────────────────────────
+// Never trust BOT_USERNAME/TELEGRAM_BOT_USERNAME env vars blindly — they can
+// be stale or point at an unrelated bot. Always confirm against the actual
+// running bot instance (bot.getMe()) so deep links open the correct chat.
+let cachedBotUsername: string | null = null;
+async function resolveBotUsername(): Promise<string> {
+  if (cachedBotUsername) return cachedBotUsername;
+  try {
+    const me = await getBot().getMe();
+    if (me?.username) {
+      cachedBotUsername = me.username;
+      return cachedBotUsername;
+    }
+  } catch (err) {
+    logger.error({ err }, "Failed to resolve live bot username via getMe()");
+  }
+  return (process.env.BOT_USERNAME || process.env.TELEGRAM_BOT_USERNAME || "").replace(/^@/, "");
+}
+
 // Rate limiter for admin routes
 const adminLimiter = rateLimit({
   windowMs: 60_000,
@@ -74,7 +93,7 @@ router.post("/unlock", async (_req: AdminRequest, res: Response) => {
 
 router.get("/check", async (req: AdminRequest, res: Response) => {
   const admin = req.adminUser!;
-  const botUser = (process.env.BOT_USERNAME || process.env.TELEGRAM_BOT_USERNAME || "GRAM_GO_BOT").replace(/^@/, "");
+  const botUser = await resolveBotUsername();
   res.json({
     isAdmin: true,
     isOwner: true,
@@ -545,21 +564,77 @@ router.get("/users/:id", requireAdminPerm("canManageUsers"), async (req: AdminRe
     res.status(404).json({ error: "User not found" });
     return;
   }
-  res.json(user);
+
+  const [activeBan] = await db
+    .select({ reason: bansTable.reason })
+    .from(bansTable)
+    .where(and(eq(bansTable.userId, targetId), eq(bansTable.isActive, true)))
+    .orderBy(desc(bansTable.bannedAt))
+    .limit(1);
+
+  let inviter: { id: number; username: string | null; firstName: string | null } | null = null;
+  if (user.referredBy) {
+    const [inv] = await db
+      .select({ id: usersTable.id, username: usersTable.username, firstName: usersTable.firstName })
+      .from(usersTable)
+      .where(eq(usersTable.id, user.referredBy))
+      .limit(1);
+    inviter = inv || null;
+  }
+
+  const [transactions, withdrawals, deposits, fingerprints, referralsCountRow] = await Promise.all([
+    db.select().from(transactionsTable).where(eq(transactionsTable.userId, targetId)).orderBy(desc(transactionsTable.createdAt)).limit(30),
+    db.select().from(withdrawalsTable).where(eq(withdrawalsTable.userId, targetId)).orderBy(desc(withdrawalsTable.createdAt)).limit(30),
+    db.select().from(depositsTable).where(eq(depositsTable.userId, targetId)).orderBy(desc(depositsTable.createdAt)).limit(30),
+    db.select().from(deviceFingerprintsTable).where(eq(deviceFingerprintsTable.userId, targetId)).orderBy(desc(deviceFingerprintsTable.lastSeenAt)).limit(10),
+    db.select({ c: count() }).from(referralsTable).where(eq(referralsTable.referrerId, targetId)),
+  ]);
+
+  const totalDeposited = deposits
+    .filter((d) => d.status === "confirmed")
+    .reduce((sum, d) => sum + parseFloat(d.amount), 0);
+  const totalWithdrawn = withdrawals
+    .filter((w) => w.status === "completed")
+    .reduce((sum, w) => sum + parseFloat(w.amount), 0);
+
+  res.json({
+    user,
+    inviter,
+    transactions,
+    referralsCount: referralsCountRow[0]?.c ?? 0,
+    withdrawals,
+    deposits,
+    fingerprints,
+    tasksCompletedCount: user.tasksCompleted,
+    totalDeposited: String(totalDeposited),
+    totalWithdrawn: String(totalWithdrawn),
+    isBanned: !user.isVisible,
+    isWithdrawalBanned: user.isWithdrawalBanned,
+    isDepositBanned: user.isDepositBanned,
+    banReason: activeBan?.reason ?? null,
+  });
 });
 
 router.post("/users/:id/ban", requireAdminPerm("canBanUsers"), async (req: AdminRequest, res: Response) => {
   const targetId = parseInt(String(req.params.id));
+  const reason = req.body?.reason ? String(req.body.reason).trim() : "مخالفة الشروط والاحتيال";
   await db.update(usersTable).set({ isVisible: false }).where(eq(usersTable.id, targetId));
-  await logAdminAudit(req.adminId!, "ban_user", {}, targetId);
-  res.json({ ok: true });
+  await db.insert(bansTable).values({
+    userId: targetId,
+    reason,
+    bannedBy: String(req.adminId!),
+    isActive: true,
+  });
+  await logAdminAudit(req.adminId!, "ban_user", { reason }, targetId);
+  res.json({ ok: true, banned: true });
 });
 
 router.post("/users/:id/unban", requireAdminPerm("canUnban"), async (req: AdminRequest, res: Response) => {
   const targetId = parseInt(String(req.params.id));
   await db.update(usersTable).set({ isVisible: true }).where(eq(usersTable.id, targetId));
+  await db.update(bansTable).set({ isActive: false }).where(and(eq(bansTable.userId, targetId), eq(bansTable.isActive, true)));
   await logAdminAudit(req.adminId!, "unban_user", {}, targetId);
-  res.json({ ok: true });
+  res.json({ ok: true, unbanned: true });
 });
 
 router.post("/users/:id/toggle-withdraw", requireAdminPerm("canManageUsers"), async (req: AdminRequest, res: Response) => {
@@ -569,6 +644,103 @@ router.post("/users/:id/toggle-withdraw", requireAdminPerm("canManageUsers"), as
   await db.update(usersTable).set({ isWithdrawalBanned: next }).where(eq(usersTable.id, targetId));
   await logAdminAudit(req.adminId!, "toggle_withdrawal_gate", { isWithdrawalBanned: next }, targetId);
   res.json({ ok: true, isWithdrawalBanned: next });
+});
+
+router.post("/users/:id/withdrawal-ban", requireAdminPerm("canManageUsers"), async (req: AdminRequest, res: Response) => {
+  const targetId = parseInt(String(req.params.id));
+  await db.update(usersTable).set({ isWithdrawalBanned: true }).where(eq(usersTable.id, targetId));
+  await logAdminAudit(req.adminId!, "toggle_withdrawal_gate", { isWithdrawalBanned: true }, targetId);
+  res.json({ ok: true, isWithdrawalBanned: true });
+});
+
+router.post("/users/:id/withdrawal-unban", requireAdminPerm("canManageUsers"), async (req: AdminRequest, res: Response) => {
+  const targetId = parseInt(String(req.params.id));
+  await db.update(usersTable).set({ isWithdrawalBanned: false }).where(eq(usersTable.id, targetId));
+  await logAdminAudit(req.adminId!, "toggle_withdrawal_gate", { isWithdrawalBanned: false }, targetId);
+  res.json({ ok: true, isWithdrawalBanned: false });
+});
+
+router.post("/users/:id/deposit-ban", requireAdminPerm("canManageUsers"), async (req: AdminRequest, res: Response) => {
+  const targetId = parseInt(String(req.params.id));
+  await db.update(usersTable).set({ isDepositBanned: true }).where(eq(usersTable.id, targetId));
+  await logAdminAudit(req.adminId!, "toggle_deposit_gate", { isDepositBanned: true }, targetId);
+  res.json({ ok: true, isDepositBanned: true });
+});
+
+router.post("/users/:id/deposit-unban", requireAdminPerm("canManageUsers"), async (req: AdminRequest, res: Response) => {
+  const targetId = parseInt(String(req.params.id));
+  await db.update(usersTable).set({ isDepositBanned: false }).where(eq(usersTable.id, targetId));
+  await logAdminAudit(req.adminId!, "toggle_deposit_gate", { isDepositBanned: false }, targetId);
+  res.json({ ok: true, isDepositBanned: false });
+});
+
+router.post("/users/:id/balance", requireAdminPerm("canManageUsers"), async (req: AdminRequest, res: Response) => {
+  const targetId = parseInt(String(req.params.id));
+  const { type, currency, amount, reason } = req.body as {
+    type: "add" | "deduct" | "correct";
+    currency: "GO" | "Gram";
+    amount: number;
+    reason?: string;
+  };
+
+  const amountNum = parseFloat(String(amount));
+  if (isNaN(amountNum) || amountNum < 0 || !["add", "deduct", "correct"].includes(type)) {
+    res.status(400).json({ error: "بيانات غير صالحة" });
+    return;
+  }
+
+  const [target] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+  if (!target) {
+    res.status(404).json({ error: "المستخدم غير موجود" });
+    return;
+  }
+
+  const previousBalance = parseFloat(currency === "Gram" ? target.gramBalance : target.goBalance);
+  let newBalance: number;
+  if (type === "add") newBalance = previousBalance + amountNum;
+  else if (type === "deduct") newBalance = Math.max(0, previousBalance - amountNum);
+  else newBalance = amountNum;
+
+  await db.update(usersTable).set({ [currency === "Gram" ? "gramBalance" : "goBalance"]: String(newBalance) }).where(eq(usersTable.id, targetId));
+  await db.insert(transactionsTable).values({
+    userId: targetId,
+    type: `admin_${type}`,
+    amount: String(Math.abs(newBalance - previousBalance)),
+    currency,
+    details: { reason: reason || "تعديل إداري", adminId: req.adminId! },
+  });
+  await logAdminAudit(req.adminId!, "adjust_balance", { type, currency, amount: amountNum, previousBalance, newBalance, reason }, targetId);
+
+  res.json({
+    ok: true,
+    success: true,
+    targetId,
+    previousBalance,
+    newBalance,
+    diff: newBalance - previousBalance,
+  });
+});
+
+router.post("/users/:id/message", requireAdminPerm("canManageUsers"), async (req: AdminRequest, res: Response) => {
+  const targetId = parseInt(String(req.params.id));
+  const { message, isWarning } = req.body as { message: string; isWarning?: boolean };
+  if (!message || !message.trim()) {
+    res.status(400).json({ error: "نص الرسالة مطلوب" });
+    return;
+  }
+
+  const bot = getBot();
+  const prefix = isWarning ? "⚠️ <b>تنبيه من الإدارة</b>\n\n" : "📩 <b>رسالة من الإدارة</b>\n\n";
+  try {
+    await bot.sendMessage(targetId, prefix + message.trim(), { parse_mode: "HTML" });
+  } catch (err) {
+    logger.error({ err, targetId }, "Failed to send admin message to user");
+    res.status(502).json({ error: "فشل إرسال الرسالة، ربما المستخدم حظر البوت" });
+    return;
+  }
+
+  await logAdminAudit(req.adminId!, "send_user_message", { message: message.trim(), isWarning: !!isWarning }, targetId);
+  res.json({ ok: true, success: true });
 });
 
 // ── 13. MINERS CONFIG ───────────────────────────────────────────────────────
