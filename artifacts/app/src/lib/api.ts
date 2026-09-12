@@ -351,6 +351,7 @@ export const api = {
 
 export interface MiningStatus {
   isMining: boolean;
+  isCycleCompleted?: boolean;
   goBalance: string;
   gramBalance?: string;
   unclaimedGo?: string;

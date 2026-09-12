@@ -36,7 +36,8 @@ export function calculateUserMining(
   const dailyYield = goBal * rate; // Gram per 24h
   const perSecondYield = dailyYield / cycleDurationSec; // Gram per second
   const unclaimedGram = elapsedSec * perSecondYield;
-  const isMining = goBal > 0;
+  const isMining = goBal > 0 && remainingSec > 0;
+  const isCycleCompleted = goBal > 0 && remainingSec === 0;
 
   return {
     goBalance: goBal,
@@ -47,6 +48,7 @@ export function calculateUserMining(
     unclaimedGram,
     unclaimedGo: unclaimedGram, // for backwards-compatibility
     isMining,
+    isCycleCompleted,
     lastMiningAt: user.lastMiningAt || new Date(now),
     elapsedSeconds: elapsedSec,
     remainingSeconds: remainingSec,
@@ -78,6 +80,7 @@ router.get("/status", requireSession, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     res.json({
       isMining: calc.isMining,
+      isCycleCompleted: calc.isCycleCompleted,
       goBalance: calc.goBalance.toFixed(4),
       gramBalance: calc.gramBalance.toFixed(6),
       unclaimedGram: calc.unclaimedGram.toFixed(6),

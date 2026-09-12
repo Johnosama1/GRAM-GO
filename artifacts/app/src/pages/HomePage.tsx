@@ -75,7 +75,7 @@ function GramCoinIcon({ size = 44 }: { size?: number }) {
 }
 
 // ── Multi-Ring Circular Animated Mining Reactor ──────────────────────
-function MiningReactor() {
+function MiningReactor({ isActive = true, isCompleted = false }: { isActive?: boolean; isCompleted?: boolean }) {
   return (
     <div
       style={{
@@ -88,15 +88,27 @@ function MiningReactor() {
         flexShrink: 0,
       }}
     >
-      {/* Outer Segmented Purple Ring Rotating */}
+      {/* Outer Segmented Ring */}
       <div
         style={{
           position: "absolute",
           inset: 0,
           borderRadius: "50%",
-          border: "2px dashed rgba(168, 85, 247, 0.75)",
-          boxShadow: "0 0 16px rgba(168, 85, 247, 0.35)",
-          animation: "spinClockwise 12s linear infinite",
+          border: isCompleted
+            ? "2.5px dashed rgba(251, 191, 36, 0.85)"
+            : isActive
+            ? "2px dashed rgba(168, 85, 247, 0.75)"
+            : "2px dashed rgba(148, 163, 184, 0.3)",
+          boxShadow: isCompleted
+            ? "0 0 20px rgba(251, 191, 36, 0.45)"
+            : isActive
+            ? "0 0 16px rgba(168, 85, 247, 0.35)"
+            : "none",
+          animation: isCompleted
+            ? "readyPulseRing 2.2s ease-in-out infinite"
+            : isActive
+            ? "spinClockwise 12s linear infinite"
+            : "none",
         }}
       />
 
@@ -107,45 +119,79 @@ function MiningReactor() {
           inset: 6,
           borderRadius: "50%",
           border: "1.5px solid transparent",
-          borderTopColor: "#a855f7",
-          borderBottomColor: "#c084fc",
-          animation: "spinCounterClockwise 8s linear infinite",
-          filter: "drop-shadow(0 0 8px #a855f7)",
+          borderTopColor: isCompleted ? "#fbbf24" : isActive ? "#a855f7" : "rgba(148, 163, 184, 0.2)",
+          borderBottomColor: isCompleted ? "#f59e0b" : isActive ? "#c084fc" : "rgba(148, 163, 184, 0.2)",
+          animation: isCompleted
+            ? "readyPulseRing 2.2s ease-in-out infinite"
+            : isActive
+            ? "spinCounterClockwise 8s linear infinite"
+            : "none",
+          filter: isCompleted
+            ? "drop-shadow(0 0 10px #fbbf24)"
+            : isActive
+            ? "drop-shadow(0 0 8px #a855f7)"
+            : "none",
         }}
       />
 
-      {/* Middle Neon Cyan Ring */}
+      {/* Middle Ring */}
       <div
         style={{
           position: "absolute",
           inset: 14,
           borderRadius: "50%",
-          border: "2.5px solid #00f2fe",
-          boxShadow: "0 0 20px rgba(0, 242, 254, 0.5), inset 0 0 15px rgba(0, 242, 254, 0.3)",
-          animation: "pulseGlow 2.5s ease-in-out infinite",
+          border: isCompleted
+            ? "2.5px solid #fbbf24"
+            : isActive
+            ? "2.5px solid #00f2fe"
+            : "2px solid rgba(148, 163, 184, 0.3)",
+          boxShadow: isCompleted
+            ? "0 0 24px rgba(251, 191, 36, 0.6), inset 0 0 15px rgba(0, 242, 254, 0.3)"
+            : isActive
+            ? "0 0 20px rgba(0, 242, 254, 0.5), inset 0 0 15px rgba(0, 242, 254, 0.3)"
+            : "none",
+          animation: isCompleted
+            ? "readyPulseRing 2.2s ease-in-out infinite"
+            : isActive
+            ? "pulseGlow 2.5s ease-in-out infinite"
+            : "none",
         }}
       />
 
-      {/* Middle Cyan Dashed Ring */}
+      {/* Middle Dashed Ring */}
       <div
         style={{
           position: "absolute",
           inset: 22,
           borderRadius: "50%",
-          border: "1.5px dashed rgba(0, 242, 254, 0.4)",
-          animation: "spinClockwise 18s linear infinite",
+          border: isCompleted
+            ? "1.5px dashed rgba(251, 191, 36, 0.6)"
+            : isActive
+            ? "1.5px dashed rgba(0, 242, 254, 0.4)"
+            : "1.5px dashed rgba(148, 163, 184, 0.2)",
+          animation: isCompleted
+            ? "readyPulseRing 2.2s ease-in-out infinite"
+            : isActive
+            ? "spinClockwise 18s linear infinite"
+            : "none",
         }}
       />
 
-      {/* Center Dark Core with Electric Cyan Bolt */}
+      {/* Center Dark Core with Bolt */}
       <div
         style={{
           position: "absolute",
           inset: 28,
           borderRadius: "50%",
-          background: "radial-gradient(circle at 40% 35%, #0d1e3d 0%, #050a18 100%)",
-          border: "2px solid rgba(0, 242, 254, 0.8)",
-          boxShadow: "0 0 18px rgba(0, 242, 254, 0.6), inset 0 0 12px rgba(0, 242, 254, 0.4)",
+          background: isCompleted
+            ? "radial-gradient(circle at 40% 35%, #2a1e06 0%, #080c1e 100%)"
+            : "radial-gradient(circle at 40% 35%, #0d1e3d 0%, #050a18 100%)",
+          border: isCompleted ? "2px solid rgba(251, 191, 36, 0.85)" : "2px solid rgba(0, 242, 254, 0.8)",
+          boxShadow: isCompleted
+            ? "0 0 20px rgba(251, 191, 36, 0.7), inset 0 0 12px rgba(251, 191, 36, 0.4)"
+            : isActive
+            ? "0 0 18px rgba(0, 242, 254, 0.6), inset 0 0 12px rgba(0, 242, 254, 0.4)"
+            : "none",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -158,13 +204,21 @@ function MiningReactor() {
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
           style={{
-            animation: "boltPulse 2s ease-in-out infinite",
-            filter: "drop-shadow(0 0 10px rgba(0, 242, 254, 0.9))",
+            animation: isCompleted
+              ? "boltPulse 1.6s ease-in-out infinite"
+              : isActive
+              ? "boltPulse 2s ease-in-out infinite"
+              : "none",
+            filter: isCompleted
+              ? "drop-shadow(0 0 12px rgba(251, 191, 36, 0.95))"
+              : isActive
+              ? "drop-shadow(0 0 10px rgba(0, 242, 254, 0.9))"
+              : "none",
           }}
         >
           <path
             d="M13 2L3 14H12L11 22L21 10H12L13 2Z"
-            fill="#00f2fe"
+            fill={isCompleted ? "#fbbf24" : isActive ? "#00f2fe" : "rgba(148, 163, 184, 0.5)"}
             stroke="#ffffff"
             strokeWidth="1.2"
           />
@@ -191,10 +245,16 @@ export default function HomePage() {
   const [timerSeconds, setTimerSeconds] = useState<number>(86400); // 24:00:00
 
   // Status fetch timestamp & initial values
-  const lastFetchRef = useRef<{ ts: number; baseUnclaimed: number; perSec: number }>({
+  const lastFetchRef = useRef<{
+    ts: number;
+    baseUnclaimed: number;
+    perSec: number;
+    maxYield: number;
+  }>({
     ts: Date.now(),
     baseUnclaimed: 0,
     perSec: 0,
+    maxYield: 0,
   });
 
   // ── Auto-sync connected TON wallet with user account ────────────────
@@ -214,18 +274,27 @@ export default function HomePage() {
       setMiningStatus(res);
       const base = parseFloat(res.unclaimedGram || res.unclaimedGo || "0");
       const perSec = parseFloat(res.perSecondYield || "0");
-      lastFetchRef.current = {
-        ts: Date.now(),
-        baseUnclaimed: base,
-        perSec: perSec,
-      };
-      setLiveUnclaimed(base);
+      const maxYield = parseFloat(res.dailyYield || "0");
+      
+      let remSec = 86400;
       if (typeof res.remainingSeconds === "number") {
-        setTimerSeconds(res.remainingSeconds);
+        remSec = Math.max(0, res.remainingSeconds);
       } else if (res.lastMiningAt) {
         const elapsed = Math.max(0, (Date.now() - new Date(res.lastMiningAt).getTime()) / 1000);
-        setTimerSeconds(Math.max(0, Math.floor(86400 - elapsed)));
+        remSec = Math.max(0, Math.floor(86400 - elapsed));
       }
+
+      const isStopped = remSec <= 0;
+      const effectiveBase = isStopped && maxYield > 0 ? maxYield : base;
+
+      lastFetchRef.current = {
+        ts: Date.now(),
+        baseUnclaimed: effectiveBase,
+        perSec: isStopped ? 0 : perSec,
+        maxYield: maxYield,
+      };
+      setLiveUnclaimed(effectiveBase);
+      setTimerSeconds(remSec);
     } catch {
       // Fallback calculation using user balance
       if (user) {
@@ -236,11 +305,13 @@ export default function HomePage() {
         const lastAt = user.lastMiningAt ? new Date(user.lastMiningAt).getTime() : Date.now();
         const elapsed = Math.max(0, (Date.now() - lastAt) / 1000);
         const rem = Math.max(0, Math.floor(86400 - elapsed));
-        const unclaimed = Math.min(daily, elapsed * perSec);
+        const isStopped = rem <= 0;
+        const unclaimed = isStopped ? daily : Math.min(daily, elapsed * perSec);
         lastFetchRef.current = {
           ts: Date.now(),
           baseUnclaimed: unclaimed,
-          perSec,
+          perSec: isStopped ? 0 : perSec,
+          maxYield: daily,
         };
         setLiveUnclaimed(unclaimed);
         setTimerSeconds(rem);
@@ -275,10 +346,10 @@ export default function HomePage() {
   // ── 60fps Real-Time Ticker for live continuous yield ───────────────
   useEffect(() => {
     const interval = setInterval(() => {
-      const { ts, baseUnclaimed, perSec } = lastFetchRef.current;
-      if (perSec > 0) {
+      const { ts, baseUnclaimed, perSec, maxYield } = lastFetchRef.current;
+      if (perSec > 0 && maxYield > 0) {
         const elapsedSec = (Date.now() - ts) / 1000;
-        const current = baseUnclaimed + elapsedSec * perSec;
+        const current = Math.min(maxYield, baseUnclaimed + elapsedSec * perSec);
         setLiveUnclaimed(current);
       }
     }, 50);
@@ -289,7 +360,16 @@ export default function HomePage() {
   // ── Timer countdown (24-hour cycle) ────────────────────────────────
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimerSeconds((prev) => (prev > 0 ? prev - 1 : 0));
+      setTimerSeconds((prev) => {
+        if (prev <= 1) {
+          if (lastFetchRef.current.maxYield > 0) {
+            setLiveUnclaimed(lastFetchRef.current.maxYield);
+          }
+          lastFetchRef.current.perSec = 0;
+          return 0;
+        }
+        return prev - 1;
+      });
     }, 1000);
     return () => clearInterval(timer);
   }, []);
@@ -312,8 +392,15 @@ export default function HomePage() {
       if (res.success) {
         setLiveUnclaimed(0);
         setTimerSeconds(86400);
-        lastFetchRef.current.baseUnclaimed = 0;
-        lastFetchRef.current.ts = Date.now();
+        const go = parseFloat(user?.goBalance || user?.balance || "0");
+        const daily = go * 0.00125;
+        const perSec = daily / 86400;
+        lastFetchRef.current = {
+          ts: Date.now(),
+          baseUnclaimed: 0,
+          perSec: perSec,
+          maxYield: daily,
+        };
         if (res.user) {
           updateUser(res.user);
         } else if (res.gramBalance !== undefined && res.goBalance !== undefined) {
@@ -342,6 +429,10 @@ export default function HomePage() {
   const goBalanceNum = parseFloat(user?.goBalance || user?.balance || "0");
   const gramBalanceNum = parseFloat(user?.gramBalance || "0");
   const dailyGramYield = (goBalanceNum * 0.00125).toFixed(6);
+
+  const hasPower = goBalanceNum > 0;
+  const isCycleFinished = timerSeconds <= 0;
+  const isMiningActive = hasPower && !isCycleFinished;
 
   const activeWallet = user?.savedWalletAddress || connectedAddress;
   const walletDisplay = activeWallet
@@ -387,6 +478,20 @@ export default function HomePage() {
         @keyframes boltPulse {
           0%, 100% { transform: scale(1); filter: drop-shadow(0 0 8px #00f2fe); }
           50% { transform: scale(1.08); filter: drop-shadow(0 0 18px #00f2fe); }
+        }
+        @keyframes readyPulseRing {
+          0%, 100% { transform: scale(1); opacity: 0.8; }
+          50% { transform: scale(1.04); opacity: 1; }
+        }
+        @keyframes pulseClaimBtn {
+          0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 0 25px rgba(0, 242, 254, 0.45), 0 0 35px rgba(234, 179, 8, 0.35);
+          }
+          50% {
+            transform: scale(1.02);
+            box-shadow: 0 0 35px rgba(0, 242, 254, 0.75), 0 0 50px rgba(234, 179, 8, 0.6);
+          }
         }
         @keyframes popInModal {
           from { opacity: 0; transform: scale(0.9); }
@@ -708,19 +813,21 @@ export default function HomePage() {
           background: "linear-gradient(165deg, rgba(10, 16, 38, 0.85) 0%, rgba(4, 7, 18, 0.95) 100%)",
           backdropFilter: "blur(24px)",
           WebkitBackdropFilter: "blur(24px)",
-          border: "1px solid rgba(0, 242, 254, 0.20)",
+          border: isCycleFinished && hasPower ? "1px solid rgba(251, 191, 36, 0.35)" : "1px solid rgba(0, 242, 254, 0.20)",
           borderRadius: 26,
           padding: "20px 18px",
           display: "flex",
           flexDirection: "column",
           gap: 18,
-          boxShadow: "0 16px 48px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(0, 242, 254, 0.1)",
+          boxShadow: isCycleFinished && hasPower
+            ? "0 16px 48px rgba(0, 0, 0, 0.6), 0 0 24px rgba(251, 191, 36, 0.15)"
+            : "0 16px 48px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(0, 242, 254, 0.1)",
         }}
       >
         {/* Top Split: Left Reactor & Right Metrics */}
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
           {/* LEFT: Animated Mining Reactor */}
-          <MiningReactor />
+          <MiningReactor isActive={isMiningActive} isCompleted={isCycleFinished && hasPower} />
 
           {/* RIGHT: Mining Stats & Live Unclaimed Gram Ticker */}
           <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 0 }}>
@@ -731,27 +838,31 @@ export default function HomePage() {
                   width: 7,
                   height: 7,
                   borderRadius: "50%",
-                  background: "#00f2fe",
-                  boxShadow: "0 0 8px #00f2fe",
+                  background: !hasPower ? "#94a3b8" : isCycleFinished ? "#fbbf24" : "#00f2fe",
+                  boxShadow: !hasPower ? "none" : isCycleFinished ? "0 0 10px #fbbf24" : "0 0 8px #00f2fe",
                 }}
               />
               <span
                 style={{
-                  color: "#c084fc",
+                  color: !hasPower ? "#94a3b8" : isCycleFinished ? "#fbbf24" : "#c084fc",
                   fontSize: 11,
                   fontWeight: 900,
                   letterSpacing: 1.2,
                   textTransform: "uppercase",
                 }}
               >
-                MINING GRAM ACTIVE
+                {!hasPower
+                  ? "NO MINING POWER"
+                  : isCycleFinished
+                  ? "MINING STOPPED • CLAIM READY"
+                  : "MINING GRAM ACTIVE"}
               </span>
             </div>
 
             {/* Large Timer */}
             <div
               style={{
-                color: "#ffffff",
+                color: isCycleFinished && hasPower ? "#fbbf24" : "#ffffff",
                 fontSize: 28,
                 fontWeight: 900,
                 letterSpacing: -0.5,
@@ -764,7 +875,11 @@ export default function HomePage() {
 
             {/* Subtitle */}
             <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: 11, fontWeight: 700 }}>
-              24/7 Cloud Mining (Active Offline)
+              {!hasPower
+                ? "Get GO Power to activate cloud mining"
+                : isCycleFinished
+                ? "24h cycle completed! Claim reward to start next 24h cycle"
+                : "24/7 Cloud Mining (Active Offline)"}
             </span>
 
             {/* Boost Badge */}
@@ -791,7 +906,7 @@ export default function HomePage() {
             <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 4 }}>
               <span
                 style={{
-                  color: "#ffffff",
+                  color: isCycleFinished && hasPower ? "#fbbf24" : "#ffffff",
                   fontSize: 20,
                   fontWeight: 900,
                   letterSpacing: -0.2,
@@ -800,7 +915,7 @@ export default function HomePage() {
               >
                 {liveUnclaimed.toFixed(8)}
               </span>
-              <span style={{ color: "#00f2fe", fontSize: 13, fontWeight: 800 }}>Gram</span>
+              <span style={{ color: isCycleFinished && hasPower ? "#fbbf24" : "#00f2fe", fontSize: 13, fontWeight: 800 }}>Gram</span>
             </div>
           </div>
         </div>
@@ -813,10 +928,12 @@ export default function HomePage() {
             width: "100%",
             padding: "16px",
             borderRadius: 18,
-            border: "none",
+            border: isCycleFinished && liveUnclaimed > 0 ? "1.5px solid rgba(251, 191, 36, 0.6)" : "none",
             background:
               liveUnclaimed > 0
-                ? "linear-gradient(90deg, #00c6ff 0%, #0072ff 35%, #7f00ff 70%, #a855f7 100%)"
+                ? isCycleFinished
+                  ? "linear-gradient(90deg, #00c6ff 0%, #7f00ff 40%, #eab308 100%)"
+                  : "linear-gradient(90deg, #00c6ff 0%, #0072ff 35%, #7f00ff 70%, #a855f7 100%)"
                 : "rgba(255, 255, 255, 0.07)",
             color: liveUnclaimed > 0 ? "#ffffff" : "rgba(255, 255, 255, 0.3)",
             fontSize: 15,
@@ -826,8 +943,11 @@ export default function HomePage() {
             cursor: liveUnclaimed > 0 ? "pointer" : "not-allowed",
             boxShadow:
               liveUnclaimed > 0
-                ? "0 0 25px rgba(0, 242, 254, 0.4), 0 0 35px rgba(127, 0, 255, 0.25)"
+                ? isCycleFinished
+                  ? "0 0 30px rgba(234, 179, 8, 0.45), 0 0 40px rgba(0, 242, 254, 0.3)"
+                  : "0 0 25px rgba(0, 242, 254, 0.4), 0 0 35px rgba(127, 0, 255, 0.25)"
                 : "none",
+            animation: isCycleFinished && liveUnclaimed > 0 ? "pulseClaimBtn 2s ease-in-out infinite" : "none",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -843,7 +963,7 @@ export default function HomePage() {
           ) : (
             <>
               <span style={{ fontSize: 17 }}>⚡</span>
-              CLAIM GRAM REWARD
+              {isCycleFinished && liveUnclaimed > 0 ? "CLAIM GRAM REWARD & RESTART" : "CLAIM GRAM REWARD"}
             </>
           )}
         </button>
