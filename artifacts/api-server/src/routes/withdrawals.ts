@@ -314,6 +314,13 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
     return;
   }
 
+  // Respond to the client immediately once the balance/withdrawal record is
+  // safely committed — everything below is best-effort notification side
+  // effects (Telegram API calls, security checks) that used to be awaited
+  // before responding, which could push past the client's fetch timeout and
+  // show a false "network error" even though the withdrawal had succeeded.
+  res.json({ success: true, withdrawal: wdRecord, user: updatedUserRecord });
+
   const userDisplay = user.username
     ? `@${esc(user.username)}`
     : esc(user.firstName || String(numUserId));
@@ -381,8 +388,6 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
   } catch {
     /* ignore */
   }
-
-  res.json({ success: true, withdrawal: wdRecord, user: updatedUserRecord });
 });
 
 // ── GET User Withdrawals ──────────────────────────────────────────────────────
