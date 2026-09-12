@@ -164,8 +164,9 @@ export async function processWithdrawalVote(
     }
 
     // Attempt automatic blockchain payout if wallet configured
-    if (await isTonConfigured()) {
-      executeAutoWithdrawal(withdrawalId).catch((err) => {
+    const tonConfigured = await isTonConfigured();
+    if (tonConfigured) {
+      executeAutoWithdrawal(withdrawalId, adminId).catch((err) => {
         logger.error({ err, withdrawalId }, "Auto withdrawal background execution error");
       });
     }
@@ -178,10 +179,25 @@ export async function processWithdrawalVote(
           `✅ <b>تمت الموافقة على طلب السحب الخاص بك #${withdrawalId}!</b>\n\n` +
             `المبلغ: <b>${withdrawal.amount} ${withdrawal.currency}</b>\n` +
             `المحفظة: <code>${withdrawal.walletAddress}</code>\n\n` +
-            `جاري تحويل المعاملة عبر شبكة البلوكشين 🚀`,
+            (tonConfigured
+              ? `جاري تحويل المعاملة عبر شبكة البلوكشين 🚀`
+              : `سيتم تحويل المبلغ يدويًا من الإدارة قريبًا.`),
           { parse_mode: "HTML" }
         )
         .catch(() => {});
+
+      if (!tonConfigured) {
+        await bot
+          .sendMessage(
+            adminId,
+            `⚠️ <b>لم يتم تحويل طلب السحب #${withdrawalId} تلقائيًا</b>\n\n` +
+              `محفظة البوت الساخنة غير مهيأة (لا يوجد مفتاح/كلمات سرية مضبوطة)، فلن يحدث أي تحويل فعلي على البلوكشين.\n` +
+              `اضبط المفتاح السري للمحفظة من إعدادات السيرفر، أو حوّل المبلغ يدويًا لهذا العنوان:\n` +
+              `<code>${withdrawal.walletAddress}</code>`,
+            { parse_mode: "HTML" }
+          )
+          .catch(() => {});
+      }
     }
 
     await logAdminAudit(

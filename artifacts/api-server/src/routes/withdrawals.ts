@@ -354,6 +354,7 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
           id: numUserId,
           ipHash: user.ipHash,
           ipSuspicious: user.ipSuspicious,
+          createdAt: user.createdAt,
         },
         String(amt),
         cleanAddress,
