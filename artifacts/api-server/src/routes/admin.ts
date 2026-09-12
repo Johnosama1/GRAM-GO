@@ -53,6 +53,25 @@ import { processWithdrawalVote } from "../bot/consensus";
 
 const router = Router();
 
+// ── Live bot username resolver ──────────────────────────────────────────────
+// Never trust BOT_USERNAME/TELEGRAM_BOT_USERNAME env vars blindly — they can
+// be stale or point at an unrelated bot. Always confirm against the actual
+// running bot instance (bot.getMe()) so deep links open the correct chat.
+let cachedBotUsername: string | null = null;
+async function resolveBotUsername(): Promise<string> {
+  if (cachedBotUsername) return cachedBotUsername;
+  try {
+    const me = await getBot().getMe();
+    if (me?.username) {
+      cachedBotUsername = me.username;
+      return cachedBotUsername;
+    }
+  } catch (err) {
+    logger.error({ err }, "Failed to resolve live bot username via getMe()");
+  }
+  return (process.env.BOT_USERNAME || process.env.TELEGRAM_BOT_USERNAME || "").replace(/^@/, "");
+}
+
 // Rate limiter for admin routes
 const adminLimiter = rateLimit({
   windowMs: 60_000,
@@ -74,7 +93,7 @@ router.post("/unlock", async (_req: AdminRequest, res: Response) => {
 
 router.get("/check", async (req: AdminRequest, res: Response) => {
   const admin = req.adminUser!;
-  const botUser = (process.env.BOT_USERNAME || process.env.TELEGRAM_BOT_USERNAME || "GRAM_GO_BOT").replace(/^@/, "");
+  const botUser = await resolveBotUsername();
   res.json({
     isAdmin: true,
     isOwner: true,
