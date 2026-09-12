@@ -104,7 +104,7 @@ export async function handleAdminReplyClick(
     adminId,
     `✍️ <b>أنت الآن في وضع الرد على المستخدم</b> (<code>${targetUserId}</code>)\n\n` +
       `أرسل نص الرسالة الآن وسيتم تحويلها للمستخدم مباشرة.\n` +
-      `<i>(للإلغاء أرسل /cancel أو /admin)</i>`,
+      `<i>(للإلغاء أرسل /cancel)</i>`,
     { parse_mode: "HTML" }
   );
 }

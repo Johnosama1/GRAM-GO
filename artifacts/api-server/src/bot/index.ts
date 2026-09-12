@@ -1173,7 +1173,6 @@ function setupBotHandlers() {
       if (adminInfo) {
         text +=
           `\n\n👑 <b>أوامر الأدمن المتاحة:</b>\n` +
-          `🔸 /admin — فتح لوحة التحكم التفاعلية\n` +
           `🔸 /withdraw — مراجعة طلبات السحب المعلقة والتصويت عليها\n` +
           `🔸 /wallet — فحص رصيد محفظة السحب الساخنة\n` +
           `🔸 /cancel — إلغاء أي حالة إدخال جارية`;
@@ -1190,60 +1189,6 @@ function setupBotHandlers() {
       const userId = msg.from!.id;
       await clearAdminState(userId);
       await bot.sendMessage(msg.chat.id, "✅ تم إلغاء العملية الحالية.");
-    }),
-  );
-
-  // ── /admin ────────────────────────────────────────────────────────────────
-  bot.onText(
-    /^\/admin$/,
-    wrapHandler(async (msg) => {
-      const chatId = msg.chat.id;
-      const userId = msg.from!.id;
-      const adminInfo = await getAdminInfo(userId, msg.from?.username);
-
-      if (!adminInfo) {
-        await bot.sendMessage(chatId, "⚠️ هذا الأمر مخصص للإدارة فقط.", { parse_mode: "HTML" });
-        return;
-      }
-
-      const [usersCount] = await db.select({ c: sql`count(*)` }).from(usersTable);
-      const [pendingCount] = await db.select({ c: sql`count(*)` }).from(withdrawalsTable).where(eq(withdrawalsTable.status, "pending"));
-      const botEnabled = await isBotEnabled();
-
-      const text =
-        `🎛 <b>لوحة تحكم الأدمن — GramGo Bot OS</b>\n\n` +
-        `👤 المشرف: <b>${adminInfo.isOwner ? "مالك البوت (Owner)" : "سب-أدمن (Sub-Admin)"}</b>\n` +
-        `👥 إجمالي المستخدمين: <b>${usersCount?.c ?? 0}</b>\n` +
-        `⏳ طلبات السحب المعلقة: <b>${pendingCount?.c ?? 0}</b>\n` +
-        `🔧 وضع الصيانة: <b>${botEnabled ? "🟢 معطل (البوت يعمل)" : "🔴 مفعّل (البوت في صيانة)"}</b>\n\n` +
-        `اختر العملية المطلوبة من الأزرار:`;
-
-      await bot.sendMessage(chatId, text, {
-        parse_mode: "HTML",
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: "📊 الإحصائيات", callback_data: "adm:stats" },
-              { text: "✏️ رسالة الترحيب", callback_data: "adm:welcome" },
-            ],
-            [
-              { text: "📨 بث جماعي (Broadcast)", callback_data: "adm:broadcast" },
-              { text: "👤 بحث عن مستخدم", callback_data: "adm:find_user" },
-            ],
-            [
-              { text: "💸 أقل سحب", callback_data: "adm:min_withdraw" },
-              { text: "💰 أقل إيداع", callback_data: "adm:min_deposit" },
-            ],
-            [
-              { text: "🔗 مكافأة الإحالة", callback_data: "adm:ref_reward" },
-              { text: botEnabled ? "🛑 تفعيل الصيانة" : "🟢 إيقاف الصيانة", callback_data: "adm:maint_toggle" },
-            ],
-            [
-              { text: "📋 مراجعة السحوبات", callback_data: "adm:review_wd" },
-            ],
-          ],
-        },
-      });
     }),
   );
 
