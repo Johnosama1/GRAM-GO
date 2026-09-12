@@ -20,6 +20,26 @@ export function clearSessionToken() {
   _sessionToken = null;
 }
 
+// ── Admin token (issued by /api/admin/unlock) ────────────────────────
+let _adminToken: string | null = typeof window !== "undefined" ? localStorage.getItem("admin_token") : null;
+
+export function setAdminToken(token: string) {
+  _adminToken = token;
+  try { localStorage.setItem("admin_token", token); } catch {}
+}
+
+export function getAdminToken(): string | null {
+  if (!_adminToken && typeof window !== "undefined") {
+    _adminToken = localStorage.getItem("admin_token");
+  }
+  return _adminToken;
+}
+
+export function clearAdminToken() {
+  _adminToken = null;
+  try { localStorage.removeItem("admin_token"); } catch {}
+}
+
 // ── Module-level caches ───────────────────────────────────────────────
 let _slotsCache: Promise<WheelSlot[]> | null = null;
 export function getWheelSlotsOnce(): Promise<WheelSlot[]> {
@@ -112,6 +132,8 @@ export async function apiCall<T>(path: string, options?: RequestInit): Promise<T
   const baseHeaders: Record<string, string> = { "Content-Type": "application/json" };
   if (initData) baseHeaders["x-telegram-init-data"] = initData;
   if (_sessionToken) baseHeaders["x-session-token"] = _sessionToken;
+  const adminToken = getAdminToken();
+  if (adminToken) baseHeaders["x-admin-token"] = adminToken;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15_000);
@@ -198,8 +220,27 @@ export const api = {
   getUserWithdrawals: (userId: number) => apiCall<Withdrawal[]>(`/withdrawals/${userId}`),
   getUserDeposits: (userId: number) => apiCall<Deposit[]>(`/withdrawals/deposits/${userId}`),
 
+  adminUnlock: (password: string, userId?: number) =>
+    apiCall<{ ok: boolean; token: string; expiresAt: number }>("/admin/unlock", {
+      method: "POST",
+      body: JSON.stringify({ password, userId }),
+    }),
+  adminGetStatus: () => apiCall<{ ok: boolean; unlocked: boolean; admin: { isAdmin: boolean; isOwner: boolean; permissions: string[] } }>("/admin/status"),
   adminCheck: (_userId?: number) => apiCall<{ isAdmin: boolean; role?: string; isOwner?: boolean; permissions?: string[] }>("/admin/check"),
   adminGetStats: () => apiCall<AdminStats>("/admin/stats"),
+  adminGetTopHolders: () => apiCall<any[]>("/admin/top-holders"),
+  adminGetTopReferrers: () => apiCall<any[]>("/admin/top-referrers"),
+  adminGetMiners: () => apiCall<any[]>("/admin/miners"),
+  adminCreateMiner: (data: any) => apiCall<any>("/admin/miners", { method: "POST", body: JSON.stringify(data) }),
+  adminDeleteMiner: (id: number) => apiCall<{ ok: boolean }>(`/admin/miners/${id}`, { method: "DELETE" }),
+  adminGetPromoCodes: () => apiCall<any[]>("/admin/promo-codes"),
+  adminCreatePromoCode: (data: any) => apiCall<any>("/admin/promo-codes", { method: "POST", body: JSON.stringify(data) }),
+  adminDeletePromoCode: (id: number) => apiCall<{ ok: boolean }>(`/admin/promo-codes/${id}`, { method: "DELETE" }),
+  adminTransferBalance: (data: { targetUserId: number; amount: number; currency: string; action: string; note?: string }) =>
+    apiCall<{ ok: boolean; user: any }>("/admin/transfer", { method: "POST", body: JSON.stringify(data) }),
+  adminGetTaskSubmissions: () => apiCall<any[]>("/admin/tasks/submissions"),
+  adminReviewTaskSubmission: (id: number, action: "approve" | "reject", reason?: string) =>
+    apiCall<{ ok: boolean }>(`/admin/tasks/submissions/${id}/review`, { method: "POST", body: JSON.stringify({ action, reason }) }),
   adminBroadcast: (data: { message: string; pin?: boolean; entities?: unknown[] }) =>
     apiCall<{ ok: boolean; queued: boolean; totalUsers: number; message: string }>("/admin/broadcast", { method: "POST", body: JSON.stringify(data) }),
   adminGetSettings: () => apiCall<Record<string, string>>("/admin/settings"),

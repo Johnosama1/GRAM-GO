@@ -1,4 +1,4 @@
-﻿import { pgTable, serial, bigint, text, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, bigint, text, timestamp, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -36,6 +36,14 @@ export const securityEventsTable = pgTable("security_events", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const adminLoginAttemptsTable = pgTable("admin_login_attempts", {
+  id: serial("id").primaryKey(),
+  userId: bigint("user_id", { mode: "number" }),
+  ipAddress: text("ip_address"),
+  success: boolean("success").notNull().default(false),
+  attemptedAt: timestamp("attempted_at").notNull().defaultNow(),
+});
+
 export const insertDeviceFingerprintSchema = createInsertSchema(deviceFingerprintsTable).omit({ id: true, createdAt: true, lastSeenAt: true });
 export type InsertDeviceFingerprint = z.infer<typeof insertDeviceFingerprintSchema>;
 export type DeviceFingerprint = typeof deviceFingerprintsTable.$inferSelect;
@@ -47,3 +55,8 @@ export type Ban = typeof bansTable.$inferSelect;
 export const insertSecurityEventSchema = createInsertSchema(securityEventsTable).omit({ id: true, createdAt: true });
 export type InsertSecurityEvent = z.infer<typeof insertSecurityEventSchema>;
 export type SecurityEvent = typeof securityEventsTable.$inferSelect;
+
+export const insertAdminLoginAttemptSchema = createInsertSchema(adminLoginAttemptsTable).omit({ id: true, attemptedAt: true });
+export type InsertAdminLoginAttempt = z.infer<typeof insertAdminLoginAttemptSchema>;
+export type AdminLoginAttempt = typeof adminLoginAttemptsTable.$inferSelect;
+

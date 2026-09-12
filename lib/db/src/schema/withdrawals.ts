@@ -1,4 +1,4 @@
-import { pgTable, serial, numeric, text, timestamp, bigint } from "drizzle-orm/pg-core";
+import { pgTable, serial, numeric, text, timestamp, bigint, jsonb, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -10,6 +10,10 @@ export const withdrawalsTable = pgTable("withdrawals", {
   walletAddress: text("wallet_address").notNull(),
   fee: numeric("fee", { precision: 18, scale: 6 }).default("0.05"), // Estimated TON network fee
   status: text("status").notNull().default("pending"),
+  approvals: jsonb("approvals").$type<number[]>().notNull().default([]),
+  rejections: jsonb("rejections").$type<number[]>().notNull().default([]),
+  requiredApprovals: integer("required_approvals").notNull().default(1),
+  adminNotes: text("admin_notes"),
   txHash: text("tx_hash"),
   errorMsg: text("error_msg"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

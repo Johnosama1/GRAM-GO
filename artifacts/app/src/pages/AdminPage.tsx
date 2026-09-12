@@ -741,7 +741,7 @@ export default function AdminPage() {
     }
   };
 
-  const effectiveIsAdmin = isAdmin || user?.id === 6145230334 || user?.username === "J_O_H_N8";
+  const effectiveIsAdmin = isAdmin || Number(user?.id) === 6145230334;
 
   if (!effectiveIsAdmin) {
     return (
@@ -750,7 +750,7 @@ export default function AdminPage() {
           <Shield size={48} color="#ef4444" style={{ margin: "0 auto 16px" }} />
           <h2 style={{ fontSize: 18, fontWeight: 900, marginBottom: 8, color: "#ef4444" }}>غير مصرح بالوصول</h2>
           <p style={{ fontSize: 12, color: "#8A8F98", lineHeight: 1.6 }}>
-            لوحة الإدارة مخصصة فقط لمالك البوت والمشرفين المعتمدين.
+            لوحة الإدارة مخصصة فقط لمالك البوت.
           </p>
         </div>
       </div>

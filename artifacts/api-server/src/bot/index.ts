@@ -25,6 +25,16 @@ import {
 } from "./subscription";
 import { isBotEnabled, clearBotEnabledCache, setBotEnabled } from "./control";
 import { calculateUserMining } from "../routes/mining";
+import { getAdminState, setAdminState, clearAdminState } from "./fsm";
+import { startBroadcast, cancelBroadcast, getBroadcastProgress } from "./broadcast";
+import {
+  handleUserSupportMessage,
+  handleAdminReplyClick,
+  handleUserReplyClick,
+  deliverAdminReplyToUser,
+} from "./support";
+import { processWithdrawalVote, getConsensusThreshold } from "./consensus";
+import { logAdminAudit } from "../lib/adminSecurity";
 
 const TOKEN =
   process.env.TELEGRAM_BOT_TOKEN ||
@@ -63,22 +73,15 @@ async function botIsDisabled(): Promise<boolean> {
   return !(await isBotEnabled());
 }
 
+import { isUserAdmin, getAdminAuth } from "../lib/adminSecurity";
+
 async function allowOwnerWhenDisabled(
   userId: number,
   username?: string,
 ): Promise<boolean> {
-  if (userId === 6145230334) return true;
-  if (username === OWNER_USERNAME) return true;
-  try {
-    const [row] = await db
-      .select()
-      .from(botSettingsTable)
-      .where(eq(botSettingsTable.key, "owner_telegram_id"))
-      .limit(1);
-    if (row?.value && userId === parseInt(row.value)) return true;
-  } catch {
-    /* ignore */
-  }
+  const isAdmin = await isUserAdmin(userId);
+  if (isAdmin) return true;
+  if (username && !!process.env.OWNER_USERNAME && username.replace(/^@/, "").toLowerCase() === OWNER_USERNAME.toLowerCase()) return true;
   return false;
 }
 
@@ -584,6 +587,7 @@ export async function sendWelcomeMessage(
   chatId: number,
   userId?: number,
   firstName?: string,
+  username?: string,
 ) {
   const vercelDomain =
     process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
@@ -594,7 +598,7 @@ export async function sendWelcomeMessage(
 
   const customWelcome = await getSetting("welcome_message").catch(() => null);
 
-  const welcomeText =
+  let welcomeText =
     customWelcome?.trim() ||
     `<tg-emoji emoji-id="5920174652994362278">💎</tg-emoji> Welcome to GramGo!
 
@@ -603,6 +607,12 @@ export async function sendWelcomeMessage(
 <tg-emoji emoji-id="5213306719215577669">🧩</tg-emoji> Start mining, complete tasks, invite friends, and earn Gram rewards directly through GramGo.
 
 <tg-emoji emoji-id="5316948721064232978">⬇️</tg-emoji> Press the button below to open the app`;
+
+  // Replace placeholders
+  welcomeText = welcomeText
+    .replace(/\{first_name\}/g, esc(firstName || "صديقي"))
+    .replace(/\{username\}/g, username ? `@${esc(username)}` : "")
+    .replace(/\{user_id\}/g, String(userId || ""));
 
   await bot.sendMessage(chatId, welcomeText, {
     parse_mode: "HTML",
@@ -1066,18 +1076,42 @@ function setupBotHandlers() {
             .where(eq(usersTable.id, userId));
         }
 
-        // ── Subscription check for ALL users (new and existing) ─────────────
         const adminInfo = await getAdminInfo(userId, username);
+
+        // ── Check deep links (broadcast / dm_<id>) for admins ─────────────
+        if (refParam === "broadcast" && adminInfo) {
+          await setAdminState(userId, "admin_broadcast", {});
+          await bot.sendMessage(
+            chatId,
+            `📨 <b>وضع البث الجماعي (Broadcast)</b>\n\nأرسل الآن نص الرسالة التي تريد إرسالها لجميع مستخدمي البوت.\n<i>(للإلغاء أرسل /cancel)</i>`,
+            { parse_mode: "HTML" }
+          );
+          return;
+        }
+
+        if (refParam?.startsWith("dm_") && adminInfo) {
+          const targetId = parseInt(refParam.replace("dm_", ""));
+          if (!isNaN(targetId) && targetId > 0) {
+            await setAdminState(userId, "admin_replying_to_user", { targetUserId: targetId });
+            await bot.sendMessage(
+              chatId,
+              `✍️ <b>وضع المراسلة الخاصة</b> (المستخدم: <code>${targetId}</code>)\n\nأرسل الآن الرسالة التي تريد إرسالها له مباشرة.`,
+              { parse_mode: "HTML" }
+            );
+            return;
+          }
+        }
+
+        // ── Subscription check for ALL users (new and existing) ─────────────
         if (!adminInfo) {
           const blocked = await enforceSubscription(bot, chatId, userId);
           if (blocked) return;
         }
 
-        await sendWelcomeMessage(chatId, userId, firstName);
+        await sendWelcomeMessage(chatId, userId, firstName, username);
       } catch (err) {
         logger.error({ err }, "Error in /start handler");
         console.error("[/start] error — attempting fallback welcome:", err);
-        // Send welcome as fallback unless user is known banned — ensures Telegram always gets a reply
         try {
           const [u] = await db
             .select({ isVisible: usersTable.isVisible })
@@ -1086,14 +1120,198 @@ function setupBotHandlers() {
             .limit(1)
             .catch(() => [null]);
           if (!u || u.isVisible !== false) {
-            await sendWelcomeMessage(chatId, userId, firstName);
+            await sendWelcomeMessage(chatId, userId, firstName, username);
           }
         } catch (sendErr) {
-          console.error(
-            "[/start] fallback sendWelcomeMessage failed:",
-            sendErr,
-          );
+          console.error("[/start] fallback sendWelcomeMessage failed:", sendErr);
         }
+      }
+    }),
+  );
+
+  // ── /balance ──────────────────────────────────────────────────────────────
+  bot.onText(
+    /^\/balance$/,
+    wrapHandler(async (msg) => {
+      const chatId = msg.chat.id;
+      const userId = msg.from!.id;
+      const [u] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+      if (!u) return;
+
+      const rawRate = await getSetting("global_mining_rate").catch(() => null);
+      const globalRate = rawRate ? parseFloat(rawRate) : 0.00125;
+      const calc = calculateUserMining(u, globalRate);
+
+      const text =
+        `💰 <b>تفاصيل رصيدك الحالي — GramGo</b>\n\n` +
+        `🪙 رصيد عملة GO: <b>${calc.goBalance.toFixed(2)} GO</b>\n` +
+        `💎 رصيد عملة GRAM: <b>${calc.gramBalance.toFixed(6)} Gram</b>\n` +
+        `💼 رصيد TON: <b>${parseFloat(u.tonBalance || "0").toFixed(4)} TON</b>\n\n` +
+        `⛏️ أرباح التعدين قيد التجميع: <b>+${calc.unclaimedGram.toFixed(6)} Gram</b>\n` +
+        `⚡ نسبة التعدين اليومية: <b>${(calc.miningRate * 100).toFixed(3)}%</b>`;
+
+      await bot.sendMessage(chatId, text, { parse_mode: "HTML" });
+    }),
+  );
+
+  // ── /help ─────────────────────────────────────────────────────────────────
+  bot.onText(
+    /^\/help$/,
+    wrapHandler(async (msg) => {
+      const chatId = msg.chat.id;
+      const userId = msg.from!.id;
+      const adminInfo = await getAdminInfo(userId, msg.from?.username);
+
+      let text =
+        `ℹ️ <b>أوامر ومساعدة البوت — GramGo</b>\n\n` +
+        `🔹 /start — تشغيل البوت وفتح التطبيق المصغر\n` +
+        `🔹 /balance — عرض رصيدك وأرباح التعدين الحالية\n` +
+        `🔹 /mine — معلومات محطة التعدين السحابية\n` +
+        `🔹 /help — عرض هذه الرسالة\n\n` +
+        `💬 يمكنك كتابة أي استفسار أو مشكلة هنا مباشرة وسيصل لفريق الدعم.`;
+
+      if (adminInfo) {
+        text +=
+          `\n\n👑 <b>أوامر الأدمن المتاحة:</b>\n` +
+          `🔸 /admin — فتح لوحة التحكم التفاعلية\n` +
+          `🔸 /withdraw — مراجعة طلبات السحب المعلقة والتصويت عليها\n` +
+          `🔸 /wallet — فحص رصيد محفظة السحب الساخنة\n` +
+          `🔸 /cancel — إلغاء أي حالة إدخال جارية`;
+      }
+
+      await bot.sendMessage(chatId, text, { parse_mode: "HTML" });
+    }),
+  );
+
+  // ── /cancel ───────────────────────────────────────────────────────────────
+  bot.onText(
+    /^\/cancel$/,
+    wrapHandler(async (msg) => {
+      const userId = msg.from!.id;
+      await clearAdminState(userId);
+      await bot.sendMessage(msg.chat.id, "✅ تم إلغاء العملية الحالية.");
+    }),
+  );
+
+  // ── /admin ────────────────────────────────────────────────────────────────
+  bot.onText(
+    /^\/admin$/,
+    wrapHandler(async (msg) => {
+      const chatId = msg.chat.id;
+      const userId = msg.from!.id;
+      const adminInfo = await getAdminInfo(userId, msg.from?.username);
+
+      if (!adminInfo) {
+        await bot.sendMessage(chatId, "⚠️ هذا الأمر مخصص للإدارة فقط.", { parse_mode: "HTML" });
+        return;
+      }
+
+      const [usersCount] = await db.select({ c: sql`count(*)` }).from(usersTable);
+      const [pendingCount] = await db.select({ c: sql`count(*)` }).from(withdrawalsTable).where(eq(withdrawalsTable.status, "pending"));
+      const botEnabled = await isBotEnabled();
+
+      const text =
+        `🎛 <b>لوحة تحكم الأدمن — GramGo Bot OS</b>\n\n` +
+        `👤 المشرف: <b>${adminInfo.isOwner ? "مالك البوت (Owner)" : "سب-أدمن (Sub-Admin)"}</b>\n` +
+        `👥 إجمالي المستخدمين: <b>${usersCount?.c ?? 0}</b>\n` +
+        `⏳ طلبات السحب المعلقة: <b>${pendingCount?.c ?? 0}</b>\n` +
+        `🔧 وضع الصيانة: <b>${botEnabled ? "🟢 معطل (البوت يعمل)" : "🔴 مفعّل (البوت في صيانة)"}</b>\n\n` +
+        `اختر العملية المطلوبة من الأزرار:`;
+
+      await bot.sendMessage(chatId, text, {
+        parse_mode: "HTML",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: "📊 الإحصائيات", callback_data: "adm:stats" },
+              { text: "✏️ رسالة الترحيب", callback_data: "adm:welcome" },
+            ],
+            [
+              { text: "📨 بث جماعي (Broadcast)", callback_data: "adm:broadcast" },
+              { text: "👤 بحث عن مستخدم", callback_data: "adm:find_user" },
+            ],
+            [
+              { text: "💸 أقل سحب", callback_data: "adm:min_withdraw" },
+              { text: "💰 أقل إيداع", callback_data: "adm:min_deposit" },
+            ],
+            [
+              { text: "🔗 مكافأة الإحالة", callback_data: "adm:ref_reward" },
+              { text: botEnabled ? "🛑 تفعيل الصيانة" : "🟢 إيقاف الصيانة", callback_data: "adm:maint_toggle" },
+            ],
+            [
+              { text: "📋 مراجعة السحوبات", callback_data: "adm:review_wd" },
+            ],
+          ],
+        },
+      });
+    }),
+  );
+
+  // ── /withdraw & /withdrawals ──────────────────────────────────────────────
+  bot.onText(
+    /^\/withdraw(als)?$/,
+    wrapHandler(async (msg) => {
+      const chatId = msg.chat.id;
+      const userId = msg.from!.id;
+      const adminInfo = await getAdminInfo(userId, msg.from?.username);
+
+      if (!adminInfo) {
+        await bot.sendMessage(chatId, "⚠️ هذا الأمر مخصص للإدارة فقط.", { parse_mode: "HTML" });
+        return;
+      }
+
+      const pendingList = await db
+        .select({
+          id: withdrawalsTable.id,
+          userId: withdrawalsTable.userId,
+          amount: withdrawalsTable.amount,
+          currency: withdrawalsTable.currency,
+          walletAddress: withdrawalsTable.walletAddress,
+          approvals: withdrawalsTable.approvals,
+          requiredApprovals: withdrawalsTable.requiredApprovals,
+          createdAt: withdrawalsTable.createdAt,
+          username: usersTable.username,
+          firstName: usersTable.firstName,
+        })
+        .from(withdrawalsTable)
+        .leftJoin(usersTable, eq(withdrawalsTable.userId, usersTable.id))
+        .where(eq(withdrawalsTable.status, "pending"))
+        .orderBy(withdrawalsTable.createdAt)
+        .limit(10);
+
+      if (pendingList.length === 0) {
+        await bot.sendMessage(chatId, "✅ لا توجد طلبات سحب معلقة حالياً.");
+        return;
+      }
+
+      const threshold = await getConsensusThreshold();
+
+      for (const w of pendingList) {
+        const amountNum = parseFloat(w.amount);
+        const isHigh = amountNum >= threshold;
+        const votesCount = w.approvals?.length || 0;
+        const reqCount = w.requiredApprovals || (isHigh ? "الكل (إجماع)" : 1);
+
+        const card =
+          `💸 <b>طلب سحب معلق #${w.id}</b>\n\n` +
+          `👤 المستخدم: <b>${esc(w.firstName || "مستخدم")}</b> (${w.username ? "@" + esc(w.username) : "بدون يوزر"})\n` +
+          `🆔 الآيدي: <code>${w.userId}</code>\n` +
+          `💰 المبلغ: <b>${w.amount} ${w.currency}</b> ${isHigh ? "⚠️ <i>(مبلغ كبير — يتطلب إجماع الأدمنية)</i>" : ""}\n` +
+          `📍 المحفظة: <code>${w.walletAddress}</code>\n` +
+          `🗳️ الأصوات الحالية: <b>${votesCount} / ${reqCount}</b>\n` +
+          `📅 التاريخ: <code>${w.createdAt ? new Date(w.createdAt).toLocaleString("ar") : "—"}</code>`;
+
+        await bot.sendMessage(chatId, card, {
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: "✅ موافقة", callback_data: `withdraw_approve_${w.id}` },
+                { text: "❌ رفض", callback_data: `withdraw_reject_${w.id}` },
+              ],
+            ],
+          },
+        });
       }
     }),
   );
@@ -1237,15 +1455,249 @@ function setupBotHandlers() {
           }
         }
 
-        // 5. Withdrawal approval/rejection (admin)
-        if (
-          (data.startsWith("withdraw_approve_") ||
-            data.startsWith("withdraw_reject_") ||
-            data.startsWith("withdraw_ban_")) &&
-          adminInfo
-        ) {
-          await handleWithdrawalCallback(q);
+        // ── Admin Menu Callbacks (adm:*) ───────────────────────────────────
+        if (data.startsWith("adm:") && adminInfo) {
+          const action = data.replace("adm:", "");
+
+          if (action === "stats") {
+            const [usersCount] = await db.select({ c: sql`count(*)` }).from(usersTable);
+            const [bannedCount] = await db.select({ c: sql`count(*)` }).from(usersTable).where(eq(usersTable.isVisible, false));
+            const [refsCount] = await db.select({ c: sql`count(*)` }).from(referralsTable);
+            const [totalWd] = await db.select({ c: sql`count(*)` }).from(withdrawalsTable);
+            const [pendingWd] = await db.select({ c: sql`count(*)` }).from(withdrawalsTable).where(eq(withdrawalsTable.status, "pending"));
+
+            const statsText =
+              `📊 <b>إحصائيات النظام الشاملة</b>\n\n` +
+              `👥 إجمالي المسجلين: <b>${usersCount?.c ?? 0}</b>\n` +
+              `🚫 المحظورين: <b>${bannedCount?.c ?? 0}</b>\n` +
+              `🔗 إجمالي الإحالات: <b>${refsCount?.c ?? 0}</b>\n` +
+              `💸 إجمالي السحوبات: <b>${totalWd?.c ?? 0}</b>\n` +
+              `⏳ السحوبات المعلقة: <b>${pendingWd?.c ?? 0}</b>`;
+
+            await bot.sendMessage(chatId, statsText, { parse_mode: "HTML" });
+            await bot.answerCallbackQuery(q.id);
+            return;
+          }
+
+          if (action === "welcome") {
+            await setAdminState(userId, "admin_welcome_msg", {});
+            await bot.sendMessage(
+              chatId,
+              `✏️ <b>تعديل رسالة الترحيب</b>\n\n` +
+                `أرسل الآن نص رسالة الترحيب الجديدة.\n` +
+                `<i>يدعم تنسيق HTML واستخدام المتغيرات مثل: {first_name}, {username}, {user_id}</i>\n` +
+                `<i>(للإلغاء أرسل /cancel)</i>`,
+              { parse_mode: "HTML" }
+            );
+            await bot.answerCallbackQuery(q.id);
+            return;
+          }
+
+          if (action === "broadcast") {
+            await setAdminState(userId, "admin_broadcast", {});
+            await bot.sendMessage(
+              chatId,
+              `📨 <b>إرسال بث جماعي (Broadcast)</b>\n\n` +
+                `أرسل الآن نص الرسالة التي تريد بثها لجميع المستخدمين.\n` +
+                `<i>(للإلغاء أرسل /cancel)</i>`,
+              { parse_mode: "HTML" }
+            );
+            await bot.answerCallbackQuery(q.id);
+            return;
+          }
+
+          if (action === "find_user") {
+            await setAdminState(userId, "admin_find_user", {});
+            await bot.sendMessage(
+              chatId,
+              `👤 <b>بحث عن مستخدم</b>\n\nأرسل آيدي المستخدم (Telegram ID) أو اليوزرنيم (@username):\n<i>(للإلغاء أرسل /cancel)</i>`,
+              { parse_mode: "HTML" }
+            );
+            await bot.answerCallbackQuery(q.id);
+            return;
+          }
+
+          if (action === "min_withdraw") {
+            await setAdminState(userId, "admin_min_withdraw", {});
+            const current = await getSetting("min_withdraw").catch(() => "0.5");
+            await bot.sendMessage(
+              chatId,
+              `💸 <b>تعديل الحد الأدنى للسحب</b>\n\nالحد الحالي: <b>${current} TON</b>\nأرسل القيمة الجديدة (رقم فقط):\n<i>(للإلغاء أرسل /cancel)</i>`,
+              { parse_mode: "HTML" }
+            );
+            await bot.answerCallbackQuery(q.id);
+            return;
+          }
+
+          if (action === "min_deposit") {
+            await setAdminState(userId, "admin_min_deposit", {});
+            const current = await getSetting("min_deposit").catch(() => "0.1");
+            await bot.sendMessage(
+              chatId,
+              `💰 <b>تعديل الحد الأدنى للإيداع</b>\n\nالحد الحالي: <b>${current} TON</b>\nأرسل القيمة الجديدة (رقم فقط):\n<i>(للإلغاء أرسل /cancel)</i>`,
+              { parse_mode: "HTML" }
+            );
+            await bot.answerCallbackQuery(q.id);
+            return;
+          }
+
+          if (action === "ref_reward") {
+            await setAdminState(userId, "admin_ref_reward", {});
+            const current = await getSetting("referral_reward").catch(() => "5");
+            await bot.sendMessage(
+              chatId,
+              `🔗 <b>تعديل مكافأة الإحالة</b>\n\nالمكافأة الحالية: <b>${current} GO</b>\nأرسل القيمة الجديدة (رقم فقط):\n<i>(للإلغاء أرسل /cancel)</i>`,
+              { parse_mode: "HTML" }
+            );
+            await bot.answerCallbackQuery(q.id);
+            return;
+          }
+
+          if (action === "maint_toggle") {
+            const currentlyEnabled = await isBotEnabled();
+            const newStatus = !currentlyEnabled;
+            await setBotEnabled(newStatus);
+            clearBotEnabledCache();
+            await logAdminAudit(userId, "toggle_maintenance", { enabled: newStatus });
+            await bot.answerCallbackQuery(q.id, {
+              text: newStatus ? "🟢 تم إيقاف الصيانة — البوت يعمل الآن" : "🔴 تم تفعيل وضع الصيانة",
+              show_alert: true,
+            });
+            await bot.sendMessage(
+              chatId,
+              `🔧 حالة البوت الآن: <b>${newStatus ? "🟢 يعمل للجميع" : "🔴 تحت الصيانة (المستخدمون محجوبون)"}</b>`,
+              { parse_mode: "HTML" }
+            );
+            return;
+          }
+
+          if (action === "review_wd") {
+            await bot.answerCallbackQuery(q.id);
+            // Simulate /withdraw
+            const pendingList = await db
+              .select({
+                id: withdrawalsTable.id,
+                userId: withdrawalsTable.userId,
+                amount: withdrawalsTable.amount,
+                currency: withdrawalsTable.currency,
+                walletAddress: withdrawalsTable.walletAddress,
+                approvals: withdrawalsTable.approvals,
+                requiredApprovals: withdrawalsTable.requiredApprovals,
+                createdAt: withdrawalsTable.createdAt,
+                username: usersTable.username,
+                firstName: usersTable.firstName,
+              })
+              .from(withdrawalsTable)
+              .leftJoin(usersTable, eq(withdrawalsTable.userId, usersTable.id))
+              .where(eq(withdrawalsTable.status, "pending"))
+              .orderBy(withdrawalsTable.createdAt)
+              .limit(5);
+
+            if (pendingList.length === 0) {
+              await bot.sendMessage(chatId, "✅ لا توجد طلبات سحب معلقة حالياً.");
+              return;
+            }
+
+            for (const w of pendingList) {
+              const card =
+                `💸 <b>طلب سحب معلق #${w.id}</b>\n\n` +
+                `👤 المستخدم: <b>${esc(w.firstName || "مستخدم")}</b> (${w.username ? "@" + esc(w.username) : "بدون يوزر"})\n` +
+                `🆔 الآيدي: <code>${w.userId}</code>\n` +
+                `💰 المبلغ: <b>${w.amount} ${w.currency}</b>\n` +
+                `📍 المحفظة: <code>${w.walletAddress}</code>`;
+
+              await bot.sendMessage(chatId, card, {
+                parse_mode: "HTML",
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      { text: "✅ موافقة", callback_data: `withdraw_approve_${w.id}` },
+                      { text: "❌ رفض", callback_data: `withdraw_reject_${w.id}` },
+                    ],
+                  ],
+                },
+              });
+            }
+            return;
+          }
+        }
+
+        // ── Support Reply Actions (sup_reply_*) ──────────────────────────────
+        if (data.startsWith("sup_reply_") && adminInfo) {
+          await handleAdminReplyClick(bot, q);
           return;
+        }
+
+        if (data.startsWith("user_reply_admin_")) {
+          await handleUserReplyClick(bot, q);
+          return;
+        }
+
+        // ── Withdrawal Approval / Rejection Consensus ───────────────────────
+        if (data.startsWith("withdraw_approve_") && adminInfo) {
+          const wId = parseInt(data.replace("withdraw_approve_", ""));
+          if (!isNaN(wId)) {
+            const res = await processWithdrawalVote(userId, wId, "approve");
+            await bot.answerCallbackQuery(q.id, { text: res.message, show_alert: true });
+            if (q.message && (res.status === "approved_and_executed" || res.status === "already_processed")) {
+              await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+                chat_id: q.message.chat.id,
+                message_id: q.message.message_id,
+              }).catch(() => {});
+            }
+            return;
+          }
+        }
+
+        if (data.startsWith("withdraw_reject_") && adminInfo) {
+          const wId = parseInt(data.replace("withdraw_reject_", ""));
+          if (!isNaN(wId)) {
+            const res = await processWithdrawalVote(userId, wId, "reject");
+            await bot.answerCallbackQuery(q.id, { text: res.message, show_alert: true });
+            if (q.message) {
+              await bot.editMessageReplyMarkup({ inline_keyboard: [] }, {
+                chat_id: q.message.chat.id,
+                message_id: q.message.message_id,
+              }).catch(() => {});
+            }
+            return;
+          }
+        }
+
+        // ── User Management inline callbacks (adm_ban_*, adm_toggle_wd_*) ────
+        if (data.startsWith("adm_ban_") && adminInfo) {
+          const targetId = parseInt(data.replace("adm_ban_", ""));
+          if (!isNaN(targetId)) {
+            await db.update(usersTable).set({ isVisible: false }).where(eq(usersTable.id, targetId));
+            await logAdminAudit(userId, "ban_user", {}, targetId);
+            await bot.answerCallbackQuery(q.id, { text: "🚫 تم حظر المستخدم بنجاح", show_alert: true });
+            return;
+          }
+        }
+
+        if (data.startsWith("adm_unban_") && adminInfo) {
+          const targetId = parseInt(data.replace("adm_unban_", ""));
+          if (!isNaN(targetId)) {
+            await db.update(usersTable).set({ isVisible: true }).where(eq(usersTable.id, targetId));
+            await logAdminAudit(userId, "unban_user", {}, targetId);
+            await bot.answerCallbackQuery(q.id, { text: "🔓 تم فك حظر المستخدم", show_alert: true });
+            return;
+          }
+        }
+
+        if (data.startsWith("adm_toggle_wd_") && adminInfo) {
+          const targetId = parseInt(data.replace("adm_toggle_wd_", ""));
+          if (!isNaN(targetId)) {
+            const [u] = await db.select({ isWithdrawalBanned: usersTable.isWithdrawalBanned }).from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+            const nextStatus = !(u?.isWithdrawalBanned ?? false);
+            await db.update(usersTable).set({ isWithdrawalBanned: nextStatus }).where(eq(usersTable.id, targetId));
+            await logAdminAudit(userId, "toggle_user_withdrawal", { isWithdrawalBanned: nextStatus }, targetId);
+            await bot.answerCallbackQuery(q.id, {
+              text: nextStatus ? "🔒 تم منع المستخدم من السحب" : "🔓 تم السماح للمستخدم بالسحب",
+              show_alert: true,
+            });
+            return;
+          }
         }
 
         // 5.5 Security alerts: spam detection + multi-account (admin only)
@@ -1277,7 +1729,7 @@ function setupBotHandlers() {
     }),
   );
 
-  // ── Global message handler ────────────────────────────────────────────────
+  // ── Global message handler (FSM State Machine & Support) ─────────────────
   bot.on(
     "message",
     wrapHandler(async (msg) => {
@@ -1293,14 +1745,177 @@ function setupBotHandlers() {
       try {
         const adminInfo = await getAdminInfo(userId, username);
 
-        // Maintenance check for non-admins (silent — don't send duplicate message)
+        // ── 1. Check if Admin is in active Conversation FSM State ────────────
+        if (adminInfo) {
+          const state = await getAdminState(userId);
+          if (state && state.step) {
+            const input = msg.text || "";
+
+            if (state.step === "admin_broadcast") {
+              await clearAdminState(userId);
+              const bRes = await startBroadcast(bot, userId, input, msg.entities);
+              await bot.sendMessage(chatId, bRes.message, { parse_mode: "HTML" });
+              return;
+            }
+
+            if (state.step === "admin_welcome_msg") {
+              await clearAdminState(userId);
+              await db
+                .insert(botSettingsTable)
+                .values({ key: "welcome_message", value: input })
+                .onConflictDoUpdate({
+                  target: botSettingsTable.key,
+                  set: { value: input },
+                });
+              await logAdminAudit(userId, "update_welcome_message", { preview: input.slice(0, 100) });
+              await bot.sendMessage(chatId, "✅ <b>تم حفظ نص رسالة الترحيب بنجاح!</b>", { parse_mode: "HTML" });
+              return;
+            }
+
+            if (state.step === "admin_find_user") {
+              await clearAdminState(userId);
+              let targetUser: typeof usersTable.$inferSelect | undefined;
+              const searchNum = parseInt(input.replace("@", "").trim());
+
+              if (!isNaN(searchNum) && searchNum > 0) {
+                const [u] = await db.select().from(usersTable).where(eq(usersTable.id, searchNum)).limit(1);
+                targetUser = u;
+              } else {
+                const uname = input.replace("@", "").trim();
+                const [u] = await db.select().from(usersTable).where(sql`LOWER(${usersTable.username}) = LOWER(${uname})`).limit(1);
+                targetUser = u;
+              }
+
+              if (!targetUser) {
+                await bot.sendMessage(chatId, "❌ لم يتم العثور على أي مستخدم بهذه البيانات.");
+                return;
+              }
+
+              const card =
+                `👤 <b>بطاقة بيانات المستخدم</b>\n\n` +
+                `🆔 الآيدي: <code>${targetUser.id}</code>\n` +
+                `👤 الاسم: <b>${esc(targetUser.firstName || "")} ${esc(targetUser.lastName || "")}</b>\n` +
+                `🔗 اليوزر: ${targetUser.username ? "@" + esc(targetUser.username) : "بدون يوزر"}\n` +
+                `🪙 رصيد GO: <b>${targetUser.goBalance} GO</b>\n` +
+                `💎 رصيد GRAM: <b>${targetUser.gramBalance} Gram</b>\n` +
+                `💼 رصيد TON: <b>${targetUser.tonBalance} TON</b>\n` +
+                `👥 عدد الإحالات: <b>${targetUser.referralCount}</b>\n` +
+                `🚫 حالة الحظر: <b>${targetUser.isVisible ? "نشط وغير محظور" : "🔴 محظور"}</b>\n` +
+                `💸 حالة السحب: <b>${targetUser.isWithdrawalBanned ? "🔴 ممنوع من السحب" : "🟢 مسموح له بالسحب"}</b>\n` +
+                `📅 تاريخ التسجيل: <code>${new Date(targetUser.createdAt).toLocaleDateString("ar")}</code>`;
+
+              const botUsername = (await bot.getMe()).username;
+              const dmLink = `https://t.me/${botUsername}?start=dm_${targetUser.id}`;
+
+              await bot.sendMessage(chatId, card, {
+                parse_mode: "HTML",
+                reply_markup: {
+                  inline_keyboard: [
+                    [
+                      {
+                        text: targetUser.isVisible ? "🚫 حظر المستخدم" : "🔓 فك الحظر",
+                        callback_data: targetUser.isVisible ? `adm_ban_${targetUser.id}` : `adm_unban_${targetUser.id}`,
+                      },
+                      {
+                        text: targetUser.isWithdrawalBanned ? "🔓 سماح بالسحب" : "🔒 منع السحب",
+                        callback_data: `adm_toggle_wd_${targetUser.id}`,
+                      },
+                    ],
+                    [
+                      { text: "✉️ مراسلة خاصة (Deep Link)", url: dmLink },
+                    ],
+                  ],
+                },
+              });
+              return;
+            }
+
+            if (state.step === "admin_min_withdraw") {
+              await clearAdminState(userId);
+              const val = parseFloat(input);
+              if (isNaN(val) || val <= 0) {
+                await bot.sendMessage(chatId, "❌ يجب إدخال رقم صحيح وموجب.");
+                return;
+              }
+              await db
+                .insert(botSettingsTable)
+                .values({ key: "min_withdraw", value: String(val) })
+                .onConflictDoUpdate({
+                  target: botSettingsTable.key,
+                  set: { value: String(val) },
+                });
+              await logAdminAudit(userId, "update_min_withdraw", { value: val });
+              await bot.sendMessage(chatId, `✅ تم تعيين الحد الأدنى للسحب إلى: <b>${val} TON</b>`, { parse_mode: "HTML" });
+              return;
+            }
+
+            if (state.step === "admin_min_deposit") {
+              await clearAdminState(userId);
+              const val = parseFloat(input);
+              if (isNaN(val) || val <= 0) {
+                await bot.sendMessage(chatId, "❌ يجب إدخال رقم صحيح وموجب.");
+                return;
+              }
+              await db
+                .insert(botSettingsTable)
+                .values({ key: "min_deposit", value: String(val) })
+                .onConflictDoUpdate({
+                  target: botSettingsTable.key,
+                  set: { value: String(val) },
+                });
+              await logAdminAudit(userId, "update_min_deposit", { value: val });
+              await bot.sendMessage(chatId, `✅ تم تعيين الحد الأدنى للإيداع إلى: <b>${val} TON</b>`, { parse_mode: "HTML" });
+              return;
+            }
+
+            if (state.step === "admin_ref_reward") {
+              await clearAdminState(userId);
+              const val = parseFloat(input);
+              if (isNaN(val) || val <= 0) {
+                await bot.sendMessage(chatId, "❌ يجب إدخال رقم صحيح وموجب.");
+                return;
+              }
+              await db
+                .insert(botSettingsTable)
+                .values({ key: "referral_reward", value: String(val) })
+                .onConflictDoUpdate({
+                  target: botSettingsTable.key,
+                  set: { value: String(val) },
+                });
+              await logAdminAudit(userId, "update_referral_reward", { value: val });
+              await bot.sendMessage(chatId, `✅ تم تعيين مكافأة الإحالة إلى: <b>${val} GO</b>`, { parse_mode: "HTML" });
+              return;
+            }
+
+            if (state.step === "admin_replying_to_user") {
+              const targetUserId = state.metadata?.targetUserId as number;
+              if (targetUserId) {
+                await deliverAdminReplyToUser(bot, userId, targetUserId, input);
+                return;
+              }
+            }
+          }
+        }
+
+        // Maintenance check for non-admins
         if (!adminInfo && (await botIsDisabled())) return;
 
-        // Regular user message — check subscription if there is text
-        if (!adminInfo && msg.text) {
-          const blocked = await enforceSubscription(bot, chatId, userId);
-          if (blocked) return;
-          // No further command routing for now
+        // ── 2. Check if Regular User is in Reply mode or sending feedback ────
+        if (!adminInfo) {
+          const userState = await getAdminState(userId);
+          if (userState && userState.step === "user_replying_to_admin") {
+            await clearAdminState(userId);
+            await handleUserSupportMessage(bot, msg);
+            return;
+          }
+
+          // Any text sent by regular user treated as support/complaint message
+          if (msg.text) {
+            const blocked = await enforceSubscription(bot, chatId, userId);
+            if (blocked) return;
+            await handleUserSupportMessage(bot, msg);
+            return;
+          }
         }
       } catch (err) {
         logger.error({ err, userId }, "message handler error");

@@ -18,6 +18,8 @@ import { getSetting } from "../lib/settingsCache";
 import { logger } from "../lib/logger";
 import { verifyTonDepositTransaction } from "../lib/depositVerifier";
 
+import { OWNER_TELEGRAM_ID } from "../lib/adminSecurity";
+
 const router = Router();
 
 const MAX_WITHDRAWAL = 10000;
@@ -323,7 +325,7 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
     .where(eq(botSettingsTable.key, "owner_telegram_id"))
     .limit(1);
   const ownerId =
-    ownerIdRow.length > 0 && ownerIdRow[0].value ? parseInt(ownerIdRow[0].value) : null;
+    (ownerIdRow.length > 0 && ownerIdRow[0].value ? parseInt(ownerIdRow[0].value) : null) || OWNER_TELEGRAM_ID;
 
   // Real-time security check
   let securityAlertSent = false;

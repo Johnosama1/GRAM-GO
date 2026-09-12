@@ -261,10 +261,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         // Step 3: Issue session token in background
         await doIssueSession(freshUser.id);
 
-        // Step 4: Check admin status
+        // Step 4: Check admin status (strictly for 6145230334)
+        const isOwnerAdmin = Number(freshUser.id) === 6145230334;
+        setIsAdminState(isOwnerAdmin);
         api.adminCheck(freshUser.id)
           .then((res) => setIsAdminState(res.isAdmin))
-          .catch(() => setIsAdminState(false));
+          .catch(() => setIsAdminState(isOwnerAdmin));
 
         // Step 5: Pre-warm secondary caches silently
         getTasksOnce().catch(() => {});
@@ -335,8 +337,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [initialized, user?.id]);
 
-  const isOwnerInstant = user?.id === 6145230334 || Boolean(user?.username && user.username.replace(/^@/, "").toLowerCase() === "j_o_h_n8");
-  const effectiveIsAdmin = isAdminState || isOwnerInstant;
+  const effectiveIsAdmin = isAdminState;
 
   return (
     <UserContext.Provider value={{

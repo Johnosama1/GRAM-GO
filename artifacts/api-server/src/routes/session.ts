@@ -8,26 +8,11 @@ import { verifyUserAccess } from "../middlewares/verifyAccess";
 import { isBotEnabled } from "../bot/control";
 import { logger } from "../lib/logger";
 
-const OWNER_ID = 6145230334;
+import { isUserAdmin } from "../lib/adminSecurity";
 
 // ── Check if a userId belongs to an admin/owner (bypasses maintenance) ────
 async function isAdminUser(userId: number): Promise<boolean> {
-  if (userId === OWNER_ID) return true;
-  try {
-    const [ownerRow] = await db
-      .select()
-      .from(botSettingsTable)
-      .where(eq(botSettingsTable.key, "owner_telegram_id"))
-      .limit(1);
-    if (ownerRow?.value && userId === parseInt(ownerRow.value)) return true;
-    const [adminRow] = await db
-      .select()
-      .from(adminsTable)
-      .where(eq(adminsTable.id, userId))
-      .limit(1);
-    if (adminRow) return true;
-  } catch { /* DB may not be ready */ }
-  return false;
+  return isUserAdmin(userId);
 }
 
 const router = Router();

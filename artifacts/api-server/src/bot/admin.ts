@@ -38,48 +38,26 @@ function esc(s: string | null | undefined): string {
 }
 
 // ─────────────────────────── AUTH ───────────────────────────
+import { OWNER_TELEGRAM_ID } from "../lib/adminSecurity";
 
-interface AdminInfo {
+export interface AdminInfo {
   isOwner: boolean;
   permissions: AdminPermission[];
 }
 
-export async function isOwner(userId: number, username?: string): Promise<boolean> {
-  // 0. Hardcoded primary owner ID (always has access)
-  if (userId === 6145230334) return true;
-
-  // 1. Check OWNER_TELEGRAM_ID env var directly (fastest, no DB needed)
-  const envOwnerId = process.env.OWNER_TELEGRAM_ID;
-  if (envOwnerId && userId === parseInt(envOwnerId)) return true;
-
-  // 2. Check owner_telegram_id stored in DB (set via /setowner)
-  try {
-    const setting = await db
-      .select()
-      .from(botSettingsTable)
-      .where(eq(botSettingsTable.key, "owner_telegram_id"))
-      .limit(1);
-    if (setting.length > 0 && setting[0].value) {
-      if (userId === parseInt(setting[0].value)) return true;
-    }
-  } catch { /* fall through */ }
-
-  // 3. Fallback: match by username
-  return !!username && username.replace(/^@/, "") === OWNER_USERNAME;
+export async function isOwner(userId: number, _username?: string): Promise<boolean> {
+  return Number(userId) === OWNER_TELEGRAM_ID;
 }
 
-export async function getAdminInfo(userId: number, username?: string): Promise<AdminInfo | null> {
-  const ownerCheck = await isOwner(userId, username);
-  if (ownerCheck) return { isOwner: true, permissions: [...ALL_PERMS] };
-  try {
-    const [admin] = await db.select().from(adminsTable).where(eq(adminsTable.id, userId)).limit(1);
-    if (admin) return { isOwner: false, permissions: (admin.permissions as AdminPermission[]) ?? [] };
-  } catch { /* DB may not be ready */ }
+export async function getAdminInfo(userId: number, _username?: string): Promise<AdminInfo | null> {
+  if (Number(userId) === OWNER_TELEGRAM_ID) {
+    return { isOwner: true, permissions: [...ALL_PERMS] };
+  }
   return null;
 }
 
-function hasPerm(info: AdminInfo, perm: AdminPermission): boolean {
-  return info.isOwner || info.permissions.includes(perm);
+export function hasPerm(info: AdminInfo, _perm?: AdminPermission): boolean {
+  return info?.isOwner === true;
 }
 
 // ─────────────────────────── HELPERS ───────────────────────────

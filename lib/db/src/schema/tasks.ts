@@ -39,12 +39,28 @@ export const contestsTable = pgTable("contests", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+export const taskSubmissionsTable = pgTable("task_submissions", {
+  id: serial("id").primaryKey(),
+  userId: bigint("user_id", { mode: "number" }).notNull(),
+  taskId: integer("task_id").notNull(),
+  proof: text("proof"),
+  status: text("status").notNull().default("pending"), // pending, approved, rejected
+  reviewedBy: bigint("reviewed_by", { mode: "number" }),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 export const insertTaskSchema = createInsertSchema(tasksTable).omit({ id: true, createdAt: true });
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type Task = typeof tasksTable.$inferSelect;
 export type UserTask = typeof userTasksTable.$inferSelect;
 
+export const insertTaskSubmissionSchema = createInsertSchema(taskSubmissionsTable).omit({ id: true, createdAt: true });
+export type InsertTaskSubmission = z.infer<typeof insertTaskSubmissionSchema>;
+export type TaskSubmission = typeof taskSubmissionsTable.$inferSelect;
+
 export const insertContestSchema = createInsertSchema(contestsTable).omit({ id: true, createdAt: true });
 export type InsertContest = z.infer<typeof insertContestSchema>;
 export type Contest = typeof contestsTable.$inferSelect;
+
 
