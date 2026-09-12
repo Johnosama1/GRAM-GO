@@ -1008,52 +1008,9 @@ export default function AdminPage() {
             isOpen={openSections.general_broadcast}
             onToggle={() => toggleSection("general_broadcast")}
           >
-            {/* Direct Bot Broadcast with Premium Custom Emojis */}
-            <div
-              style={{
-                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(124, 58, 237, 0.06))",
-                border: "1px solid rgba(168, 85, 247, 0.3)",
-                borderRadius: 14,
-                padding: "14px",
-                marginBottom: 16,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <Sparkles size={16} color="#c084fc" />
-                <span style={{ fontSize: 13, fontWeight: 900, color: "#d8b4fe" }}>
-                  بث عبر شات البوت (مع دعم الإيموجي المميز)
-                </span>
-              </div>
-              <p style={{ fontSize: 11, color: "#a855f7", margin: "0 0 12px 0", lineHeight: 1.5 }}>
-                يمكنك الضغط أدناه لكتابة وإرسال الرسالة من شات البوت مباشرة باستخدام <b>الإيموجي المميز (Telegram Premium Custom Emojis)</b>، الصور، الملصقات، أو الفيديوهات، وستصل لجميع المستخدمين بنفس الشكل 🚀.
-              </p>
-              <button
-                onClick={handleOpenBotBroadcast}
-                style={{
-                  width: "100%",
-                  padding: "13px 16px",
-                  background: "linear-gradient(135deg, #9333ea, #7c3aed)",
-                  border: "none",
-                  borderRadius: 12,
-                  color: "#FFFFFF",
-                  fontWeight: 900,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  boxShadow: "0 4px 14px rgba(147, 51, 234, 0.35)",
-                  transition: "all 0.2s ease",
-                }}
-              >
-                <Sparkles size={16} />
-                <span>✍️ فتح شات البوت للإرسال بالإيموجي المميز</span>
-                <ExternalLink size={14} />
-              </button>
+            <div style={{ fontSize: 11, color: "#8A8F98", marginBottom: 6 }}>
+              اكتب رسالتك وأرسلها للجميع مباشرة من هنا داخل الميني آب:
             </div>
-
-            <div style={{ fontSize: 11, color: "#8A8F98", marginBottom: 6 }}>أو كتابة نص عادي والإرسال من اللوحة هنا:</div>
             <textarea
               rows={4}
               placeholder="اكتب الرسالة هنا (يدعم HTML و Telegram Emojis)..."
@@ -1108,6 +1065,65 @@ export default function AdminPage() {
               <Send size={15} />
               <span>{broadcastSending ? "جاري الإرسال..." : "📢 إرسال للجميع الآن"}</span>
             </button>
+
+            {/* Optional: Direct Bot Broadcast with Premium Custom Emojis */}
+            <div
+              style={{
+                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(124, 58, 237, 0.06))",
+                border: "1px solid rgba(168, 85, 247, 0.3)",
+                borderRadius: 14,
+                padding: "14px",
+                marginTop: 18,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <Sparkles size={16} color="#c084fc" />
+                <span style={{ fontSize: 13, fontWeight: 900, color: "#d8b4fe" }}>
+                  اختياري: بث بالإيموجي المميز
+                </span>
+                <span
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 800,
+                    color: "#d8b4fe",
+                    background: "rgba(168, 85, 247, 0.2)",
+                    borderRadius: 6,
+                    padding: "2px 6px",
+                  }}
+                >
+                  اختياري
+                </span>
+              </div>
+              <p style={{ fontSize: 11, color: "#a855f7", margin: "0 0 12px 0", lineHeight: 1.5 }}>
+                لو محتاج تستخدم <b>الإيموجي المميز (Telegram Premium Custom Emojis)</b> تحديدًا في رسالة البث، تليجرام
+                بيتطلب كتابة الرسالة داخل شات البوت الفعلي (مش من داخل الميني آب) عشان يقدر يحفظ بيانات الإيموجي بشكل
+                صحيح — ده قيد من تليجرام نفسه مش من التطبيق. غير كده، استخدم الصندوق اللي فوق وكله هيفضل جوه الميني آب.
+              </p>
+              <button
+                onClick={handleOpenBotBroadcast}
+                style={{
+                  width: "100%",
+                  padding: "13px 16px",
+                  background: "linear-gradient(135deg, #9333ea, #7c3aed)",
+                  border: "none",
+                  borderRadius: 12,
+                  color: "#FFFFFF",
+                  fontWeight: 900,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  boxShadow: "0 4px 14px rgba(147, 51, 234, 0.35)",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <Sparkles size={16} />
+                <span>✍️ فتح شات البوت للإرسال بالإيموجي المميز</span>
+                <ExternalLink size={14} />
+              </button>
+            </div>
           </AdminAccordionSection>
 
           {/* Section 3: وضع الصيانة */}
