@@ -734,6 +734,22 @@ export default function AdminPage() {
     }
   };
 
+  const handleToggleDepositBan = async (id: number, currentBanned: boolean) => {
+    try {
+      if (currentBanned) {
+        await api.adminUnbanDeposits(id);
+        showToast("تم السماح بالإيداع للمستخدم 🔓");
+      } else {
+        await api.adminBanDeposits(id);
+        showToast("تم منع الإيداع على المستخدم 🔒");
+      }
+      const det = await api.adminGetUserDetail(id);
+      setSelectedUserDetail(det);
+    } catch {
+      showToast("فشل تحديث قفل الإيداع", "err");
+    }
+  };
+
   const handleDeleteUserAccount = async () => {
     if (!deleteUserModal.userId) return;
     try {
@@ -2420,6 +2436,12 @@ export default function AdminPage() {
                   </span>
                 </div>
 
+                {selectedUserDetail.isBanned && selectedUserDetail.banReason && (
+                  <div style={{ fontSize: 10, color: "#E5484D", background: "rgba(229,72,77,0.1)", borderRadius: 8, padding: "6px 8px", marginBottom: 8 }}>
+                    سبب الحظر: {selectedUserDetail.banReason}
+                  </div>
+                )}
+
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, background: "rgba(255,255,255,0.03)", padding: 8, borderRadius: 8, marginBottom: 8 }}>
                   <div>
                     <div style={{ fontSize: 9, color: "#8A8F98" }}>رصيد Rush:</div>
@@ -2456,6 +2478,12 @@ export default function AdminPage() {
                     style={{ background: "rgba(251,191,36,0.15)", border: "1px solid #fbbf24", borderRadius: 8, padding: 6, color: "#fbbf24", fontWeight: 800, fontSize: 10, cursor: "pointer" }}
                   >
                     {selectedUserDetail.isWithdrawalBanned ? "السماح بالسحب 🔓" : "قفل السحب 🔒"}
+                  </button>
+                  <button
+                    onClick={() => handleToggleDepositBan(selectedUserDetail.user.id, selectedUserDetail.isDepositBanned || false)}
+                    style={{ background: "rgba(251,191,36,0.15)", border: "1px solid #fbbf24", borderRadius: 8, padding: 6, color: "#fbbf24", fontWeight: 800, fontSize: 10, cursor: "pointer" }}
+                  >
+                    {selectedUserDetail.isDepositBanned ? "السماح بالإيداع 🔓" : "منع الإيداع 🔒"}
                   </button>
                 </div>
               </div>
@@ -2505,6 +2533,18 @@ export default function AdminPage() {
           <div style={{ background: "#101418", border: "1px solid #11ABEC", borderRadius: 20, padding: 20, maxWidth: 360, width: "100%" }}>
             <div style={{ fontSize: 14, fontWeight: 900, color: "#11ABEC", marginBottom: 12 }}>
               تعديل رصيد المستخدم #{balanceAdjustModal.userId}
+            </div>
+
+            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+              {(["GO", "Gram"] as const).map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setBalanceAdjustForm({ ...balanceAdjustForm, currency: c })}
+                  style={{ flex: 1, background: balanceAdjustForm.currency === c ? "#0FD37C" : "rgba(255,255,255,0.04)", color: balanceAdjustForm.currency === c ? "#000" : "#8A8F98", border: "none", borderRadius: 8, padding: "6px 0", fontSize: 11, fontWeight: 800, cursor: "pointer" }}
+                >
+                  {c === "GO" ? "رصيد Rush" : "رصيد GRAM"}
+                </button>
+              ))}
             </div>
 
             <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>

@@ -295,6 +295,8 @@ export const api = {
   adminIpUnbanUser: (id: number) => apiCall<{ ok: boolean; ipHash: string | null; affectedUsers: number }>(`/admin/users/${id}/ip-unban`, { method: "POST" }),
   adminBanWithdrawals: (id: number) => apiCall<{ ok: boolean; isWithdrawalBanned: boolean }>(`/admin/users/${id}/withdrawal-ban`, { method: "POST" }),
   adminUnbanWithdrawals: (id: number) => apiCall<{ ok: boolean; isWithdrawalBanned: boolean }>(`/admin/users/${id}/withdrawal-unban`, { method: "POST" }),
+  adminBanDeposits: (id: number) => apiCall<{ ok: boolean; isDepositBanned: boolean }>(`/admin/users/${id}/deposit-ban`, { method: "POST" }),
+  adminUnbanDeposits: (id: number) => apiCall<{ ok: boolean; isDepositBanned: boolean }>(`/admin/users/${id}/deposit-unban`, { method: "POST" }),
   adminDeleteUser: (id: number) => apiCall<{ ok: boolean; success: boolean; targetId: number }>(`/admin/users/${id}`, { method: "DELETE" }),
   adminGetAutoBanned: () => apiCall<AutoBannedItem[]>("/admin/auto-banned"),
   adminGetReferralSettings: () => apiCall<{ referralRewardAmount: string; referralDepositPercent: string; referralThreshold: string }>("/admin/referral-settings"),
@@ -450,6 +452,7 @@ export interface User {
   ipHash?: string | null;
   isBanned?: boolean;
   isWithdrawalBanned?: boolean;
+  isDepositBanned?: boolean;
 }
 
 export interface ReferralEntry {
@@ -795,6 +798,7 @@ export interface UserDetailResult {
   totalWithdrawn?: string;
   isBanned: boolean;
   isWithdrawalBanned?: boolean;
+  isDepositBanned?: boolean;
   banReason: string | null;
 }
 
