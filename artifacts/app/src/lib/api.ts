@@ -226,7 +226,7 @@ export const api = {
       body: JSON.stringify({ password, userId }),
     }),
   adminGetStatus: () => apiCall<{ ok: boolean; unlocked: boolean; admin: { isAdmin: boolean; isOwner: boolean; permissions: string[] } }>("/admin/status"),
-  adminCheck: (_userId?: number) => apiCall<{ isAdmin: boolean; role?: string; isOwner?: boolean; permissions?: string[] }>("/admin/check"),
+  adminCheck: (_userId?: number) => apiCall<{ isAdmin: boolean; role?: string; isOwner?: boolean; permissions?: string[]; botUsername?: string }>("/admin/check"),
   adminGetStats: () => apiCall<AdminStats>("/admin/stats"),
   adminGetTopHolders: () => apiCall<any[]>("/admin/top-holders"),
   adminGetTopReferrers: () => apiCall<any[]>("/admin/top-referrers"),

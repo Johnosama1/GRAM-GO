@@ -49,6 +49,8 @@ import {
   Link,
   Ticket,
   Flame,
+  Sparkles,
+  ExternalLink,
 } from "lucide-react";
 
 type SectionTab = "general" | "mining" | "finance" | "tasks" | "ads" | "users";
@@ -287,6 +289,7 @@ export default function AdminPage() {
   const [broadcastText, setBroadcastText] = useState("");
   const [broadcastPin, setBroadcastPin] = useState(false);
   const [broadcastSending, setBroadcastSending] = useState(false);
+  const [botUsername, setBotUsername] = useState<string>("GRAM_GO_BOT");
   const [welcomeText, setWelcomeText] = useState("");
   const [maintenanceText, setMaintenanceText] = useState("البوت حالياً في وضع الصيانة للتطوير والتحديث. سنعود للعمل قريباً!");
 
@@ -396,6 +399,9 @@ export default function AdminPage() {
 
       const wm = await api.adminGetWelcomeMessage().catch(() => null);
       if (wm) setWelcomeText(wm.welcomeMessage);
+
+      const checkData = await api.adminCheck().catch(() => null);
+      if (checkData?.botUsername) setBotUsername(checkData.botUsername);
     } catch {
       showToast("تعذر تحميل بعض بيانات الإدارة", "err");
     }
@@ -406,6 +412,21 @@ export default function AdminPage() {
   }, [loadAllData]);
 
   // ── Actions ──
+
+  const handleOpenBotBroadcast = () => {
+    const rawUser =
+      botUsername ||
+      (window as unknown as { Telegram?: { WebApp?: { initDataUnsafe?: { bot_username?: string } } } })?.Telegram?.WebApp?.initDataUnsafe?.bot_username ||
+      "GRAM_GO_BOT";
+    const cleanUser = rawUser.replace(/^@/, "");
+    const url = `https://t.me/${cleanUser}?start=broadcast`;
+    const tg = (window as unknown as { Telegram?: { WebApp?: { openTelegramLink?: (u: string) => void } } })?.Telegram?.WebApp;
+    if (tg?.openTelegramLink) {
+      tg.openTelegramLink(url);
+    } else {
+      window.open(url, "_blank");
+    }
+  };
 
   const handleUpdateSetting = async (key: string, value: string) => {
     try {
@@ -987,6 +1008,52 @@ export default function AdminPage() {
             isOpen={openSections.general_broadcast}
             onToggle={() => toggleSection("general_broadcast")}
           >
+            {/* Direct Bot Broadcast with Premium Custom Emojis */}
+            <div
+              style={{
+                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(124, 58, 237, 0.06))",
+                border: "1px solid rgba(168, 85, 247, 0.3)",
+                borderRadius: 14,
+                padding: "14px",
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <Sparkles size={16} color="#c084fc" />
+                <span style={{ fontSize: 13, fontWeight: 900, color: "#d8b4fe" }}>
+                  بث عبر شات البوت (مع دعم الإيموجي المميز)
+                </span>
+              </div>
+              <p style={{ fontSize: 11, color: "#a855f7", margin: "0 0 12px 0", lineHeight: 1.5 }}>
+                يمكنك الضغط أدناه لكتابة وإرسال الرسالة من شات البوت مباشرة باستخدام <b>الإيموجي المميز (Telegram Premium Custom Emojis)</b>، الصور، الملصقات، أو الفيديوهات، وستصل لجميع المستخدمين بنفس الشكل 🚀.
+              </p>
+              <button
+                onClick={handleOpenBotBroadcast}
+                style={{
+                  width: "100%",
+                  padding: "13px 16px",
+                  background: "linear-gradient(135deg, #9333ea, #7c3aed)",
+                  border: "none",
+                  borderRadius: 12,
+                  color: "#FFFFFF",
+                  fontWeight: 900,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  boxShadow: "0 4px 14px rgba(147, 51, 234, 0.35)",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <Sparkles size={16} />
+                <span>✍️ فتح شات البوت للإرسال بالإيموجي المميز</span>
+                <ExternalLink size={14} />
+              </button>
+            </div>
+
+            <div style={{ fontSize: 11, color: "#8A8F98", marginBottom: 6 }}>أو كتابة نص عادي والإرسال من اللوحة هنا:</div>
             <textarea
               rows={4}
               placeholder="اكتب الرسالة هنا (يدعم HTML و Telegram Emojis)..."

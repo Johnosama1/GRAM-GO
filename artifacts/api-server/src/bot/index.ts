@@ -1083,7 +1083,12 @@ function setupBotHandlers() {
           await setAdminState(userId, "admin_broadcast", {});
           await bot.sendMessage(
             chatId,
-            `📨 <b>وضع البث الجماعي (Broadcast)</b>\n\nأرسل الآن نص الرسالة التي تريد إرسالها لجميع مستخدمي البوت.\n<i>(للإلغاء أرسل /cancel)</i>`,
+            `✨ <b>وضع البث الجماعي المتقدم (Broadcast Mode)</b>\n\n` +
+              `✍️ <b>أرسل الآن الرسالة التي تريد بثها لجميع المستخدمين:</b>\n` +
+              `• يمكنك استخدام <b>الإيموجي المميز (Telegram Premium Custom Emojis)</b>\n` +
+              `• يمكنك إرسال نصوص، صور، ملصقات، أو فيديوهات\n` +
+              `• ستصل الرسالة لجميع الناس مع كافة التنسيقات والإيموجي المميز 🚀\n\n` +
+              `<i>(للإلغاء في أي وقت أرسل /cancel)</i>`,
             { parse_mode: "HTML" }
           );
           return;
@@ -1400,6 +1405,52 @@ function setupBotHandlers() {
           }
         }
 
+        // ── Admin Broadcast Confirmation Callbacks (adm_bc:*) ───────────────
+        if (data.startsWith("adm_bc:") && adminInfo) {
+          const parts = data.split(":");
+          const subAction = parts[1]; // "send" or "cancel"
+
+          if (subAction === "cancel") {
+            await clearAdminState(userId);
+            await bot.editMessageText("❌ تم إلغاء البث الجماعي.", {
+              chat_id: chatId,
+              message_id: q.message?.message_id,
+            }).catch(() => {});
+            await bot.answerCallbackQuery(q.id, { text: "تم الإلغاء" });
+            return;
+          }
+
+          if (subAction === "send") {
+            const isPin = parts[2] === "1";
+            const msgId = parseInt(parts[3] || "0");
+            const state = await getAdminState(userId);
+            await clearAdminState(userId);
+
+            const fromChatId = (state?.metadata?.fromChatId as number) || chatId;
+            const messageId = msgId || (state?.metadata?.messageId as number);
+
+            await bot.editMessageText("⏳ <b>جاري بدء البث الجماعي للجميع مع الإيموجي المميز...</b>", {
+              chat_id: chatId,
+              message_id: q.message?.message_id,
+              parse_mode: "HTML",
+            }).catch(() => {});
+
+            const res = await startBroadcast(
+              bot,
+              userId,
+              (state?.metadata?.textPreview as string) || "Broadcast",
+              undefined,
+              isPin,
+              fromChatId,
+              messageId
+            );
+
+            await bot.sendMessage(chatId, res.message, { parse_mode: "HTML" });
+            await bot.answerCallbackQuery(q.id, { text: "تم بدء الإرسال 🚀" });
+            return;
+          }
+        }
+
         // ── Admin Menu Callbacks (adm:*) ───────────────────────────────────
         if (data.startsWith("adm:") && adminInfo) {
           const action = data.replace("adm:", "");
@@ -1697,9 +1748,34 @@ function setupBotHandlers() {
             const input = msg.text || "";
 
             if (state.step === "admin_broadcast") {
-              await clearAdminState(userId);
-              const bRes = await startBroadcast(bot, userId, input, msg.entities);
-              await bot.sendMessage(chatId, bRes.message, { parse_mode: "HTML" });
+              // Store pending broadcast message in state
+              await setAdminState(userId, "admin_broadcast_confirm", {
+                fromChatId: msg.chat.id,
+                messageId: msg.message_id,
+                textPreview: msg.text || msg.caption || "(ملف/وسائط)",
+              });
+
+              await bot.sendMessage(
+                chatId,
+                `👁️ <b>معاينة رسالة البث جاهزة!</b>\n\n` +
+                  `👆 الرسالة أعلاه سيتم إرسالها لجميع مستخدمي البوت بكامل <b>الإيموجي المميز (Custom Emojis)</b> والتنسيقات والصور.\n\n` +
+                  `هل تريد بدء الإرسال الآن؟`,
+                {
+                  parse_mode: "HTML",
+                  reply_to_message_id: msg.message_id,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [
+                        { text: "🚀 إرسال للجميع الآن", callback_data: `adm_bc:send:0:${msg.message_id}` },
+                        { text: "📌 إرسال مع التثبيت", callback_data: `adm_bc:send:1:${msg.message_id}` },
+                      ],
+                      [
+                        { text: "❌ إلغاء", callback_data: "adm_bc:cancel" },
+                      ],
+                    ],
+                  },
+                }
+              );
               return;
             }
 

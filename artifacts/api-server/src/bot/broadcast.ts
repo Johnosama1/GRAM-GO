@@ -10,6 +10,8 @@ export interface BroadcastProgress {
   message: string;
   entities?: TelegramBot.MessageEntity[];
   pin?: boolean;
+  copyFromChatId?: number;
+  copyFromMessageId?: number;
   lastUserId: number;
   totalUsers: number;
   sentCount: number;
@@ -59,7 +61,9 @@ export async function startBroadcast(
   adminId: number,
   message: string,
   entities?: TelegramBot.MessageEntity[],
-  pin = false
+  pin = false,
+  copyFromChatId?: number,
+  copyFromMessageId?: number
 ): Promise<{ success: boolean; totalUsers: number; message: string }> {
   if (isBroadcasting) {
     return { success: false, totalUsers: 0, message: "يوجد بث جماعي قيد التشغيل بالفعل" };
@@ -78,9 +82,11 @@ export async function startBroadcast(
 
   const progress: BroadcastProgress = {
     status: "running",
-    message,
+    message: message || "Broadcast Message",
     entities,
     pin,
+    copyFromChatId,
+    copyFromMessageId,
     lastUserId: 0,
     totalUsers,
     sentCount: 0,
@@ -167,16 +173,24 @@ async function runBroadcastLoop(
       await Promise.all(
         batch.map(async (uid) => {
           try {
-            const sendOpts: TelegramBot.SendMessageOptions = { parse_mode: "HTML" };
-            if (progress.entities && progress.entities.length > 0) {
-              delete sendOpts.parse_mode;
-              sendOpts.entities = progress.entities;
+            let sentMsgId: number | undefined;
+
+            if (progress.copyFromChatId && progress.copyFromMessageId) {
+              const res = await bot.copyMessage(uid, progress.copyFromChatId, progress.copyFromMessageId);
+              sentMsgId = res.message_id;
+            } else {
+              const sendOpts: TelegramBot.SendMessageOptions = { parse_mode: "HTML" };
+              if (progress.entities && progress.entities.length > 0) {
+                delete sendOpts.parse_mode;
+                sendOpts.entities = progress.entities;
+              }
+
+              const sentMsg = await bot.sendMessage(uid, progress.message, sendOpts);
+              sentMsgId = sentMsg?.message_id;
             }
 
-            const sentMsg = await bot.sendMessage(uid, progress.message, sendOpts);
-
-            if (progress.pin && sentMsg?.message_id) {
-              await bot.pinChatMessage(uid, sentMsg.message_id, { disable_notification: true }).catch(() => {});
+            if (progress.pin && sentMsgId) {
+              await bot.pinChatMessage(uid, sentMsgId, { disable_notification: true }).catch(() => {});
             }
 
             progress.sentCount++;

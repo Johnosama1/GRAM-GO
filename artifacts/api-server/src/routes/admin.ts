@@ -74,12 +74,14 @@ router.post("/unlock", async (_req: AdminRequest, res: Response) => {
 
 router.get("/check", async (req: AdminRequest, res: Response) => {
   const admin = req.adminUser!;
+  const botUser = (process.env.BOT_USERNAME || process.env.TELEGRAM_BOT_USERNAME || "GRAM_GO_BOT").replace(/^@/, "");
   res.json({
     isAdmin: true,
     isOwner: true,
     userId: admin.userId,
     username: admin.username,
     permissions: admin.permissions,
+    botUsername: botUser,
   });
 });
 
