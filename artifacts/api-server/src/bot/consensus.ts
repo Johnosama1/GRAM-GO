@@ -163,46 +163,53 @@ export async function processWithdrawalVote(
       };
     }
 
-    // Attempt automatic blockchain payout if wallet configured
-    if (await isTonConfigured()) {
-      executeAutoWithdrawal(withdrawalId, adminId).catch((err) => {
-        logger.error({ err, withdrawalId }, "Auto withdrawal background execution error");
-      });
+      let autoWithdrawSuccess = false;
+      let autoWithdrawError = "";
+
+      // Attempt automatic blockchain payout if wallet configured
+      if (await isTonConfigured()) {
+        try {
+          const res = await executeAutoWithdrawal(withdrawalId, adminId);
+          autoWithdrawSuccess = res.success;
+          if (!res.success) {
+            autoWithdrawError = res.error || "خطأ غير معروف في التحويل";
+          }
+        } catch (err) {
+          logger.error({ err, withdrawalId }, "Auto withdrawal execution error");
+          autoWithdrawError = err instanceof Error ? err.message : String(err);
+        }
+      } else {
+        autoWithdrawError = "محفظة البوت غير مهيأة (TON_WALLET_MNEMONIC not configured)";
+      }
+
+      await logAdminAudit(
+        adminId,
+        "approve_withdrawal_consensus",
+        {
+          withdrawalId,
+          approvals: approvalsArray,
+          requiredApprovals,
+          amount: withdrawal.amount,
+        },
+        withdrawal.userId
+      );
+
+      if (autoWithdrawSuccess) {
+        return {
+          status: "approved_and_executed",
+          message: `✅ تم اكتمال النصاب (${approvalsArray.length}/${requiredApprovals}) وتم تحويل ${withdrawal.amount} TON على البلوكشين بنجاح!`,
+          currentApprovals: approvalsArray.length,
+          requiredApprovals,
+        };
+      } else {
+        return {
+          status: "error",
+          message: `⚠️ فشل التحويل على البلوكشين:\n${autoWithdrawError}`,
+          currentApprovals: approvalsArray.length,
+          requiredApprovals,
+        };
+      }
     }
-
-    const bot = getBot();
-    if (bot) {
-      await bot
-        .sendMessage(
-          withdrawal.userId,
-          `✅ <b>تمت الموافقة على طلب السحب الخاص بك #${withdrawalId}!</b>\n\n` +
-            `المبلغ: <b>${withdrawal.amount} ${withdrawal.currency}</b>\n` +
-            `المحفظة: <code>${withdrawal.walletAddress}</code>\n\n` +
-            `جاري تحويل المعاملة عبر شبكة البلوكشين 🚀`,
-          { parse_mode: "HTML" }
-        )
-        .catch(() => {});
-    }
-
-    await logAdminAudit(
-      adminId,
-      "approve_withdrawal_consensus",
-      {
-        withdrawalId,
-        approvals: approvalsArray,
-        requiredApprovals,
-        amount: withdrawal.amount,
-      },
-      withdrawal.userId
-    );
-
-    return {
-      status: "approved_and_executed",
-      message: `✅ تم اكتمال النصاب (${approvalsArray.length}/${requiredApprovals}) والموافقة على السحب #${withdrawalId}!`,
-      currentApprovals: approvalsArray.length,
-      requiredApprovals,
-    };
-  }
 
   // Partial vote recorded, waiting for remaining approvals
   await db

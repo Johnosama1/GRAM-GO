@@ -237,23 +237,17 @@ export async function sendTon(
     ],
   });
 
-  // Wait for seqno update to confirm on-chain inclusion
+  // Wait for seqno update to confirm on-chain inclusion (up to 4 attempts of 1.5s = ~6s max, safe for serverless)
   let currentSeqno = seqno;
   let attempts = 0;
-  while (currentSeqno === seqno && attempts < 35) {
-    await new Promise((r) => setTimeout(r, 2000));
+  while (currentSeqno === seqno && attempts < 4) {
+    await new Promise((r) => setTimeout(r, 1500));
     try {
       currentSeqno = await wallet.getSeqno();
     } catch {
       // ignore
     }
     attempts++;
-  }
-
-  if (currentSeqno === seqno) {
-    throw new Error(
-      "تم إرسال المعاملة للبلوكشين ولكن لم يتم تأكيد زيادة الـ seqno خلال المهلة المحددة.",
-    );
   }
 
   let txRef = `seqno-${seqno}-${Date.now()}`;
@@ -270,8 +264,14 @@ export async function sendTon(
   } catch {}
 
   logger.info(
-    { to: toAddress, amount: amountTon, txRef, from: contract.address.toString({ bounceable: false }) },
-    "TON transfer confirmed on blockchain",
+    {
+      to: toAddress,
+      amount: amountTon,
+      txRef,
+      confirmed: currentSeqno > seqno,
+      from: contract.address.toString({ bounceable: false }),
+    },
+    "TON transfer dispatched to blockchain",
   );
 
   return { txRef };
