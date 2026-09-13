@@ -2,6 +2,7 @@ import {
   TonClient,
   WalletContractV4,
   WalletContractV3R2,
+  WalletContractV3R1,
   WalletContractV5R1,
   toNano,
   Address,
@@ -21,21 +22,48 @@ async function getClient(): Promise<TonClient> {
   return new TonClient({ endpoint, ...(apiKey ? { apiKey } : {}) });
 }
 
-// Wallet versions to probe in priority order: V4 (standard), V3R2 (TonWeb default), V5R1 (W5)
-const WALLET_VERSIONS = ["V4", "V3R2", "V5R1"] as const;
+// Wallet versions to probe: V5R1 (W5 - Tonkeeper default), V4 (standard), V3R2, V3R1
+const WALLET_VERSIONS = ["V5R1", "V4", "V3R2", "V3R1"] as const;
 
 function buildContracts(publicKey: Buffer) {
   return {
+    V5R1: WalletContractV5R1.create({ publicKey, workchain: 0 }),
     V4: WalletContractV4.create({ publicKey, workchain: 0 }),
     V3R2: WalletContractV3R2.create({ publicKey, workchain: 0 }),
-    V5R1: WalletContractV5R1.create({ publicKey, workchain: 0 }),
+    V3R1: WalletContractV3R1.create({ publicKey, workchain: 0 }),
   };
 }
 
 async function detectWallet(client: TonClient, publicKey: Buffer) {
   const contracts = buildContracts(publicKey);
 
-  // 1. Probe for already deployed contract
+  // 1. If WALLET_ADDRESS environment variable is specified, match against that EXACT address first!
+  const targetWalletEnv = (process.env.WALLET_ADDRESS || process.env.DEPOSIT_WALLET_ADDRESS || "").trim();
+  if (targetWalletEnv) {
+    try {
+      const targetParsed = Address.parse(targetWalletEnv);
+      const targetRaw = targetParsed.toRawString();
+
+      for (const ver of WALLET_VERSIONS) {
+        const c = contracts[ver];
+        if (c.address.toRawString() === targetRaw) {
+          logger.info(
+            {
+              version: ver,
+              address: c.address.toString({ bounceable: false }),
+              target: targetWalletEnv,
+            },
+            "Using exact wallet contract matching WALLET_ADDRESS environment variable",
+          );
+          return { contract: c, version: ver };
+        }
+      }
+    } catch (err) {
+      logger.warn({ err, targetWalletEnv }, "Could not parse WALLET_ADDRESS environment variable");
+    }
+  }
+
+  // 2. Probe for already deployed contract
   for (const ver of WALLET_VERSIONS) {
     const c = contracts[ver];
     try {
@@ -54,7 +82,7 @@ async function detectWallet(client: TonClient, publicKey: Buffer) {
     } catch {}
   }
 
-  // 2. If none deployed, find which address has positive balance on blockchain
+  // 3. If none deployed, find which address has positive balance on blockchain
   for (const ver of WALLET_VERSIONS) {
     const c = contracts[ver];
     try {
@@ -66,29 +94,19 @@ async function detectWallet(client: TonClient, publicKey: Buffer) {
             address: c.address.toString({ bounceable: false }),
             balance: (Number(balance) / 1e9).toFixed(4) + " TON",
           },
-          "Found funded undeployed bot wallet (will deploy on first send)",
+          "Found funded undeployed bot wallet",
         );
         return { contract: c, version: ver };
       }
     } catch {}
   }
 
-  // 3. Fallback to V4 (most standard default)
-  const defaultContract = contracts.V4;
-  const v4Addr = contracts.V4.address.toString({ bounceable: false });
-  const v3Addr = contracts.V3R2.address.toString({ bounceable: false });
-
-  logger.warn(
-    { v4Address: v4Addr, v3Address: v3Addr },
-    "Bot hot wallet has 0 balance on all versions",
-  );
-
-  return { contract: defaultContract, version: "V4" as const };
+  // 4. Fallback to V5R1 (W5) or V4
+  const defaultContract = contracts.V5R1;
+  return { contract: defaultContract, version: "V5R1" as const };
 }
 
 export async function getEffectiveMnemonic(): Promise<string | null> {
-  const dbMnemonic = await getSetting("ton_wallet_mnemonic");
-  const dbSecret = await getSetting("owner_secret_key");
   const envKey =
     process.env.OWNER_SECRET_KEY ||
     process.env.TON_WALLET_MNEMONIC ||
@@ -97,7 +115,13 @@ export async function getEffectiveMnemonic(): Promise<string | null> {
     process.env.WALLET_SECRET_KEY ||
     process.env.WALLET_PRIVATE_KEY;
 
-  return (envKey || dbMnemonic || dbSecret || null)?.trim() || null;
+  if (envKey && envKey.trim().length > 0) {
+    return envKey.trim();
+  }
+
+  const dbMnemonic = await getSetting("ton_wallet_mnemonic");
+  const dbSecret = await getSetting("owner_secret_key");
+  return (dbMnemonic || dbSecret || null)?.trim() || null;
 }
 
 export async function resolveKeyPair(
@@ -198,15 +222,18 @@ export async function sendTon(
   }
 
   type OpenedWallet =
+    | ReturnType<typeof client.open<WalletContractV5R1>>
     | ReturnType<typeof client.open<WalletContractV4>>
     | ReturnType<typeof client.open<WalletContractV3R2>>
-    | ReturnType<typeof client.open<WalletContractV5R1>>;
+    | ReturnType<typeof client.open<WalletContractV3R1>>;
 
   let wallet: OpenedWallet;
-  if (version === "V3R2") {
-    wallet = client.open(contract as WalletContractV3R2);
-  } else if (version === "V5R1") {
+  if (version === "V5R1") {
     wallet = client.open(contract as WalletContractV5R1);
+  } else if (version === "V3R2") {
+    wallet = client.open(contract as WalletContractV3R2);
+  } else if (version === "V3R1") {
+    wallet = client.open(contract as WalletContractV3R1);
   } else {
     wallet = client.open(contract as WalletContractV4);
   }
@@ -280,14 +307,16 @@ export async function sendTon(
 
 export async function getWalletAddress(): Promise<string | null> {
   const secret = await getEffectiveMnemonic();
-  if (!secret) return null;
+  if (!secret) {
+    return process.env.WALLET_ADDRESS?.trim() || null;
+  }
   try {
     const keyPair = await resolveKeyPair(secret);
     const client = await getClient();
     const { contract } = await detectWallet(client, keyPair.publicKey);
     return contract.address.toString({ bounceable: false, testOnly: false });
   } catch {
-    return null;
+    return process.env.WALLET_ADDRESS?.trim() || null;
   }
 }
 
@@ -297,19 +326,9 @@ export async function getWalletBalance(): Promise<string | null> {
   try {
     const keyPair = await resolveKeyPair(secret);
     const client = await getClient();
-    const contracts = buildContracts(keyPair.publicKey);
-
-    // Sum balances across all supported wallet versions
-    let totalNano = 0n;
-    for (const ver of WALLET_VERSIONS) {
-      const c = contracts[ver];
-      try {
-        const bal = await client.getBalance(c.address);
-        totalNano += bal;
-      } catch {}
-    }
-
-    return (Number(totalNano) / 1e9).toFixed(4);
+    const { contract } = await detectWallet(client, keyPair.publicKey);
+    const bal = await client.getBalance(contract.address);
+    return (Number(bal) / 1e9).toFixed(4);
   } catch {
     return null;
   }
