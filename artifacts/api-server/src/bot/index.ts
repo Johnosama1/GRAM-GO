@@ -14,7 +14,7 @@ import {
   executeAutoWithdrawal,
   isTonConfigured,
 } from "../lib/withdrawalProcessor";
-import { getWalletAddress, getWalletBalance } from "../lib/tonSender";
+import { getWalletAddress, getWalletBalance, checkWalletAddressMismatch } from "../lib/tonSender";
 import { OWNER_USERNAME, isOwner, getAdminInfo } from "./admin";
 import {
   enforceSubscription,
@@ -1365,9 +1365,10 @@ function setupBotHandlers() {
       const username = msg.from?.username;
       const info = await getAdminInfo(userId, username);
       if (!info) return;
-      const [addr, balance] = await Promise.all([
+      const [addr, balance, mismatch] = await Promise.all([
         getWalletAddress(),
         getWalletBalance(),
+        checkWalletAddressMismatch(),
       ]);
       await bot.sendMessage(
         msg.chat.id,
@@ -1376,7 +1377,14 @@ function setupBotHandlers() {
           `💰 الرصيد: <b>${balance ?? "—"} TON</b>\n\n` +
           (balance && parseFloat(balance) < 0.1
             ? "⚠️ الرصيد منخفض — اشحن المحفظة لضمان نجاح عمليات السحب."
-            : "✅ المحفظة جاهزة للإرسال."),
+            : "✅ المحفظة جاهزة للإرسال.") +
+          (mismatch
+            ? `\n\n🚨 <b>تحذير: عنوان مختلف عن المحفظة الفعلية!</b>\n` +
+              `المتغير <code>WALLET_ADDRESS</code> في السيرفر مضبوط على:\n<code>${esc(mismatch.configured)}</code>\n\n` +
+              `لكن المفتاح السري <code>OWNER_SECRET_KEY</code> بيتحكم فعليًا في محفظة تانية (العنوان أعلاه ⬆️). ` +
+              `الإرسال بيتم دايمًا من المحفظة اللي بتاعة المفتاح السري، مش من قيمة WALLET_ADDRESS — لأن الإرسال محتاج المفتاح السري نفسه مش مجرد العنوان. ` +
+              `لازم إما تشحن العنوان الظاهر أعلاه، أو تحط في OWNER_SECRET_KEY نفس مفتاح المحفظة اللي عنوانها ${esc(mismatch.configured)}.`
+            : ""),
         { parse_mode: "HTML" },
       );
     }),

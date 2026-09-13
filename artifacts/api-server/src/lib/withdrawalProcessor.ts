@@ -1,7 +1,7 @@
 import { db } from "@workspace/db";
 import { withdrawalsTable, usersTable } from "@workspace/db/schema";
 import { eq, sql } from "drizzle-orm";
-import { sendTon, isTonConfigured } from "./tonSender";
+import { sendTon, isTonConfigured, checkWalletAddressMismatch } from "./tonSender";
 import { logger } from "./logger";
 
 // Lazily import bot to avoid circular deps
@@ -187,12 +187,17 @@ export async function executeAutoWithdrawal(
           const addrHint = addrMatch
             ? `\n\n💳 اشحن المحفظة:\n<code>${esc(addrMatch[1])}</code>`
             : "";
+          const mismatch = await checkWalletAddressMismatch();
+          const mismatchHint = mismatch
+            ? `\n\n🚨 <b>تنبيه:</b> متغير WALLET_ADDRESS (<code>${esc(mismatch.configured)}</code>) مختلف عن المحفظة اللي المفتاح السري بيتحكم فيها فعليًا (<code>${esc(mismatch.derived)}</code>). اكتب /wallet لمزيد من التفاصيل.`
+            : "";
           await bot.sendMessage(
             adminChatId,
             `❌ <b>فشل إرسال ${parseFloat(amount).toFixed(4)} TON</b>\n` +
               (isNotFunded
                 ? `⚠️ <b>محفظة البوت الساخنة فارغة!</b>${addrHint}\n\nأرسل TON لهذا العنوان ثم أعد الموافقة على طلب السحب.`
-                : `السبب: ${esc(errMsg)}`),
+                : `السبب: ${esc(errMsg)}`) +
+              mismatchHint,
             { parse_mode: "HTML" },
           );
         } catch {
