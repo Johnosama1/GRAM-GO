@@ -35,6 +35,7 @@ export const usersTable = pgTable("users", {
   rewardedSpins: integer("rewarded_spins").notNull().default(0),
   isBlockedForLeaving: boolean("is_blocked_for_leaving").notNull().default(false),
   isWithdrawalBanned: boolean("is_withdrawal_banned").notNull().default(false),
+  isDepositBanned: boolean("is_deposit_banned").notNull().default(false),
   joinedChannelsAtReward: text("joined_channels_at_reward"),
   lastChannelCheckAt: timestamp("last_channel_check_at"),
 });

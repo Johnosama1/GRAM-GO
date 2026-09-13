@@ -5,8 +5,24 @@ import { milestonesTable } from "@workspace/db/schema";
 import { sql, asc, eq } from "drizzle-orm";
 import { getSetting } from "../lib/settingsCache";
 import { getWalletAddress } from "../lib/tonSender";
+import { getBot } from "../bot";
 
 const router: IRouter = Router();
+
+// Never trust BOT_USERNAME env var blindly — it can be stale or point at an
+// unrelated bot. Confirm against the actual running bot instance instead.
+let cachedBotUsername: string | null = null;
+async function resolveBotUsername(): Promise<string> {
+  if (cachedBotUsername) return cachedBotUsername;
+  try {
+    const me = await getBot().getMe();
+    if (me?.username) {
+      cachedBotUsername = me.username;
+      return cachedBotUsername;
+    }
+  } catch {}
+  return (process.env.BOT_USERNAME || "").replace(/^@/, "");
+}
 
 router.get("/healthz", (_req, res) => {
   const data = HealthCheckResponse.parse({ status: "ok" });
@@ -32,7 +48,7 @@ router.get("/config", async (_req, res) => {
   }
 
   res.json({
-    botUsername: process.env.BOT_USERNAME || "Jojox1bot",
+    botUsername: await resolveBotUsername(),
     referralThreshold: Math.max(1, parseInt(rawRef ?? "5") || 5),
     taskThreshold: Math.max(1, parseInt(rawTask ?? "5") || 5),
     minWithdrawal: Math.max(0.001, parseFloat(rawMin ?? "0.1") || 0.1),

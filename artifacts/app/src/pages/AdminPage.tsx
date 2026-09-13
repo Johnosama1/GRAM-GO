@@ -655,9 +655,12 @@ export default function AdminPage() {
       setSearchingUser(true);
       const res = await api.adminGetUsers(q, 10, 0);
       setUserSearchResults(res || []);
-      if (res && res.length === 1) {
+      if (res && res.length > 0) {
         const det = await api.adminGetUserDetail(res[0].id);
         setSelectedUserDetail(det);
+      } else {
+        setSelectedUserDetail(null);
+        showToast("لا يوجد مستخدم بهذا الـ ID أو اليوزر", "err");
       }
     } catch {
       showToast("فشل البحث عن المستخدم", "err");
@@ -731,6 +734,22 @@ export default function AdminPage() {
       setSelectedUserDetail(det);
     } catch {
       showToast("فشل تحديث قفل السحب", "err");
+    }
+  };
+
+  const handleToggleDepositBan = async (id: number, currentBanned: boolean) => {
+    try {
+      if (currentBanned) {
+        await api.adminUnbanDeposits(id);
+        showToast("تم السماح بالإيداع للمستخدم 🔓");
+      } else {
+        await api.adminBanDeposits(id);
+        showToast("تم منع الإيداع على المستخدم 🔒");
+      }
+      const det = await api.adminGetUserDetail(id);
+      setSelectedUserDetail(det);
+    } catch {
+      showToast("فشل تحديث قفل الإيداع", "err");
     }
   };
 
@@ -1008,52 +1027,9 @@ export default function AdminPage() {
             isOpen={openSections.general_broadcast}
             onToggle={() => toggleSection("general_broadcast")}
           >
-            {/* Direct Bot Broadcast with Premium Custom Emojis */}
-            <div
-              style={{
-                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(124, 58, 237, 0.06))",
-                border: "1px solid rgba(168, 85, 247, 0.3)",
-                borderRadius: 14,
-                padding: "14px",
-                marginBottom: 16,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                <Sparkles size={16} color="#c084fc" />
-                <span style={{ fontSize: 13, fontWeight: 900, color: "#d8b4fe" }}>
-                  بث عبر شات البوت (مع دعم الإيموجي المميز)
-                </span>
-              </div>
-              <p style={{ fontSize: 11, color: "#a855f7", margin: "0 0 12px 0", lineHeight: 1.5 }}>
-                يمكنك الضغط أدناه لكتابة وإرسال الرسالة من شات البوت مباشرة باستخدام <b>الإيموجي المميز (Telegram Premium Custom Emojis)</b>، الصور، الملصقات، أو الفيديوهات، وستصل لجميع المستخدمين بنفس الشكل 🚀.
-              </p>
-              <button
-                onClick={handleOpenBotBroadcast}
-                style={{
-                  width: "100%",
-                  padding: "13px 16px",
-                  background: "linear-gradient(135deg, #9333ea, #7c3aed)",
-                  border: "none",
-                  borderRadius: 12,
-                  color: "#FFFFFF",
-                  fontWeight: 900,
-                  fontSize: 13,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  boxShadow: "0 4px 14px rgba(147, 51, 234, 0.35)",
-                  transition: "all 0.2s ease",
-                }}
-              >
-                <Sparkles size={16} />
-                <span>✍️ فتح شات البوت للإرسال بالإيموجي المميز</span>
-                <ExternalLink size={14} />
-              </button>
+            <div style={{ fontSize: 11, color: "#8A8F98", marginBottom: 6 }}>
+              اكتب رسالتك وأرسلها للجميع مباشرة من هنا داخل الميني آب:
             </div>
-
-            <div style={{ fontSize: 11, color: "#8A8F98", marginBottom: 6 }}>أو كتابة نص عادي والإرسال من اللوحة هنا:</div>
             <textarea
               rows={4}
               placeholder="اكتب الرسالة هنا (يدعم HTML و Telegram Emojis)..."
@@ -1108,6 +1084,65 @@ export default function AdminPage() {
               <Send size={15} />
               <span>{broadcastSending ? "جاري الإرسال..." : "📢 إرسال للجميع الآن"}</span>
             </button>
+
+            {/* Optional: Direct Bot Broadcast with Premium Custom Emojis */}
+            <div
+              style={{
+                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(124, 58, 237, 0.06))",
+                border: "1px solid rgba(168, 85, 247, 0.3)",
+                borderRadius: 14,
+                padding: "14px",
+                marginTop: 18,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <Sparkles size={16} color="#c084fc" />
+                <span style={{ fontSize: 13, fontWeight: 900, color: "#d8b4fe" }}>
+                  اختياري: بث بالإيموجي المميز
+                </span>
+                <span
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 800,
+                    color: "#d8b4fe",
+                    background: "rgba(168, 85, 247, 0.2)",
+                    borderRadius: 6,
+                    padding: "2px 6px",
+                  }}
+                >
+                  اختياري
+                </span>
+              </div>
+              <p style={{ fontSize: 11, color: "#a855f7", margin: "0 0 12px 0", lineHeight: 1.5 }}>
+                لو محتاج تستخدم <b>الإيموجي المميز (Telegram Premium Custom Emojis)</b> تحديدًا في رسالة البث، تليجرام
+                بيتطلب كتابة الرسالة داخل شات البوت الفعلي (مش من داخل الميني آب) عشان يقدر يحفظ بيانات الإيموجي بشكل
+                صحيح — ده قيد من تليجرام نفسه مش من التطبيق. غير كده، استخدم الصندوق اللي فوق وكله هيفضل جوه الميني آب.
+              </p>
+              <button
+                onClick={handleOpenBotBroadcast}
+                style={{
+                  width: "100%",
+                  padding: "13px 16px",
+                  background: "linear-gradient(135deg, #9333ea, #7c3aed)",
+                  border: "none",
+                  borderRadius: 12,
+                  color: "#FFFFFF",
+                  fontWeight: 900,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  boxShadow: "0 4px 14px rgba(147, 51, 234, 0.35)",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <Sparkles size={16} />
+                <span>✍️ فتح شات البوت للإرسال بالإيموجي المميز</span>
+                <ExternalLink size={14} />
+              </button>
+            </div>
           </AdminAccordionSection>
 
           {/* Section 3: وضع الصيانة */}
@@ -2383,9 +2418,10 @@ export default function AdminPage() {
               />
               <button
                 onClick={handleSearchUser}
-                style={{ background: "linear-gradient(135deg, #0FA0D6, #11ABEC)", border: "none", borderRadius: 10, padding: "0 14px", color: "#fff", fontWeight: 800, cursor: "pointer" }}
+                style={{ background: "linear-gradient(135deg, #0FA0D6, #11ABEC)", border: "none", borderRadius: 10, padding: "0 14px", color: "#fff", fontWeight: 800, fontSize: 11, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap" }}
               >
                 <Search size={15} />
+                <span>بحث عن مستخدم</span>
               </button>
             </div>
 
@@ -2403,6 +2439,12 @@ export default function AdminPage() {
                     {selectedUserDetail.isBanned ? "محظور" : "نشط"}
                   </span>
                 </div>
+
+                {selectedUserDetail.isBanned && selectedUserDetail.banReason && (
+                  <div style={{ fontSize: 10, color: "#E5484D", background: "rgba(229,72,77,0.1)", borderRadius: 8, padding: "6px 8px", marginBottom: 8 }}>
+                    سبب الحظر: {selectedUserDetail.banReason}
+                  </div>
+                )}
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, background: "rgba(255,255,255,0.03)", padding: 8, borderRadius: 8, marginBottom: 8 }}>
                   <div>
@@ -2440,6 +2482,12 @@ export default function AdminPage() {
                     style={{ background: "rgba(251,191,36,0.15)", border: "1px solid #fbbf24", borderRadius: 8, padding: 6, color: "#fbbf24", fontWeight: 800, fontSize: 10, cursor: "pointer" }}
                   >
                     {selectedUserDetail.isWithdrawalBanned ? "السماح بالسحب 🔓" : "قفل السحب 🔒"}
+                  </button>
+                  <button
+                    onClick={() => handleToggleDepositBan(selectedUserDetail.user.id, selectedUserDetail.isDepositBanned || false)}
+                    style={{ background: "rgba(251,191,36,0.15)", border: "1px solid #fbbf24", borderRadius: 8, padding: 6, color: "#fbbf24", fontWeight: 800, fontSize: 10, cursor: "pointer" }}
+                  >
+                    {selectedUserDetail.isDepositBanned ? "السماح بالإيداع 🔓" : "منع الإيداع 🔒"}
                   </button>
                 </div>
               </div>
@@ -2489,6 +2537,18 @@ export default function AdminPage() {
           <div style={{ background: "#101418", border: "1px solid #11ABEC", borderRadius: 20, padding: 20, maxWidth: 360, width: "100%" }}>
             <div style={{ fontSize: 14, fontWeight: 900, color: "#11ABEC", marginBottom: 12 }}>
               تعديل رصيد المستخدم #{balanceAdjustModal.userId}
+            </div>
+
+            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+              {(["GO", "Gram"] as const).map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setBalanceAdjustForm({ ...balanceAdjustForm, currency: c })}
+                  style={{ flex: 1, background: balanceAdjustForm.currency === c ? "#0FD37C" : "rgba(255,255,255,0.04)", color: balanceAdjustForm.currency === c ? "#000" : "#8A8F98", border: "none", borderRadius: 8, padding: "6px 0", fontSize: 11, fontWeight: 800, cursor: "pointer" }}
+                >
+                  {c === "GO" ? "رصيد Rush" : "رصيد GRAM"}
+                </button>
+              ))}
             </div>
 
             <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>

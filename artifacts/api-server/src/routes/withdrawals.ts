@@ -462,6 +462,17 @@ router.post(
       }
     }
 
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, numUserId)).limit(1);
+    if (!user) {
+      res.status(404).json({ error: "المستخدم غير موجود" });
+      return;
+    }
+
+    if (user.isDepositBanned) {
+      res.status(403).json({ error: "❌ الإيداع غير متاح لهذا الحساب حاليًا" });
+      return;
+    }
+
     // ── 2. On-Chain Blockchain Verification ───────────────────────────────────
     const verification = await verifyTonDepositTransaction({
       userId: numUserId,
@@ -475,12 +486,6 @@ router.post(
       res.status(400).json({
         error: "❌ Transaction already processed (تمت معالجة هذه المعاملة مسبقاً)",
       });
-      return;
-    }
-
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, numUserId)).limit(1);
-    if (!user) {
-      res.status(404).json({ error: "المستخدم غير موجود" });
       return;
     }
 
