@@ -182,16 +182,19 @@ export async function executeAutoWithdrawal(
       if (adminChatId) {
         try {
           const isNotFunded =
-            errMsg.includes("not funded") || errMsg.includes("Hot wallet");
-          const addrMatch = errMsg.match(/Send TON to: (\S+)/);
+            errMsg.includes("not funded") ||
+            errMsg.includes("Hot wallet") ||
+            errMsg.includes("غير كافٍ") ||
+            errMsg.includes("اشحن المحفظة");
+          const addrMatch = errMsg.match(/(?:Send TON to:|العنوان:\s*\n?)(EQ[A-Za-z0-9_-]{46}|UQ[A-Za-z0-9_-]{46})/);
           const addrHint = addrMatch
-            ? `\n\n💳 اشحن المحفظة:\n<code>${esc(addrMatch[1])}</code>`
+            ? `\n\n💳 <b>اشحن المحفظة:</b>\n<code>${esc(addrMatch[1])}</code>`
             : "";
           await bot.sendMessage(
             adminChatId,
             `❌ <b>فشل إرسال ${parseFloat(amount).toFixed(4)} TON</b>\n` +
               (isNotFunded
-                ? `⚠️ <b>محفظة البوت الساخنة فارغة!</b>${addrHint}\n\nأرسل TON لهذا العنوان ثم أعد الموافقة على طلب السحب.`
+                ? `⚠️ <b>رصيد محفظة البوت الساخنة غير كافٍ!</b>${addrHint}\n\nيرجى شحن المحفظة بـ TON ثم إعادة الموافقة على طلب السحب.`
                 : `السبب: ${esc(errMsg)}`),
             { parse_mode: "HTML" },
           );

@@ -165,7 +165,7 @@ export async function processWithdrawalVote(
 
     // Attempt automatic blockchain payout if wallet configured
     if (await isTonConfigured()) {
-      executeAutoWithdrawal(withdrawalId).catch((err) => {
+      executeAutoWithdrawal(withdrawalId, adminId).catch((err) => {
         logger.error({ err, withdrawalId }, "Auto withdrawal background execution error");
       });
     }
