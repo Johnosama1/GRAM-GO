@@ -15,12 +15,11 @@ async function getClient(): Promise<TonClient> {
 }
 
 export async function getDepositWalletAddress(): Promise<string> {
+  const envAddr = process.env.WALLET_ADDRESS || process.env.DEPOSIT_WALLET_ADDRESS;
+  if (envAddr && envAddr.trim().length > 10) return envAddr.trim();
+
   const dbAddr = await getSetting("deposit_wallet_address");
   if (dbAddr && dbAddr.trim().length > 10) return dbAddr.trim();
-
-  if (process.env.DEPOSIT_WALLET_ADDRESS && process.env.DEPOSIT_WALLET_ADDRESS.trim().length > 10) {
-    return process.env.DEPOSIT_WALLET_ADDRESS.trim();
-  }
 
   const senderAddr = await getWalletAddress().catch(() => null);
   if (senderAddr && senderAddr.length > 10) return senderAddr;
