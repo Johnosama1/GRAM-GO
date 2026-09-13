@@ -186,10 +186,11 @@ export async function sendTon(
 
   const { contract, version } = await detectWallet(client, keyPair.publicKey);
 
-  // Check balance before attempting transfer
+  // Check balance before attempting transfer (0.01 TON gas margin is plenty for native transfer)
   const currentBalance = await client.getBalance(contract.address);
   const neededNano = toNano(amountTon);
-  if (currentBalance < neededNano + toNano("0.05")) {
+  const minFeeNano = toNano("0.01");
+  if (currentBalance < neededNano + minFeeNano) {
     const hotAddr = contract.address.toString({ bounceable: false });
     throw new Error(
       `رصيد محفظة السحب غير كافٍ (${(Number(currentBalance) / 1e9).toFixed(4)} TON). يرجى شحن المحفظة بـ TON على العنوان:\n${hotAddr}`,
