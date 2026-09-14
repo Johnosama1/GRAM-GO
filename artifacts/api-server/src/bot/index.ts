@@ -1454,7 +1454,7 @@ function setupBotHandlers() {
 
             const newsButton: any = {
               text: btnName || "Open",
-              url: `https://t.me/GramGO1_bot`, // Using bot URL
+              callback_data: "ignore",
             };
             if (btnStyle && ["success", "primary", "destructive", "secondary"].includes(btnStyle)) {
               newsButton.style = btnStyle;
@@ -1940,7 +1940,7 @@ function setupBotHandlers() {
               // Construct the preview keyboard
               const previewButton: any = {
                 text: btnName,
-                url: `https://t.me/GramGO1_bot`, // Base bot link
+                callback_data: "ignore",
               };
               if (btnStyle && ["success", "primary", "destructive", "secondary"].includes(btnStyle)) {
                 previewButton.style = btnStyle;
@@ -1949,6 +1949,9 @@ function setupBotHandlers() {
                 previewButton.icon_custom_emoji_id = customEmojiId;
               }
 
+              // Format original message with HTML <tg-emoji> if it had entities
+              // But standard bot.copyMessage already perfectly copies entities (including custom_emoji).
+              // We just acknowledge receipt.
               await bot.sendMessage(
                 chatId,
                 `👁️ <b>معاينة رسالة البث جاهزة!</b>\n\n` +
