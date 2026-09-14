@@ -317,7 +317,8 @@ export async function handleSubRecheckCallback(
 
 <tg-emoji emoji-id="5316948721064232978">⬇️</tg-emoji> Press the button below to open the app`;
 
-      await bot.sendMessage(chatId, welcomeText, {
+      await bot.sendPhoto(chatId, `${MINI_APP_URL}welcome-image.png`, {
+        caption: welcomeText,
         parse_mode: "HTML",
         reply_markup: {
           inline_keyboard: [
