@@ -614,7 +614,8 @@ export async function sendWelcomeMessage(
     .replace(/\{username\}/g, username ? `@${esc(username)}` : "")
     .replace(/\{user_id\}/g, String(userId || ""));
 
-  await bot.sendMessage(chatId, welcomeText, {
+  await bot.sendPhoto(chatId, `${MINI_APP_URL}welcome-image.png`, {
+    caption: welcomeText,
     parse_mode: "HTML",
     reply_markup: {
       inline_keyboard: [
