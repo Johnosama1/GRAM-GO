@@ -226,6 +226,9 @@ importers:
       pino-http:
         specifier: ^10
         version: 10.5.0
+      tonweb:
+        specifier: 0.0.9
+        version: 0.0.9
     devDependencies:
       '@types/cors':
         specifier: ^2.8.19
