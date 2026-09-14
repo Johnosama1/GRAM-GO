@@ -1136,10 +1136,49 @@ export default function AdminPage() {
                   gap: 8,
                   boxShadow: "0 4px 14px rgba(147, 51, 234, 0.35)",
                   transition: "all 0.2s ease",
+                  marginBottom: 10,
                 }}
               >
                 <Sparkles size={16} />
                 <span>✍️ فتح شات البوت للإرسال بالإيموجي المميز</span>
+                <ExternalLink size={14} />
+              </button>
+
+              <button
+                onClick={() => {
+                  const rawUser =
+                    botUsername ||
+                    (window as unknown as { Telegram?: { WebApp?: { initDataUnsafe?: { bot_username?: string } } } })?.Telegram?.WebApp?.initDataUnsafe?.bot_username ||
+                    "GRAM_GO_BOT";
+                  const cleanUser = rawUser.replace(/^@/, "");
+                  const url = `https://t.me/${cleanUser}?start=news_broadcast`;
+                  const tg = (window as unknown as { Telegram?: { WebApp?: { openTelegramLink?: (u: string) => void } } })?.Telegram?.WebApp;
+                  if (tg?.openTelegramLink) {
+                    tg.openTelegramLink(url);
+                  } else {
+                    window.open(url, "_blank");
+                  }
+                }}
+                style={{
+                  width: "100%",
+                  padding: "13px 16px",
+                  background: "linear-gradient(135deg, #10b981, #059669)",
+                  border: "none",
+                  borderRadius: 12,
+                  color: "#FFFFFF",
+                  fontWeight: 900,
+                  fontSize: 13,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  boxShadow: "0 4px 14px rgba(16, 185, 129, 0.35)",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <Sparkles size={16} />
+                <span>📢 إرسال رسالة بالإيموجي في قناة الأخبار</span>
                 <ExternalLink size={14} />
               </button>
             </div>
