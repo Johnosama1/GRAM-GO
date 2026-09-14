@@ -1,0 +1,93 @@
+1434-            }).catch(() => {});
+1435-            await bot.answerCallbackQuery(q.id, { text: "تم الإلغاء" });
+1436-            return;
+1437-          }
+1438-
+1439:          if (subAction === "send") {
+1440-            const state = await getAdminState(userId);
+1441-            if (!state || !state.metadata) {
+1442-              await bot.answerCallbackQuery(q.id, { text: "انتهت الجلسة", show_alert: true });
+1443-              return;
+1444-            }
+1445-
+1446-            const { fromChatId, messageId, btnStyle, btnName, customEmojiId } = state.metadata as any;
+1447-            await clearAdminState(userId);
+1448-
+1449-            await bot.editMessageText("⏳ <b>جاري النشر في القناة...</b>", {
+1450-              chat_id: chatId,
+1451-              message_id: q.message?.message_id,
+1452-              parse_mode: "HTML",
+1453-            }).catch(() => {});
+1454-
+1455-            const newsButton: any = {
+1456-              text: btnName || "Open",
+1457-              url: `https://t.me/GramGO1_bot`, // Using bot URL
+1458-            };
+1459-            if (btnStyle && ["success", "primary", "destructive", "secondary"].includes(btnStyle)) {
+1460-              newsButton.style = btnStyle;
+1461-            }
+1462-            if (customEmojiId) {
+1463-              newsButton.icon_custom_emoji_id = customEmojiId;
+1464-            }
+1465-
+1466-            try {
+1467-              await bot.copyMessage("@GramGO1News", fromChatId, messageId, {
+1468-                reply_markup: {
+1469-                  inline_keyboard: [[newsButton]],
+1470-                },
+1471-              });
+1472-              await bot.sendMessage(chatId, "✅ <b>تم النشر بنجاح في القناة!</b>", { parse_mode: "HTML" });
+1473-              await bot.answerCallbackQuery(q.id, { text: "تم النشر 🚀" });
+1474-            } catch (err: any) {
+1475-              logger.error({ err }, "Error sending to news channel");
+1476-              let errMsg = "حدث خطأ غير معروف";
+1477-              if (err.response && err.response.body && err.response.body.description) {
+1478-                errMsg = err.response.body.description;
+1479-              }
+--
+1497-            }).catch(() => {});
+1498-            await bot.answerCallbackQuery(q.id, { text: "تم الإلغاء" });
+1499-            return;
+1500-          }
+1501-
+1502:          if (subAction === "send") {
+1503-            const isPin = parts[2] === "1";
+1504-            const msgId = parseInt(parts[3] || "0");
+1505-            const state = await getAdminState(userId);
+1506-            await clearAdminState(userId);
+1507-
+1508-            const fromChatId = (state?.metadata?.fromChatId as number) || chatId;
+1509-            const messageId = msgId || (state?.metadata?.messageId as number);
+1510-
+1511-            await bot.editMessageText("⏳ <b>جاري بدء البث الجماعي للجميع مع الإيموجي المميز...</b>", {
+1512-              chat_id: chatId,
+1513-              message_id: q.message?.message_id,
+1514-              parse_mode: "HTML",
+1515-            }).catch(() => {});
+1516-
+1517-            const res = await startBroadcast(
+1518-              bot,
+1519-              userId,
+1520-              (state?.metadata?.textPreview as string) || "Broadcast",
+1521-              undefined,
+1522-              isPin,
+1523-              fromChatId,
+1524-              messageId
+1525-            );
+1526-
+1527-            await bot.sendMessage(chatId, res.message, { parse_mode: "HTML" });
+1528-            await bot.answerCallbackQuery(q.id, { text: "تم بدء الإرسال 🚀" });
+1529-            return;
+1530-          }
+1531-        }
+1532-
+1533-        // ── Admin Menu Callbacks (adm:*) ───────────────────────────────────
+1534-        if (data.startsWith("adm:") && adminInfo) {
+1535-          const action = data.replace("adm:", "");
+1536-
+1537-          if (action === "stats") {
+1538-            const [usersCount] = await db.select({ c: sql`count(*)` }).from(usersTable);
+1539-            const [bannedCount] = await db.select({ c: sql`count(*)` }).from(usersTable).where(eq(usersTable.isVisible, false));
+1540-            const [refsCount] = await db.select({ c: sql`count(*)` }).from(referralsTable);
+1541-            const [totalWd] = await db.select({ c: sql`count(*)` }).from(withdrawalsTable);
+1542-            const [pendingWd] = await db.select({ c: sql`count(*)` }).from(withdrawalsTable).where(eq(withdrawalsTable.status, "pending"));

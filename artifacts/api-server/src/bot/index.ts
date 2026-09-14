@@ -1443,7 +1443,7 @@ function setupBotHandlers() {
               return;
             }
 
-            const { fromChatId, messageId, btnStyle, btnName, customEmojiId } = state.metadata as any;
+            const { fromChatId, messageId, btnStyle, btnName, customEmojiId, btnUrl } = state.metadata as any;
             await clearAdminState(userId);
 
             await bot.editMessageText("⏳ <b>جاري النشر في القناة...</b>", {
@@ -1454,7 +1454,7 @@ function setupBotHandlers() {
 
             const newsButton: any = {
               text: btnName || "Open",
-              url: `https://t.me/GramGO1_bot`, // Using bot URL
+              url: btnUrl || `https://t.me/GramGO1_bot`, // Using bot URL
             };
             if (btnStyle && ["success", "primary", "destructive", "secondary"].includes(btnStyle)) {
               newsButton.style = btnStyle;
@@ -1929,7 +1929,7 @@ function setupBotHandlers() {
               const btnStyle = md.btnStyle as string;
               const btnName = md.btnName as string;
 
-              await setAdminState(userId, "admin_news_bc_confirm", {
+              await setAdminState(userId, "admin_news_bc_btn_url", {
                 fromChatId,
                 messageId,
                 btnStyle,
@@ -1937,10 +1937,39 @@ function setupBotHandlers() {
                 customEmojiId,
               });
 
+              await bot.sendMessage(
+                chatId,
+                `✅ <b>تم تحديد الإيموجي!</b>\n\n` +
+                `🔗 <b>ما هو الرابط (URL) للزر؟</b>\n` +
+                `(مثال: https://t.me/GramGO1_bot أو رابط مسابقة)`,
+                { parse_mode: "HTML" }
+              );
+              return;
+            }
+
+            if (state.step === "admin_news_bc_btn_url") {
+              const btnUrl = input.trim();
+
+              const md = state.metadata || {};
+              const fromChatId = md.fromChatId as number;
+              const messageId = md.messageId as number;
+              const btnStyle = md.btnStyle as string;
+              const btnName = md.btnName as string;
+              const customEmojiId = md.customEmojiId as string | undefined;
+
+              await setAdminState(userId, "admin_news_bc_confirm", {
+                fromChatId,
+                messageId,
+                btnStyle,
+                btnName,
+                customEmojiId,
+                btnUrl,
+              });
+
               // Construct the preview keyboard
               const previewButton: any = {
                 text: btnName,
-                url: `https://t.me/GramGO1_bot`, // Base bot link
+                url: btnUrl || `https://t.me/GramGO1_bot`, // Base bot link
               };
               if (btnStyle && ["success", "primary", "destructive", "secondary"].includes(btnStyle)) {
                 previewButton.style = btnStyle;
