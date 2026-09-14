@@ -1,0 +1,46 @@
+1907-                { parse_mode: "HTML" }
+1908-              );
+1909-              return;
+1910-            }
+1911-
+1912:            if (state.step === "admin_news_bc_btn_emoji") {
+1913-              let customEmojiId: string | undefined = undefined;
+1914-              if (input !== "-") {
+1915-                if (msg.entities && msg.entities.length > 0) {
+1916-                  const customEmojiEntity = msg.entities.find(e => e.type === "custom_emoji");
+1917-                  if (customEmojiEntity && customEmojiEntity.custom_emoji_id) {
+1918-                    customEmojiId = customEmojiEntity.custom_emoji_id;
+1919-                  }
+1920-                }
+1921-                if (!customEmojiId && /^\d+$/.test(input.trim())) {
+1922-                  customEmojiId = input.trim();
+1923-                }
+1924-              }
+1925-
+1926-              const md = state.metadata || {};
+1927-              const fromChatId = md.fromChatId as number;
+1928-              const messageId = md.messageId as number;
+1929-              const btnStyle = md.btnStyle as string;
+1930-              const btnName = md.btnName as string;
+1931-
+1932-              await setAdminState(userId, "admin_news_bc_confirm", {
+1933-                fromChatId,
+1934-                messageId,
+1935-                btnStyle,
+1936-                btnName,
+1937-                customEmojiId,
+1938-              });
+1939-
+1940-              // Construct the preview keyboard
+1941-              const previewButton: any = {
+1942-                text: btnName,
+1943-                url: `https://t.me/GramGO1_bot`, // Base bot link
+1944-              };
+1945-              if (btnStyle && ["success", "primary", "destructive", "secondary"].includes(btnStyle)) {
+1946-                previewButton.style = btnStyle;
+1947-              }
+1948-              if (customEmojiId) {
+1949-                previewButton.icon_custom_emoji_id = customEmojiId;
+1950-              }
+1951-
+1952-              await bot.sendMessage(
