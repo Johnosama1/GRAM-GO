@@ -26,7 +26,8 @@
     "helmet": "^8.1.0",
     "node-telegram-bot-api": "^0.67.0",
     "pino": "^9",
-    "pino-http": "^10"
+    "pino-http": "^10",
+    "tonweb": "0.0.9"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",

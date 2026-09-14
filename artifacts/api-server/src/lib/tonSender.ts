@@ -232,101 +232,108 @@ export async function sendTon(
 ): Promise<TonSendResult> {
   const client = await getClient();
   const activeWallet = await resolveActiveWallet(client);
-  const { contract, version, keyPair } = activeWallet;
+  const { keyPair, version } = activeWallet;
 
-  // Check balance before attempting transfer (0.01 TON gas margin is plenty for native transfer)
-  const currentBalance = await client.getBalance(contract.address);
-  const neededNano = toNano(amountTon);
-  const minFeeNano = toNano("0.01");
-  if (currentBalance < neededNano + minFeeNano) {
-    const hotAddr = contract.address.toString({ bounceable: false });
-    throw new Error(
-      `رصيد محفظة السحب غير كافٍ (${(Number(currentBalance) / 1e9).toFixed(4)} TON). يرجى شحن المحفظة بـ TON على العنوان:\n${hotAddr}`,
+  // Dynamically require TonWeb to match user's explicit request without rewriting imports
+  const TonWeb = require("tonweb");
+
+  try {
+    const tonweb = new TonWeb(
+      new TonWeb.HttpProvider(client.parameters.endpoint, {
+        apiKey: client.parameters.apiKey,
+      })
     );
-  }
 
-  type OpenedWallet =
-    | ReturnType<typeof client.open<WalletContractV5R1>>
-    | ReturnType<typeof client.open<WalletContractV4>>
-    | ReturnType<typeof client.open<WalletContractV3R2>>
-    | ReturnType<typeof client.open<WalletContractV3R1>>;
+    const PubK = Uint8Array.from(keyPair.publicKey);
+    const SecK = Uint8Array.from(keyPair.secretKey);
 
-  let wallet: OpenedWallet;
-  if (version === "V5R1") {
-    wallet = client.open(contract as WalletContractV5R1);
-  } else if (version === "V3R2") {
-    wallet = client.open(contract as WalletContractV3R2);
-  } else if (version === "V3R1") {
-    wallet = client.open(contract as WalletContractV3R1);
-  } else {
-    wallet = client.open(contract as WalletContractV4);
-  }
-
-  let seqno = 0;
-  try {
-    seqno = await wallet.getSeqno();
-  } catch {
-    seqno = 0;
-  }
-
-  logger.info(
-    { to: toAddress, amount: amountTon, seqno, version, from: contract.address.toString({ bounceable: false }) },
-    "Executing TON transfer on blockchain",
-  );
-
-  const cleanDest = Address.parse(toAddress.trim());
-
-  await wallet.sendTransfer({
-    secretKey: keyPair.secretKey,
-    seqno,
-    sendMode: SendMode.PAY_GAS_SEPARATELY + SendMode.IGNORE_ERRORS,
-    messages: [
-      internal({
-        to: cleanDest,
-        value: neededNano,
-        bounce: false,
-      }),
-    ],
-  });
-
-  // Wait for seqno update to confirm on-chain inclusion (up to 4 attempts of 1.5s = ~6s max, safe for serverless)
-  let currentSeqno = seqno;
-  let attempts = 0;
-  while (currentSeqno === seqno && attempts < 4) {
-    await new Promise((r) => setTimeout(r, 1500));
-    try {
-      currentSeqno = await wallet.getSeqno();
-    } catch {
-      // ignore
+    let walletClass;
+    if (version === "V3R1") {
+      walletClass = tonweb.wallet.all.v3R1;
+    } else if (version === "V3R2") {
+      walletClass = tonweb.wallet.all.v3R2;
+    } else if (version === "V4") {
+      walletClass = tonweb.wallet.all.v4R2;
+    } else if (version === "V5R1") {
+      throw new Error("TonWeb لا يدعم محافظ V5R1 حالياً");
+    } else {
+      walletClass = tonweb.wallet.all.v3R2; // fallback default
     }
-    attempts++;
-  }
 
-  let txRef = `seqno-${seqno}-${Date.now()}`;
-  try {
-    const recentTxs = await client.getTransactions(contract.address, { limit: 5 });
-    if (recentTxs && recentTxs.length > 0) {
-      for (const tx of recentTxs) {
-        if (tx.outMessages && tx.outMessages.size > 0) {
-          txRef = tx.hash().toString("hex");
-          break;
+    let wallet = new walletClass(tonweb.provider, { publicKey: PubK });
+    const address = await wallet.getAddress();
+    const fromStr = address.toString(true, true);
+
+    logger.info(
+      { to: toAddress, amount: amountTon, from: fromStr, version },
+      "Executing TON transfer on blockchain using TonWeb (Automatic Withdrawal logic)"
+    );
+
+    let balanceStr = await tonweb.getBalance(address);
+    const minFeeNano = BigInt(TonWeb.utils.toNano("0.01"));
+    const neededNano = BigInt(TonWeb.utils.toNano(amountTon));
+    const currentBalance = BigInt(balanceStr);
+
+    if (currentBalance < neededNano + minFeeNano) {
+      throw new Error(
+        `رصيد محفظة السحب غير كافٍ (${(Number(currentBalance) / 1e9).toFixed(
+          4
+        )} TON). يرجى شحن المحفظة بـ TON على العنوان:\n${fromStr}`
+      );
+    }
+
+    const seqno = (await wallet.methods.seqno().call()) || 0;
+
+    const transfer = wallet.methods.transfer({
+      secretKey: SecK,
+      toAddress: toAddress,
+      amount: TonWeb.utils.toNano(amountTon),
+      seqno: seqno,
+      payload: "\xF0\x9F\x98\x81 TON GRAM Faucet", // Copied from Automatic withdrawal
+      sendMode: 3,
+    });
+
+    const transferSended = await transfer.send();
+    logger.info({ transferSended }, "TonWeb transfer result");
+
+    if (transferSended && transferSended["@type"] === "ok") {
+      logger.info("Grams sent via TonWeb successfully");
+    } else {
+      logger.warn({ transferSended }, "Unexpected TonWeb transfer response");
+    }
+
+    let txRef = `seqno-${seqno}-${Date.now()}`;
+
+    // Wait slightly to ensure it's propagated
+    await new Promise((r) => setTimeout(r, 2000));
+
+    try {
+      const recentTxs = await tonweb.getTransactions(address, 5);
+      if (recentTxs && recentTxs.length > 0) {
+        for (const tx of recentTxs) {
+          if (tx.out_msgs && tx.out_msgs.length > 0) {
+            txRef = tx.transaction_id.hash;
+            break;
+          }
         }
       }
-    }
-  } catch {}
+    } catch {}
 
-  logger.info(
-    {
-      to: toAddress,
-      amount: amountTon,
-      txRef,
-      confirmed: currentSeqno > seqno,
-      from: contract.address.toString({ bounceable: false }),
-    },
-    "TON transfer dispatched to blockchain",
-  );
+    logger.info(
+      {
+        to: toAddress,
+        amount: amountTon,
+        txRef,
+        from: fromStr,
+      },
+      "TON transfer dispatched to blockchain via TonWeb"
+    );
 
-  return { txRef };
+    return { txRef };
+  } catch (e: any) {
+    logger.error({ err: e }, "Error in sendTon using TonWeb");
+    throw e;
+  }
 }
 
 export async function getWalletAddress(): Promise<string | null> {
