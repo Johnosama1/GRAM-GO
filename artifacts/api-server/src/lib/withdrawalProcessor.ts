@@ -107,23 +107,34 @@ export async function executeAutoWithdrawal(
         `<code>${esc(txRefStr || walletAddress)}</code>`;
 
       // Notify user with the exact same style as deposit message
+      let sentUserMsgId: number | undefined;
       try {
-        await bot.sendMessage(userId, userMsg, {
+        const sent = await bot.sendMessage(userId, userMsg, {
           parse_mode: "HTML",
           reply_markup: explorerReplyMarkup,
           disable_web_page_preview: true,
         });
+        sentUserMsgId = sent?.message_id;
       } catch {
         /* ignore */
       }
 
-      // Post the same success confirmation to the public withdrawals channel
+      // Forward the exact message just sent to the user into the public
+      // withdrawals channel — copyMessage preserves the real custom-emoji
+      // entities byte-for-byte, unlike re-sending the same HTML text fresh
+      // (which can lose the premium emoji rendering when posted to a channel).
       try {
-        await bot.sendMessage("@GramGOwithdrawal", userMsg, {
-          parse_mode: "HTML",
-          reply_markup: explorerReplyMarkup,
-          disable_web_page_preview: true,
-        });
+        if (sentUserMsgId) {
+          await bot.copyMessage("@GramGOwithdrawal", userId, sentUserMsgId, {
+            reply_markup: explorerReplyMarkup,
+          });
+        } else {
+          await bot.sendMessage("@GramGOwithdrawal", userMsg, {
+            parse_mode: "HTML",
+            reply_markup: explorerReplyMarkup,
+            disable_web_page_preview: true,
+          });
+        }
       } catch (err) {
         logger.warn({ err, withdrawalId }, "Failed to post withdrawal confirmation to @GramGOwithdrawal channel");
       }
