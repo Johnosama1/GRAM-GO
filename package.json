@@ -24,5 +24,21 @@
     "lightningcss-win32-x64-msvc": "1.31.1",
     "prettier": "^3.8.1",
     "typescript": "~5.9.2"
-  }
+  },
+  "description": "The following environment variables are required to ensure the correct functioning of the TON auto-withdrawal and deposit system:",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Johnosama1/GRAM-GO.git"
+  },
+  "keywords": [],
+  "author": "",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Johnosama1/GRAM-GO/issues"
+  },
+  "homepage": "https://github.com/Johnosama1/GRAM-GO#readme"
 }

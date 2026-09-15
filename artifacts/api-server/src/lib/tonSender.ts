@@ -167,23 +167,58 @@ export async function resolveActiveWallet(client: TonClient): Promise<ResolvedWa
   // 1. PRIORITY 1: Exact match with process.env.WALLET_ADDRESS
   const targetEnvAddress = (process.env.WALLET_ADDRESS || process.env.DEPOSIT_WALLET_ADDRESS || "").trim();
   if (targetEnvAddress) {
+    let parsedTarget: Address;
     try {
-      const parsedTarget = Address.parse(targetEnvAddress);
-      for (const opt of allWalletOptions) {
-        if (opt.contract.address.equals(parsedTarget)) {
-          logger.info(
-            { version: opt.version, address: opt.address, targetEnvAddress },
-            "Successfully matched exact WALLET_ADDRESS configured in environment variables",
-          );
-          return opt;
-        }
-      }
-      throw new Error(`Configured WALLET_ADDRESS does not match any derived contract version from OWNER_SECRET_KEY`);
+      parsedTarget = Address.parse(targetEnvAddress);
     } catch (err) {
-      if (err instanceof Error && err.message.includes("Configured WALLET_ADDRESS does not match")) {
-        throw err;
-      }
       throw new Error(`Invalid WALLET_ADDRESS environment variable string: ${targetEnvAddress}`);
+    }
+
+    const maskedTargetEnv = `${targetEnvAddress.slice(0, 4)}...${targetEnvAddress.slice(-4)}`;
+    let matchFound = false;
+    let matchedOpt: ResolvedWallet | undefined;
+
+    logger.info(`Configured WALLET_ADDRESS (Masked): ${maskedTargetEnv}`);
+
+    for (const opt of allWalletOptions) {
+      const maskedAddress = `${opt.address.slice(0, 4)}...${opt.address.slice(-4)}`;
+      const isMatch = opt.contract.address.equals(parsedTarget);
+
+      logger.info(
+        {
+          version: opt.version,
+          derivedAddressMasked: maskedAddress,
+          configuredAddressMasked: maskedTargetEnv,
+          match: isMatch,
+        },
+        "Checking derived wallet candidate against configured WALLET_ADDRESS"
+      );
+
+      if (isMatch) {
+        matchFound = true;
+        matchedOpt = opt;
+      }
+    }
+
+    if (matchFound && matchedOpt) {
+      logger.info(
+        { version: matchedOpt.version, address: matchedOpt.address, targetEnvAddress },
+        "Successfully matched exact WALLET_ADDRESS configured in environment variables",
+      );
+      return matchedOpt;
+    } else {
+      const derivedAddressesList = allWalletOptions.map(opt => `${opt.version}: ${opt.address}`).join("\n");
+      throw new Error(
+        `SECURITY ALERT: The configured WALLET_ADDRESS does not match ANY wallet address derived from the OWNER_SECRET_KEY.\n\n` +
+        `This means the private key (OWNER_SECRET_KEY) provided does NOT belong to the configured WALLET_ADDRESS.\n\n` +
+        `--- ACTION REQUIRED ---\n` +
+        `If WALLET_ADDRESS is correct:\n` +
+        `You must update OWNER_SECRET_KEY to be the private key that actually belongs to the wallet.\n\n` +
+        `If OWNER_SECRET_KEY is correct:\n` +
+        `One of the following derived addresses should be configured as WALLET_ADDRESS:\n` +
+        `${derivedAddressesList}\n\n` +
+        `DO NOT automatically change WALLET_ADDRESS. Update the Vercel environment variables manually.`
+      );
     }
   }
 
