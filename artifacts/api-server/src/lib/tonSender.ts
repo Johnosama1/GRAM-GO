@@ -377,15 +377,23 @@ export async function getWalletAddress(): Promise<string | null> {
 }
 
 export async function getWalletBalance(): Promise<string | null> {
+  const { balance } = await getWalletBalanceDetailed();
+  return balance;
+}
+
+// Same as getWalletBalance, but preserves the underlying error instead of
+// swallowing it — a silent "—" gives no way to tell an invalid/rate-limited
+// TON_API_KEY apart from a genuine network failure or a resolution error.
+export async function getWalletBalanceDetailed(): Promise<{ balance: string | null; error?: string }> {
   const secret = await getEffectiveMnemonic();
-  if (!secret) return null;
+  if (!secret) return { balance: null };
   try {
     const client = await getClient();
     const activeWallet = await resolveActiveWallet(client);
     const bal = await client.getBalance(activeWallet.contract.address);
-    return (Number(bal) / 1e9).toFixed(4);
-  } catch {
-    return null;
+    return { balance: (Number(bal) / 1e9).toFixed(4) };
+  } catch (err) {
+    return { balance: null, error: err instanceof Error ? err.message : String(err) };
   }
 }
 

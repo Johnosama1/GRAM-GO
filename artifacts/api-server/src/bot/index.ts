@@ -14,7 +14,7 @@ import {
   executeAutoWithdrawal,
   isTonConfigured,
 } from "../lib/withdrawalProcessor";
-import { getWalletAddress, getWalletBalance, checkWalletAddressMismatch } from "../lib/tonSender";
+import { getWalletAddress, getWalletBalanceDetailed, checkWalletAddressMismatch } from "../lib/tonSender";
 import { OWNER_USERNAME, isOwner, getAdminInfo } from "./admin";
 import {
   enforceSubscription,
@@ -1382,19 +1382,23 @@ function setupBotHandlers() {
       const username = msg.from?.username;
       const info = await getAdminInfo(userId, username);
       if (!info) return;
-      const [addr, balance, mismatch] = await Promise.all([
+      const [addr, balanceResult, mismatch] = await Promise.all([
         getWalletAddress(),
-        getWalletBalance(),
+        getWalletBalanceDetailed(),
         checkWalletAddressMismatch(),
       ]);
+      const { balance, error: balanceError } = balanceResult;
+      const statusLine = balanceError
+        ? `❌ تعذّر قراءة الرصيد من شبكة TON:\n<code>${esc(balanceError)}</code>`
+        : balance && parseFloat(balance) < 0.1
+          ? "⚠️ الرصيد منخفض — اشحن المحفظة لضمان نجاح عمليات السحب."
+          : "✅ المحفظة جاهزة للإرسال.";
       await bot.sendMessage(
         msg.chat.id,
         `💼 <b>محفظة البوت الساخنة</b>\n\n` +
           `📍 العنوان:\n<code>${esc(addr ?? "غير متاح")}</code>\n\n` +
           `💰 الرصيد: <b>${balance ?? "—"} TON</b>\n\n` +
-          (balance && parseFloat(balance) < 0.1
-            ? "⚠️ الرصيد منخفض — اشحن المحفظة لضمان نجاح عمليات السحب."
-            : "✅ المحفظة جاهزة للإرسال.") +
+          statusLine +
           (mismatch
             ? `\n\n🚨 <b>تحذير: عنوان مختلف عن المحفظة الفعلية!</b>\n` +
               `المتغير <code>WALLET_ADDRESS</code> في السيرفر مضبوط على:\n<code>${esc(mismatch.configured)}</code>\n\n` +
