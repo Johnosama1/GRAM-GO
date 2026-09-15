@@ -165,7 +165,9 @@ export async function resolveActiveWallet(client: TonClient): Promise<ResolvedWa
   }
 
   // 1. PRIORITY 1: Exact match with process.env.WALLET_ADDRESS
-  const targetEnvAddress = (process.env.WALLET_ADDRESS || process.env.DEPOSIT_WALLET_ADDRESS || "").trim();
+  const rawTargetEnvAddress = process.env.WALLET_ADDRESS || process.env.DEPOSIT_WALLET_ADDRESS || "";
+  const targetEnvAddress = rawTargetEnvAddress.trim();
+
   if (targetEnvAddress) {
     let parsedTarget: Address;
     try {
@@ -174,15 +176,27 @@ export async function resolveActiveWallet(client: TonClient): Promise<ResolvedWa
       throw new Error(`Invalid WALLET_ADDRESS environment variable string: ${targetEnvAddress}`);
     }
 
-    const maskedTargetEnv = `${targetEnvAddress.slice(0, 4)}...${targetEnvAddress.slice(-4)}`;
+    const maskedTargetEnv = targetEnvAddress.length > 12
+      ? `${targetEnvAddress.slice(0, 6)}...${targetEnvAddress.slice(-6)}`
+      : targetEnvAddress;
+    const hadWhitespace = rawTargetEnvAddress !== targetEnvAddress;
+
+    logger.info({
+      configuredAddressMasked: maskedTargetEnv,
+      configuredLength: targetEnvAddress.length,
+      hadWhitespace,
+    }, `SAFE DIAGNOSTIC: Initializing WALLET_ADDRESS match check`);
+
     let matchFound = false;
     let matchedOpt: ResolvedWallet | undefined;
 
-    logger.info(`Configured WALLET_ADDRESS (Masked): ${maskedTargetEnv}`);
-
     for (const opt of allWalletOptions) {
-      const maskedAddress = `${opt.address.slice(0, 4)}...${opt.address.slice(-4)}`;
-      const isMatch = opt.contract.address.equals(parsedTarget);
+      const maskedAddress = opt.address.length > 12
+        ? `${opt.address.slice(0, 6)}...${opt.address.slice(-6)}`
+        : opt.address;
+
+      const parsedOptAddress = Address.parse(opt.address);
+      const isMatch = parsedOptAddress.equals(parsedTarget);
 
       logger.info(
         {
@@ -191,7 +205,7 @@ export async function resolveActiveWallet(client: TonClient): Promise<ResolvedWa
           configuredAddressMasked: maskedTargetEnv,
           match: isMatch,
         },
-        "Checking derived wallet candidate against configured WALLET_ADDRESS"
+        "SAFE DIAGNOSTIC: Checking derived wallet candidate against configured WALLET_ADDRESS"
       );
 
       if (isMatch) {
