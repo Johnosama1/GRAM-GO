@@ -1,0 +1,452 @@
+{
+  "1": {
+    "id": 1,
+    "type": "pistol",
+    "damage": 2,
+    "fireRate": 20,
+    "bulletSpeed": 8,
+    "range": 250,
+    "color": "#fef08a"
+  },
+  "2": {
+    "id": 2,
+    "type": "pistol",
+    "damage": 2,
+    "fireRate": 20,
+    "bulletSpeed": 8,
+    "range": 250,
+    "color": "#fef08a"
+  },
+  "3": {
+    "id": 3,
+    "type": "pistol",
+    "damage": 2,
+    "fireRate": 20,
+    "bulletSpeed": 8,
+    "range": 250,
+    "color": "#fef08a"
+  },
+  "4": {
+    "id": 4,
+    "type": "pistol",
+    "damage": 2,
+    "fireRate": 20,
+    "bulletSpeed": 8,
+    "range": 250,
+    "color": "#fef08a"
+  },
+  "5": {
+    "id": 5,
+    "type": "pistol",
+    "damage": 2,
+    "fireRate": 20,
+    "bulletSpeed": 8,
+    "range": 250,
+    "color": "#fef08a"
+  },
+  "6": {
+    "id": 6,
+    "type": "pistol",
+    "damage": 2,
+    "fireRate": 20,
+    "bulletSpeed": 8,
+    "range": 250,
+    "color": "#fef08a"
+  },
+  "7": {
+    "id": 7,
+    "type": "pistol",
+    "damage": 2,
+    "fireRate": 20,
+    "bulletSpeed": 8,
+    "range": 250,
+    "color": "#fef08a"
+  },
+  "8": {
+    "id": 8,
+    "type": "pistol",
+    "damage": 2,
+    "fireRate": 20,
+    "bulletSpeed": 8,
+    "range": 250,
+    "color": "#fef08a"
+  },
+  "9": {
+    "id": 9,
+    "type": "pistol",
+    "damage": 2,
+    "fireRate": 20,
+    "bulletSpeed": 8,
+    "range": 250,
+    "color": "#fef08a"
+  },
+  "10": {
+    "id": 10,
+    "type": "pistol",
+    "damage": 2,
+    "fireRate": 20,
+    "bulletSpeed": 8,
+    "range": 250,
+    "color": "#fef08a"
+  },
+  "11": {
+    "id": 11,
+    "type": "smg",
+    "damage": 1.5,
+    "fireRate": 8,
+    "bulletSpeed": 10,
+    "range": 200,
+    "color": "#38bdf8"
+  },
+  "12": {
+    "id": 12,
+    "type": "smg",
+    "damage": 1.5,
+    "fireRate": 8,
+    "bulletSpeed": 10,
+    "range": 200,
+    "color": "#38bdf8"
+  },
+  "13": {
+    "id": 13,
+    "type": "smg",
+    "damage": 1.5,
+    "fireRate": 8,
+    "bulletSpeed": 10,
+    "range": 200,
+    "color": "#38bdf8"
+  },
+  "14": {
+    "id": 14,
+    "type": "smg",
+    "damage": 1.5,
+    "fireRate": 8,
+    "bulletSpeed": 10,
+    "range": 200,
+    "color": "#38bdf8"
+  },
+  "15": {
+    "id": 15,
+    "type": "smg",
+    "damage": 1.5,
+    "fireRate": 8,
+    "bulletSpeed": 10,
+    "range": 200,
+    "color": "#38bdf8"
+  },
+  "16": {
+    "id": 16,
+    "type": "smg",
+    "damage": 1.5,
+    "fireRate": 8,
+    "bulletSpeed": 10,
+    "range": 200,
+    "color": "#38bdf8"
+  },
+  "17": {
+    "id": 17,
+    "type": "smg",
+    "damage": 1.5,
+    "fireRate": 8,
+    "bulletSpeed": 10,
+    "range": 200,
+    "color": "#38bdf8"
+  },
+  "18": {
+    "id": 18,
+    "type": "smg",
+    "damage": 1.5,
+    "fireRate": 8,
+    "bulletSpeed": 10,
+    "range": 200,
+    "color": "#38bdf8"
+  },
+  "19": {
+    "id": 19,
+    "type": "smg",
+    "damage": 1.5,
+    "fireRate": 8,
+    "bulletSpeed": 10,
+    "range": 200,
+    "color": "#38bdf8"
+  },
+  "20": {
+    "id": 20,
+    "type": "smg",
+    "damage": 1.5,
+    "fireRate": 8,
+    "bulletSpeed": 10,
+    "range": 200,
+    "color": "#38bdf8"
+  },
+  "21": {
+    "id": 21,
+    "type": "shotgun",
+    "damage": 1,
+    "fireRate": 40,
+    "bulletSpeed": 12,
+    "range": 150,
+    "color": "#f97316"
+  },
+  "22": {
+    "id": 22,
+    "type": "rifle",
+    "damage": 3,
+    "fireRate": 15,
+    "bulletSpeed": 12,
+    "range": 300,
+    "color": "#fef08a"
+  },
+  "23": {
+    "id": 23,
+    "type": "shotgun",
+    "damage": 1,
+    "fireRate": 40,
+    "bulletSpeed": 12,
+    "range": 150,
+    "color": "#f97316"
+  },
+  "24": {
+    "id": 24,
+    "type": "shotgun",
+    "damage": 1,
+    "fireRate": 40,
+    "bulletSpeed": 12,
+    "range": 150,
+    "color": "#f97316"
+  },
+  "25": {
+    "id": 25,
+    "type": "rifle",
+    "damage": 3,
+    "fireRate": 15,
+    "bulletSpeed": 12,
+    "range": 300,
+    "color": "#fef08a"
+  },
+  "26": {
+    "id": 26,
+    "type": "rifle",
+    "damage": 3,
+    "fireRate": 15,
+    "bulletSpeed": 12,
+    "range": 300,
+    "color": "#fef08a"
+  },
+  "27": {
+    "id": 27,
+    "type": "rifle",
+    "damage": 3,
+    "fireRate": 15,
+    "bulletSpeed": 12,
+    "range": 300,
+    "color": "#fef08a"
+  },
+  "28": {
+    "id": 28,
+    "type": "rifle",
+    "damage": 3,
+    "fireRate": 15,
+    "bulletSpeed": 12,
+    "range": 300,
+    "color": "#fef08a"
+  },
+  "29": {
+    "id": 29,
+    "type": "rifle",
+    "damage": 3,
+    "fireRate": 15,
+    "bulletSpeed": 12,
+    "range": 300,
+    "color": "#fef08a"
+  },
+  "30": {
+    "id": 30,
+    "type": "rifle",
+    "damage": 3,
+    "fireRate": 15,
+    "bulletSpeed": 12,
+    "range": 300,
+    "color": "#fef08a"
+  },
+  "31": {
+    "id": 31,
+    "type": "assault_rifle",
+    "damage": 2,
+    "fireRate": 10,
+    "bulletSpeed": 12,
+    "range": 350,
+    "color": "#4ade80"
+  },
+  "32": {
+    "id": 32,
+    "type": "assault_rifle",
+    "damage": 2,
+    "fireRate": 10,
+    "bulletSpeed": 12,
+    "range": 350,
+    "color": "#4ade80"
+  },
+  "33": {
+    "id": 33,
+    "type": "assault_rifle",
+    "damage": 2,
+    "fireRate": 10,
+    "bulletSpeed": 12,
+    "range": 350,
+    "color": "#4ade80"
+  },
+  "34": {
+    "id": 34,
+    "type": "assault_rifle",
+    "damage": 2,
+    "fireRate": 10,
+    "bulletSpeed": 12,
+    "range": 350,
+    "color": "#4ade80"
+  },
+  "35": {
+    "id": 35,
+    "type": "assault_rifle",
+    "damage": 2,
+    "fireRate": 10,
+    "bulletSpeed": 12,
+    "range": 350,
+    "color": "#4ade80"
+  },
+  "36": {
+    "id": 36,
+    "type": "assault_rifle",
+    "damage": 2,
+    "fireRate": 10,
+    "bulletSpeed": 12,
+    "range": 350,
+    "color": "#4ade80"
+  },
+  "37": {
+    "id": 37,
+    "type": "assault_rifle",
+    "damage": 2,
+    "fireRate": 10,
+    "bulletSpeed": 12,
+    "range": 350,
+    "color": "#4ade80"
+  },
+  "38": {
+    "id": 38,
+    "type": "assault_rifle",
+    "damage": 2,
+    "fireRate": 10,
+    "bulletSpeed": 12,
+    "range": 350,
+    "color": "#4ade80"
+  },
+  "39": {
+    "id": 39,
+    "type": "assault_rifle",
+    "damage": 2,
+    "fireRate": 10,
+    "bulletSpeed": 12,
+    "range": 350,
+    "color": "#4ade80"
+  },
+  "40": {
+    "id": 40,
+    "type": "assault_rifle",
+    "damage": 2,
+    "fireRate": 10,
+    "bulletSpeed": 12,
+    "range": 350,
+    "color": "#4ade80"
+  },
+  "41": {
+    "id": 41,
+    "type": "heavy",
+    "damage": 4,
+    "fireRate": 12,
+    "bulletSpeed": 10,
+    "range": 300,
+    "color": "#fef08a"
+  },
+  "42": {
+    "id": 42,
+    "type": "heavy",
+    "damage": 4,
+    "fireRate": 12,
+    "bulletSpeed": 10,
+    "range": 300,
+    "color": "#fef08a"
+  },
+  "43": {
+    "id": 43,
+    "type": "heavy",
+    "damage": 4,
+    "fireRate": 12,
+    "bulletSpeed": 10,
+    "range": 300,
+    "color": "#fef08a"
+  },
+  "44": {
+    "id": 44,
+    "type": "heavy",
+    "damage": 4,
+    "fireRate": 12,
+    "bulletSpeed": 10,
+    "range": 300,
+    "color": "#fef08a"
+  },
+  "45": {
+    "id": 45,
+    "type": "launcher",
+    "damage": 10,
+    "fireRate": 80,
+    "bulletSpeed": 6,
+    "range": 300,
+    "color": "#f43f5e"
+  },
+  "46": {
+    "id": 46,
+    "type": "heavy",
+    "damage": 4,
+    "fireRate": 12,
+    "bulletSpeed": 10,
+    "range": 300,
+    "color": "#fef08a"
+  },
+  "47": {
+    "id": 47,
+    "type": "sniper",
+    "damage": 8,
+    "fireRate": 60,
+    "bulletSpeed": 20,
+    "range": 500,
+    "color": "#ef4444"
+  },
+  "48": {
+    "id": 48,
+    "type": "sniper",
+    "damage": 8,
+    "fireRate": 60,
+    "bulletSpeed": 20,
+    "range": 500,
+    "color": "#ef4444"
+  },
+  "49": {
+    "id": 49,
+    "type": "sniper",
+    "damage": 8,
+    "fireRate": 60,
+    "bulletSpeed": 20,
+    "range": 500,
+    "color": "#ef4444"
+  },
+  "50": {
+    "id": 50,
+    "type": "sniper",
+    "damage": 8,
+    "fireRate": 60,
+    "bulletSpeed": 20,
+    "range": 500,
+    "color": "#ef4444"
+  }
+}

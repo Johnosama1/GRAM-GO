@@ -648,7 +648,8 @@ export async function sendWelcomeMessage(
     .replace(/\{username\}/g, username ? `@${esc(username)}` : "")
     .replace(/\{user_id\}/g, String(userId || ""));
 
-  await bot.sendMessage(chatId, welcomeText, {
+  await bot.sendPhoto(chatId, `${MINI_APP_URL}welcome-image.png`, {
+    caption: welcomeText,
     parse_mode: "HTML",
     reply_markup: {
       inline_keyboard: [
@@ -1128,6 +1129,20 @@ function setupBotHandlers() {
           return;
         }
 
+        if (refParam === "news_broadcast" && adminInfo) {
+          await setAdminState(userId, "admin_news_broadcast", {});
+          await bot.sendMessage(
+            chatId,
+            `📢 <b>نشر رسالة في قناة الأخبار</b>\n\n` +
+              `✍️ <b>أرسل الآن البوست (نص أو صورة أو فيديو) الذي تريد نشره في القناة:</b>\n` +
+              `• يمكنك استخدام الإيموجي المميز 🌟\n` +
+              `• بعد إرسال البوست، سأطلب منك بيانات الزر الذي سيظهر أسفله.\n\n` +
+              `<i>(للإلغاء في أي وقت أرسل /cancel)</i>`,
+            { parse_mode: "HTML" }
+          );
+          return;
+        }
+
         if (refParam?.startsWith("dm_") && adminInfo) {
           const targetId = parseInt(refParam.replace("dm_", ""));
           if (!isNaN(targetId) && targetId > 0) {
@@ -1140,6 +1155,8 @@ function setupBotHandlers() {
             return;
           }
         }
+
+
 
         // ── Subscription check for ALL users (new and existing) ─────────────
         if (!adminInfo) {
@@ -1443,6 +1460,68 @@ function setupBotHandlers() {
                 show_alert: true,
               })
               .catch(() => {});
+            return;
+          }
+        }
+
+        // ── Admin News Broadcast Confirmation Callbacks (news_bc:*) ───────────────
+        if (data.startsWith("news_bc:") && adminInfo) {
+          const subAction = data.split(":")[1];
+
+          if (subAction === "cancel") {
+            await clearAdminState(userId);
+            await bot.editMessageText("❌ تم إلغاء نشر بوست قناة الأخبار.", {
+              chat_id: chatId,
+              message_id: q.message?.message_id,
+            }).catch(() => {});
+            await bot.answerCallbackQuery(q.id, { text: "تم الإلغاء" });
+            return;
+          }
+
+          if (subAction === "send") {
+            const state = await getAdminState(userId);
+            if (!state || !state.metadata) {
+              await bot.answerCallbackQuery(q.id, { text: "انتهت الجلسة", show_alert: true });
+              return;
+            }
+
+            const { fromChatId, messageId, btnStyle, btnName, customEmojiId, btnUrl } = state.metadata as any;
+            await clearAdminState(userId);
+
+            await bot.editMessageText("⏳ <b>جاري النشر في القناة...</b>", {
+              chat_id: chatId,
+              message_id: q.message?.message_id,
+              parse_mode: "HTML",
+            }).catch(() => {});
+
+            const newsButton: any = {
+              text: btnName || "Open",
+              url: btnUrl || `https://t.me/GramGO1_bot`, // Using bot URL
+            };
+            if (btnStyle && ["success", "primary", "destructive", "secondary"].includes(btnStyle)) {
+              newsButton.style = btnStyle;
+            }
+            if (customEmojiId) {
+              newsButton.icon_custom_emoji_id = customEmojiId;
+            }
+
+            try {
+              await bot.copyMessage("@GramGO1News", fromChatId, messageId, {
+                reply_markup: {
+                  inline_keyboard: [[newsButton]],
+                },
+              });
+              await bot.sendMessage(chatId, "✅ <b>تم النشر بنجاح في القناة!</b>", { parse_mode: "HTML" });
+              await bot.answerCallbackQuery(q.id, { text: "تم النشر 🚀" });
+            } catch (err: any) {
+              logger.error({ err }, "Error sending to news channel");
+              let errMsg = "حدث خطأ غير معروف";
+              if (err.response && err.response.body && err.response.body.description) {
+                errMsg = err.response.body.description;
+              }
+              await bot.sendMessage(chatId, `❌ <b>فشل النشر:</b> ${errMsg}`, { parse_mode: "HTML" });
+              await bot.answerCallbackQuery(q.id, { text: "فشل النشر" });
+            }
             return;
           }
         }
@@ -1813,6 +1892,148 @@ function setupBotHandlers() {
                       ],
                       [
                         { text: "❌ إلغاء", callback_data: "adm_bc:cancel" },
+                      ],
+                    ],
+                  },
+                }
+              );
+              return;
+            }
+
+            if (state.step === "admin_news_broadcast") {
+              await setAdminState(userId, "admin_news_bc_color", {
+                fromChatId: msg.chat.id,
+                messageId: msg.message_id,
+              });
+              await bot.sendMessage(
+                chatId,
+                `✅ <b>تم استلام البوست.</b>\n\n` +
+                `🎨 <b>ما هو لون الزر؟</b>\n` +
+                `(اكتب success للأخضر، primary للأزرق، أو destructive للأحمر، أو أي لون آخر)`,
+                { parse_mode: "HTML" }
+              );
+              return;
+            }
+
+            if (state.step === "admin_news_bc_color") {
+              let style = input.trim().toLowerCase();
+              if (style === "الاخضر" || style === "أخضر") style = "success";
+              else if (style === "الاحمر" || style === "أحمر") style = "destructive";
+              else if (style === "الازرق" || style === "أزرق") style = "primary";
+
+              await setAdminState(userId, "admin_news_bc_btn_name", {
+                ...state.metadata,
+                btnStyle: style,
+              });
+              await bot.sendMessage(
+                chatId,
+                `✅ <b>تم تحديد اللون:</b> ${style}\n\n` +
+                `📝 <b>ما هو اسم الزر؟</b>\n` +
+                `(الكلمة التي ستظهر على الزر)`,
+                { parse_mode: "HTML" }
+              );
+              return;
+            }
+
+            if (state.step === "admin_news_bc_btn_name") {
+              const btnName = input.trim();
+              await setAdminState(userId, "admin_news_bc_btn_emoji", {
+                ...state.metadata,
+                btnName,
+              });
+              await bot.sendMessage(
+                chatId,
+                `✅ <b>تم تحديد الاسم:</b> ${btnName}\n\n` +
+                `✨ <b>ما هو الإيموجي المميز للزر؟</b>\n` +
+                `(أرسل الإيموجي هنا، أو أرسل ID الإيموجي مباشرة. إذا لم ترغب بإيموجي أرسل -)`,
+                { parse_mode: "HTML" }
+              );
+              return;
+            }
+
+            if (state.step === "admin_news_bc_btn_emoji") {
+              let customEmojiId: string | undefined = undefined;
+              if (input !== "-") {
+                if (msg.entities && msg.entities.length > 0) {
+                  const customEmojiEntity = msg.entities.find(e => e.type === "custom_emoji");
+                  if (customEmojiEntity && customEmojiEntity.custom_emoji_id) {
+                    customEmojiId = customEmojiEntity.custom_emoji_id;
+                  }
+                }
+                if (!customEmojiId && /^\d+$/.test(input.trim())) {
+                  customEmojiId = input.trim();
+                }
+              }
+
+              const md = state.metadata || {};
+              const fromChatId = md.fromChatId as number;
+              const messageId = md.messageId as number;
+              const btnStyle = md.btnStyle as string;
+              const btnName = md.btnName as string;
+
+              await setAdminState(userId, "admin_news_bc_btn_url", {
+                fromChatId,
+                messageId,
+                btnStyle,
+                btnName,
+                customEmojiId,
+              });
+
+              await bot.sendMessage(
+                chatId,
+                `✅ <b>تم تحديد الإيموجي!</b>\n\n` +
+                `🔗 <b>ما هو الرابط (URL) للزر؟</b>\n` +
+                `(مثال: https://t.me/GramGO1_bot أو رابط مسابقة)`,
+                { parse_mode: "HTML" }
+              );
+              return;
+            }
+
+            if (state.step === "admin_news_bc_btn_url") {
+              const btnUrl = input.trim();
+
+              const md = state.metadata || {};
+              const fromChatId = md.fromChatId as number;
+              const messageId = md.messageId as number;
+              const btnStyle = md.btnStyle as string;
+              const btnName = md.btnName as string;
+              const customEmojiId = md.customEmojiId as string | undefined;
+
+              await setAdminState(userId, "admin_news_bc_confirm", {
+                fromChatId,
+                messageId,
+                btnStyle,
+                btnName,
+                customEmojiId,
+                btnUrl,
+              });
+
+              // Construct the preview keyboard
+              const previewButton: any = {
+                text: btnName,
+                url: btnUrl || `https://t.me/GramGO1_bot`, // Base bot link
+              };
+              if (btnStyle && ["success", "primary", "destructive", "secondary"].includes(btnStyle)) {
+                previewButton.style = btnStyle;
+              }
+              if (customEmojiId) {
+                previewButton.icon_custom_emoji_id = customEmojiId;
+              }
+
+              await bot.sendMessage(
+                chatId,
+                `👁️ <b>معاينة رسالة البث جاهزة!</b>\n\n` +
+                `سيتم نشر البوست المرفق في قناة <b>@GramGO1News</b> مع الزر التالي:\n\n` +
+                `هل أنت متأكد من النشر الآن؟`,
+                {
+                  parse_mode: "HTML",
+                  reply_to_message_id: messageId,
+                  reply_markup: {
+                    inline_keyboard: [
+                      [previewButton],
+                      [
+                        { text: "🚀 نشر الآن في القناة", callback_data: `news_bc:send` },
+                        { text: "❌ إلغاء", callback_data: "news_bc:cancel" },
                       ],
                     ],
                   },
