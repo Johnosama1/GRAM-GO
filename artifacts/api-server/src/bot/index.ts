@@ -4,16 +4,17 @@ import {
   usersTable,
   botSettingsTable,
   withdrawalsTable,
+  depositsTable,
   referralsTable,
 } from "@workspace/db/schema";
-import { eq, sql, and, ne } from "drizzle-orm";
+import { eq, sql, and, ne, count, sum } from "drizzle-orm";
 import { getSetting } from "../lib/settingsCache";
 import { logger } from "../lib/logger";
 import {
   executeAutoWithdrawal,
   isTonConfigured,
 } from "../lib/withdrawalProcessor";
-import { getWalletAddress, getWalletBalance } from "../lib/tonSender";
+import { getWalletAddress, getWalletBalanceDetailed, checkWalletAddressMismatch } from "../lib/tonSender";
 import { OWNER_USERNAME, isOwner, getAdminInfo } from "./admin";
 import {
   enforceSubscription,
@@ -449,6 +450,7 @@ export async function sendWithdrawalNotification(
     id: number;
     ipHash?: string | null;
     ipSuspicious?: boolean;
+    createdAt?: Date | string | null;
   },
   amount: string,
   walletAddress: string,
@@ -461,7 +463,7 @@ export async function sendWithdrawalNotification(
       : esc(user.firstName || String(user.id));
 
     // ── Full user analysis — run all queries in parallel ──────────────────
-    const [referralsResult, requiredResult, missingResult, multiResult] =
+    const [referralsResult, requiredResult, missingResult, multiResult, depositsResult, withdrawalsResult] =
       await Promise.allSettled([
         db
           .select({ status: referralsTable.status })
@@ -481,6 +483,14 @@ export async function sendWithdrawalNotification(
                 ),
               )
           : Promise.resolve([] as { id: number }[]),
+        db
+          .select({ c: count(), total: sum(depositsTable.amount) })
+          .from(depositsTable)
+          .where(and(eq(depositsTable.userId, user.id), eq(depositsTable.status, "confirmed"))),
+        db
+          .select({ c: count(), total: sum(withdrawalsTable.amount) })
+          .from(withdrawalsTable)
+          .where(and(eq(withdrawalsTable.userId, user.id), eq(withdrawalsTable.status, "completed"))),
       ]);
 
     const refs =
@@ -497,6 +507,27 @@ export async function sendWithdrawalNotification(
 
     const multiAccCount =
       multiResult.status === "fulfilled" ? multiResult.value.length : 0;
+
+    const depositsStats =
+      depositsResult.status === "fulfilled" ? depositsResult.value[0] : undefined;
+    const depositsCount = depositsStats?.c ?? 0;
+    const depositsTotal = parseFloat(depositsStats?.total || "0");
+
+    const withdrawalsStats =
+      withdrawalsResult.status === "fulfilled" ? withdrawalsResult.value[0] : undefined;
+    const withdrawalsCount = withdrawalsStats?.c ?? 0;
+    const withdrawalsTotal = parseFloat(withdrawalsStats?.total || "0");
+
+    // ── Account age ────────────────────────────────────────────────────────
+    let accountAgeStr = "غير معروف";
+    if (user.createdAt) {
+      const ageMs = Date.now() - new Date(user.createdAt).getTime();
+      const ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
+      accountAgeStr =
+        ageDays >= 1
+          ? `${ageDays} يوم`
+          : `${Math.max(1, Math.floor(ageMs / (1000 * 60 * 60)))} ساعة`;
+    }
 
     // ── Risk score ─────────────────────────────────────────────────────────
     let riskScore = 0;
@@ -518,6 +549,9 @@ export async function sendWithdrawalNotification(
       `👤 ${userName} (${user.id})\n` +
       `💰 المبلغ: <b>${parseFloat(amount).toFixed(4)} Gram</b>\n` +
       `📍 العنوان: <code>${esc(shortAddr)}</code>\n\n` +
+      `📅 <b>عضو منذ:</b> ${accountAgeStr}\n\n` +
+      `📥 <b>الإيداعات:</b> ${depositsCount} عملية بإجمالي ${depositsTotal.toFixed(4)} TON\n` +
+      `📤 <b>السحوبات السابقة:</b> ${withdrawalsCount} عملية بإجمالي ${withdrawalsTotal.toFixed(4)} Gram\n\n` +
       `📢 <b>القنوات:</b> مشترك في ${subscribedCount} من ${required.length} قناة\n\n` +
       `👥 <b>الإحالات (${totalRefs} إجمالي):</b>\n` +
       `✅ منضمين ومحسوبين: ${activeRefs}\n` +
@@ -1348,18 +1382,30 @@ function setupBotHandlers() {
       const username = msg.from?.username;
       const info = await getAdminInfo(userId, username);
       if (!info) return;
-      const [addr, balance] = await Promise.all([
+      const [addr, balanceResult, mismatch] = await Promise.all([
         getWalletAddress(),
-        getWalletBalance(),
+        getWalletBalanceDetailed(),
+        checkWalletAddressMismatch(),
       ]);
+      const { balance, error: balanceError } = balanceResult;
+      const statusLine = balanceError
+        ? `❌ تعذّر قراءة الرصيد من شبكة TON:\n<code>${esc(balanceError)}</code>`
+        : balance && parseFloat(balance) < 0.1
+          ? "⚠️ الرصيد منخفض — اشحن المحفظة لضمان نجاح عمليات السحب."
+          : "✅ المحفظة جاهزة للإرسال.";
       await bot.sendMessage(
         msg.chat.id,
         `💼 <b>محفظة البوت الساخنة</b>\n\n` +
           `📍 العنوان:\n<code>${esc(addr ?? "غير متاح")}</code>\n\n` +
           `💰 الرصيد: <b>${balance ?? "—"} TON</b>\n\n` +
-          (balance && parseFloat(balance) < 0.1
-            ? "⚠️ الرصيد منخفض — اشحن المحفظة لضمان نجاح عمليات السحب."
-            : "✅ المحفظة جاهزة للإرسال."),
+          statusLine +
+          (mismatch
+            ? `\n\n🚨 <b>تحذير: عنوان مختلف عن المحفظة الفعلية!</b>\n` +
+              `المتغير <code>WALLET_ADDRESS</code> في السيرفر مضبوط على:\n<code>${esc(mismatch.configured)}</code>\n\n` +
+              `لكن المفتاح السري <code>OWNER_SECRET_KEY</code> بيتحكم فعليًا في محفظة تانية (العنوان أعلاه ⬆️). ` +
+              `الإرسال بيتم دايمًا من المحفظة اللي بتاعة المفتاح السري، مش من قيمة WALLET_ADDRESS — لأن الإرسال محتاج المفتاح السري نفسه مش مجرد العنوان. ` +
+              `لازم إما تشحن العنوان الظاهر أعلاه، أو تحط في OWNER_SECRET_KEY نفس مفتاح المحفظة اللي عنوانها ${esc(mismatch.configured)}.`
+            : ""),
         { parse_mode: "HTML" },
       );
     }),

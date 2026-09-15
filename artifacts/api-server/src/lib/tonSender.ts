@@ -377,16 +377,52 @@ export async function getWalletAddress(): Promise<string | null> {
 }
 
 export async function getWalletBalance(): Promise<string | null> {
+  const { balance } = await getWalletBalanceDetailed();
+  return balance;
+}
+
+// Same as getWalletBalance, but preserves the underlying error instead of
+// swallowing it — a silent "—" gives no way to tell an invalid/rate-limited
+// TON_API_KEY apart from a genuine network failure or a resolution error.
+export async function getWalletBalanceDetailed(): Promise<{ balance: string | null; error?: string }> {
   const secret = await getEffectiveMnemonic();
-  if (!secret) return null;
+  if (!secret) return { balance: null };
   try {
     const client = await getClient();
     const activeWallet = await resolveActiveWallet(client);
     const bal = await client.getBalance(activeWallet.contract.address);
-    return (Number(bal) / 1e9).toFixed(4);
-  } catch {
-    return null;
+    return { balance: (Number(bal) / 1e9).toFixed(4) };
+  } catch (err) {
+    return { balance: null, error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+function getConfiguredWalletAddressEnv(): string | null {
+  return (process.env.WALLET_ADDRESS || process.env.TON_WALLET_ADDRESS || "").trim() || null;
+}
+
+// The wallet that actually sends TON is whichever wallet OWNER_SECRET_KEY's
+// keys control — a WALLET_ADDRESS env var by itself can never make the
+// system send from that address, since sending requires the matching
+// private key, not just the address. This flags the common misconfiguration
+// where an admin funds the address in WALLET_ADDRESS while OWNER_SECRET_KEY
+// actually controls a different wallet.
+export async function checkWalletAddressMismatch(): Promise<{ configured: string; derived: string } | null> {
+  const configuredRaw = getConfiguredWalletAddressEnv();
+  if (!configuredRaw) return null;
+
+  const derived = await getWalletAddress();
+  if (!derived) return null;
+
+  try {
+    const configuredNormalized = Address.parse(configuredRaw).toString({ bounceable: false, testOnly: false });
+    const derivedNormalized = Address.parse(derived).toString({ bounceable: false, testOnly: false });
+    if (configuredNormalized === derivedNormalized) return null;
+  } catch {
+    // configuredRaw isn't even a parseable TON address — still worth flagging
+  }
+
+  return { configured: configuredRaw, derived };
 }
 
 export async function isTonConfigured(): Promise<boolean> {

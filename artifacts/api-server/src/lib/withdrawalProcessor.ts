@@ -95,19 +95,19 @@ export async function executeAutoWithdrawal(
       : undefined;
 
     if (bot) {
+      const userMsg =
+        `<tg-emoji emoji-id="6127223820764844602">✅</tg-emoji><b>Withdrawal Successful</b>\n\n` +
+        `<tg-emoji emoji-id="5260399854500191689">👤</tg-emoji>${userDisplayName}\n\n` +
+        `<tg-emoji emoji-id="5422683699130933153">🪪</tg-emoji><code>${userId}</code>\n\n` +
+        `<tg-emoji emoji-id="5945101187186433635">💎</tg-emoji><b>Amount:</b>\n` +
+        `<b>${amtStr} ${wdCurrency}</b>\n\n` +
+        `<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji><b>New Balance:</b>\n` +
+        `<b>${newGramBalance} ${wdCurrency}</b>\n\n` +
+        `<tg-emoji emoji-id="5039557485157942342">👛</tg-emoji><b>Transaction Hash:</b>\n` +
+        `<code>${esc(txRefStr || walletAddress)}</code>`;
+
       // Notify user with the exact same style as deposit message
       try {
-        const userMsg =
-          `<tg-emoji emoji-id="6127223820764844602">✅</tg-emoji><b>Withdrawal Successful</b>\n\n` +
-          `<tg-emoji emoji-id="5260399854500191689">👤</tg-emoji>${userDisplayName}\n\n` +
-          `<tg-emoji emoji-id="5422683699130933153">🪪</tg-emoji><code>${userId}</code>\n\n` +
-          `<tg-emoji emoji-id="5945101187186433635">💎</tg-emoji><b>Amount:</b>\n` +
-          `<b>${amtStr} ${wdCurrency}</b>\n\n` +
-          `<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji><b>New Balance:</b>\n` +
-          `<b>${newGramBalance} ${wdCurrency}</b>\n\n` +
-          `<tg-emoji emoji-id="5039557485157942342">👛</tg-emoji><b>Transaction Hash:</b>\n` +
-          `<code>${esc(txRefStr || walletAddress)}</code>`;
-
         await bot.sendMessage(userId, userMsg, {
           parse_mode: "HTML",
           reply_markup: explorerReplyMarkup,
@@ -115,6 +115,17 @@ export async function executeAutoWithdrawal(
         });
       } catch {
         /* ignore */
+      }
+
+      // Post the same success confirmation to the public withdrawals channel
+      try {
+        await bot.sendMessage("@GramGOwithdrawal", userMsg, {
+          parse_mode: "HTML",
+          reply_markup: explorerReplyMarkup,
+          disable_web_page_preview: true,
+        });
+      } catch (err) {
+        logger.warn({ err, withdrawalId }, "Failed to post withdrawal confirmation to @GramGOwithdrawal channel");
       }
 
       // Notify admin
