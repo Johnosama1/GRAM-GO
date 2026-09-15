@@ -178,12 +178,12 @@ export async function resolveActiveWallet(client: TonClient): Promise<ResolvedWa
           return opt;
         }
       }
-      logger.warn(
-        { targetEnvAddress },
-        "Configured WALLET_ADDRESS does not match any derived contract version from OWNER_SECRET_KEY",
-      );
+      throw new Error(`Configured WALLET_ADDRESS does not match any derived contract version from OWNER_SECRET_KEY`);
     } catch (err) {
-      logger.warn({ err, targetEnvAddress }, "Invalid WALLET_ADDRESS environment variable string");
+      if (err instanceof Error && err.message.includes("Configured WALLET_ADDRESS does not match")) {
+        throw err;
+      }
+      throw new Error(`Invalid WALLET_ADDRESS environment variable string: ${targetEnvAddress}`);
     }
   }
 
@@ -250,10 +250,12 @@ export async function sendTon(
     const currentBalance = balanceStr;
 
     if (currentBalance < neededNano + minFeeNano) {
+      const formattedBalance = (Number(currentBalance) / 1e9).toFixed(4);
       throw new Error(
-        `رصيد محفظة السحب غير كافٍ (${(Number(currentBalance) / 1e9).toFixed(
-          4
-        )} TON). يرجى شحن المحفظة بـ TON على العنوان:\n${fromStr}`
+        `Insufficient wallet balance: ${formattedBalance} TON.\n` +
+        `رصيد محفظة السحب غير كافٍ (${formattedBalance} TON).\n` +
+        `Required: withdrawal amount (${amountTon} TON) + transaction fees (0.01 TON).\n` +
+        `يرجى شحن المحفظة بـ TON لتغطية مبلغ السحب والرسوم على العنوان:\n${fromStr}`
       );
     }
 
