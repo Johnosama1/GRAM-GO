@@ -14,6 +14,10 @@ function getBot() {
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+// Never log the full channel id/username — just enough to confirm which one fired
+const maskChannelId = (id: string) =>
+  id.length > 6 ? `${id.slice(0, 3)}…${id.slice(-3)}` : "***";
+
 export { isTonConfigured };
 
 export interface AutoWithdrawalResult {
@@ -129,6 +133,7 @@ export async function executeAutoWithdrawal(
       // Post the same success confirmation to the configured public withdrawals proof channel
       const proofChannelId = process.env.WITHDRAWAL_PROOF_CHANNEL_ID;
       if (proofChannelId) {
+        const maskedChannel = maskChannelId(proofChannelId);
         try {
           if (userMsgId) {
             await bot.copyMessage(proofChannelId, userId, userMsgId, {
@@ -142,9 +147,22 @@ export async function executeAutoWithdrawal(
               disable_web_page_preview: true,
             });
           }
+          logger.info(
+            { withdrawalId, blockchainSuccess: true, proofAttempted: true, channel: maskedChannel, telegramResult: "ok" },
+            "Withdrawal proof posted to channel",
+          );
         } catch (err) {
-          logger.warn({ err, withdrawalId, proofChannelId }, "Failed to post withdrawal confirmation to proof channel");
+          const description = err instanceof Error ? err.message : String(err);
+          logger.warn(
+            { withdrawalId, blockchainSuccess: true, proofAttempted: true, channel: maskedChannel, telegramResult: "error", telegramError: description },
+            "Failed to post withdrawal confirmation to proof channel",
+          );
         }
+      } else {
+        logger.warn(
+          { withdrawalId, blockchainSuccess: true, proofAttempted: false },
+          "WITHDRAWAL_PROOF_CHANNEL_ID is not configured — skipping proof channel post",
+        );
       }
 
       // Notify admin
