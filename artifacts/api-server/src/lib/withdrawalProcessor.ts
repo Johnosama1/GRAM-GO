@@ -105,7 +105,7 @@ export async function executeAutoWithdrawal(
     if (bot) {
       const userMsg =
         `<tg-emoji emoji-id="6127223820764844602">✅</tg-emoji><b>GRAM GO Withdrawal Successful</b>\n\n` +
-        `🧾 <b>Receipt:</b> #${withdrawalId}\n\n` +
+        `<tg-emoji emoji-id="5444856076954520455">🧾</tg-emoji><b>Receipt:</b> #${withdrawalId}\n\n` +
         `<tg-emoji emoji-id="5260399854500191689">👤</tg-emoji>${userDisplayName}\n\n` +
         `<tg-emoji emoji-id="5422683699130933153">🪪</tg-emoji><code>${userId}</code>\n\n` +
         `<tg-emoji emoji-id="5945101187186433635">💎</tg-emoji><b>Amount:</b>\n` +
