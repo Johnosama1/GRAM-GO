@@ -38,7 +38,6 @@ interface DroppedWeapon {
 import { api } from "../../lib/api";
 import { useUser } from "../../lib/userContext";
 import {
-  Heart,
   Skull,
   RotateCcw,
   Volume2,
@@ -87,16 +86,13 @@ interface Enemy {
   defeated: boolean;
   weaponId: number;
   shootTimer: number;
+  state: "walking" | "running" | "shooting" | "death";
+  frameIndex: number;
+  animTimer: number;
+  deathTimer: number;
 }
 
-interface Obstacle {
-  id: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  type: "spike";
-}
+
 
 const HERO_RUN_FRAMES = [
   "/games/adventurer-run-00.png",
@@ -134,8 +130,16 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
   const heroRunImagesRef = useRef<HTMLImageElement[]>([]);
   const heroAttackImagesRef = useRef<HTMLImageElement[]>([]);
   const weaponImagesRef = useRef<Record<number, HTMLImageElement>>({});
+  const enemyWalkImagesRef = useRef<HTMLImageElement | null>(null);
+  const enemyRunImagesRef = useRef<HTMLImageElement | null>(null);
+  const enemyShootImagesRef = useRef<HTMLImageElement | null>(null);
+  const enemyDeathImagesRef = useRef<HTMLImageElement | null>(null);
 
   useEffect(() => {
+    const imgWalk = new Image(); imgWalk.src = "/games/Soldier 1 Walking-Sheet.png"; enemyWalkImagesRef.current = imgWalk;
+    const imgRun = new Image(); imgRun.src = "/games/Soldier 1 Running-Sheet.png"; enemyRunImagesRef.current = imgRun;
+    const imgShoot = new Image(); imgShoot.src = "/games/Soldier 1 Shoot-Sheet.png"; enemyShootImagesRef.current = imgShoot;
+    const imgDeath = new Image(); imgDeath.src = "/games/Soldier 1 Death-Sheet.png"; enemyDeathImagesRef.current = imgDeath;
     // preload weapons
     for (let i = 1; i <= 50; i++) {
       const img = new Image();
@@ -173,8 +177,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
   const [gameState, setGameState] = useState<"playing" | "over" | "claiming" | "level_complete" | "game_won">("playing");
   const [enemiesDefeated, setEnemiesDefeated] = useState(0);
   const [goEarned, setGoEarned] = useState(0);
-  const [lives, setLives] = useState(3);
-  const [muted, setMuted] = useState(false);
+    const [muted, setMuted] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
 
   // Game Engine State in Ref (for 60fps loop without React re-render overhead)
@@ -201,17 +204,14 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
     projectiles: [] as Projectile[],
     droppedWeapons: [] as DroppedWeapon[],
     enemies: [] as Enemy[],
-    obstacles: [] as Obstacle[],
     particles: [] as Particle[],
     floatingTexts: [] as FloatingText[],
     enemiesDefeated: 0,
     levelEnemiesSpawned: 0,
     levelEnemiesDefeated: 0,
     currentLevel: 1,
-    lives: 3,
     gameSpeed: 3.5,
     spawnEnemyTimer: 80,
-    spawnObstacleTimer: 160,
     bgOffset: 0,
     stars: [] as Array<{ x: number; y: number; size: number; alpha: number; speed: number }>,
     startTime: Date.now(),
@@ -292,13 +292,11 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
     setGameState("playing");
     setEnemiesDefeated(0);
     setGoEarned(0);
-    setLives(3);
     setResultMessage(null);
 
     const s = stateRef.current;
     s.gameState = "playing";
     s.enemies = [];
-    s.obstacles = [];
     s.particles = [];
     s.floatingTexts = [];
     s.projectiles = [];
@@ -307,10 +305,8 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
     s.levelEnemiesSpawned = 0;
     s.levelEnemiesDefeated = 0;
     s.currentLevel = 1;
-    s.lives = 3;
     s.gameSpeed = 3.5;
     s.spawnEnemyTimer = 70;
-    s.spawnObstacleTimer = 150;
     s.bgOffset = 0;
     s.startTime = Date.now();
     s.hero.vy = 0;
@@ -672,19 +668,23 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
             const group = Math.floor(s.levelEnemiesSpawned / 10); // 0 to 9
             const assignedWeaponId = offset + group + 1;
 
-            s.enemies.push({
+                        s.enemies.push({
               id: Date.now() + Math.random(),
-              x: width + 30,
-              y: groundY - 54,
-              width: 42,
-              height: 54,
-              hp: 2 + s.currentLevel * 0.5,
-              maxHp: 2 + s.currentLevel * 0.5,
-              speed: s.gameSpeed * (0.6 + Math.random() * 0.2) * (1 + s.levelEnemiesSpawned * 0.005),
+              x: width + 50,
+              y: groundY - 60,
+              width: 50,
+              height: 60,
+              hp: 4,
+              maxHp: 4,
+              speed: 1.5 + Math.random() * 0.5,
               hitFlash: 0,
               defeated: false,
               weaponId: assignedWeaponId,
               shootTimer: (60 + Math.random() * 60) / (1 + s.levelEnemiesSpawned * 0.005),
+              state: "walking",
+              frameIndex: 0,
+              animTimer: 0,
+              deathTimer: 0,
             });
             s.levelEnemiesSpawned += 1;
             // Progressive difficulty: enemies spawn faster
@@ -701,19 +701,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
             }
         }
 
-        // Spawn Obstacles (Spikes)
-        s.spawnObstacleTimer -= 1;
-        if (s.spawnObstacleTimer <= 0) {
-          s.obstacles.push({
-            id: Date.now() + Math.random(),
-            x: width + 40,
-            y: groundY - 26,
-            width: 32,
-            height: 26,
-            type: "spike",
-          });
-          s.spawnObstacleTimer = Math.floor(Math.random() * 80 + 140);
-        }
+
 
         // Update Dropped Weapons
         for (let i = s.droppedWeapons.length - 1; i >= 0; i--) {
@@ -738,8 +726,6 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
 
           if (w.timer <= 0 || w.x < -60) {
              // Game over if timer expires OR weapon is missed off-screen
-             s.lives = 0;
-             setLives(0);
              playSound("over");
              finishGameSession();
              return;
@@ -767,17 +753,13 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
           if (!destroyed) {
             if (p.isEnemy) {
               // Enemy projectile hitting player
-              if (hero.invulnerableTimer <= 0 && p.x > hero.x && p.x < hero.x + hero.width && p.y > hero.y && p.y < hero.y + hero.height) {
-                s.lives -= 1;
-                setLives(s.lives);
+                            if (hero.invulnerableTimer <= 0 && p.x > hero.x && p.x < hero.x + hero.width && p.y > hero.y && p.y < hero.y + hero.height) {
                 hero.invulnerableTimer = 45;
                 playSound("hit");
                 destroyed = true;
-                if (s.lives <= 0) {
-                  playSound("over");
-                  finishGameSession();
-                  return;
-                }
+                playSound("over");
+                finishGameSession();
+                return;
               }
             } else {
               // Player projectile hitting enemy
@@ -849,47 +831,78 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
           }
         }
 
-        // Update Enemies & Player Hitbox Detection
+        // Update Enemies
         for (let i = s.enemies.length - 1; i >= 0; i--) {
           const enemy = s.enemies[i];
-          if (!enemy.defeated) {
-            // AI Movement and Shooting
-            const weapon = WEAPONS[enemy.weaponId.toString()];
-            const distToPlayer = enemy.x - hero.x;
 
-            // Stop and shoot if in range
-            const attackRange = weapon ? weapon.range * 0.8 : 200;
+          if (enemy.defeated) {
+             enemy.x -= s.gameSpeed;
+             enemy.state = "death";
+             enemy.deathTimer += 1;
+             enemy.animTimer += 1;
+             if (enemy.animTimer > 8) {
+                 enemy.frameIndex += 1;
+                 enemy.animTimer = 0;
+             }
+             if (enemy.deathTimer > 60) {
+                 s.enemies.splice(i, 1);
+             }
+             continue;
+          }
 
-            if (distToPlayer > attackRange) {
-                enemy.x -= enemy.speed; // move towards player
-            } else {
-                enemy.x -= s.gameSpeed; // scroll with ground
-            }
+          const distToPlayer = enemy.x - (hero.x + hero.width);
 
-            enemy.shootTimer -= 1;
-            if (enemy.shootTimer <= 0 && distToPlayer < attackRange + 100) {
-                // Shoot
-                enemy.shootTimer = weapon ? weapon.fireRate + Math.random() * 60 : 60;
+          // AI State Machine
+          if (distToPlayer > 200) {
+              enemy.state = "walking";
+              enemy.x -= enemy.speed;
+          } else if (distToPlayer > 120) {
+              enemy.state = "running";
+              enemy.x -= enemy.speed * 1.5;
+          } else if (distToPlayer <= 120 && distToPlayer > -50) {
+              enemy.state = "shooting";
+              // Stop moving while shooting
+              if (distToPlayer < 50) enemy.x += enemy.speed * 0.5;
+          } else {
+              enemy.state = "running";
+              enemy.x -= enemy.speed;
+          }
 
-                if (weapon) {
+          // Global Scroll
+          enemy.x -= s.gameSpeed;
+
+          // Animation
+          enemy.animTimer += 1;
+          const frameThreshold = enemy.state === "running" ? 5 : 8;
+          if (enemy.animTimer > frameThreshold) {
+              enemy.frameIndex = (enemy.frameIndex + 1) % 4; // assume 4 frames loop for walk/run/shoot
+              enemy.animTimer = 0;
+          }
+
+          // Shooting Logic
+          if (enemy.state === "shooting") {
+             enemy.shootTimer -= 1;
+             if (enemy.shootTimer <= 0) {
+                 enemy.shootTimer = 80;
+                 const weapon = WEAPONS[enemy.weaponId];
+                 if (weapon && enemy.x > 0 && enemy.x < width) {
+
                    s.projectiles.push({
                       id: Date.now() + Math.random(),
                       x: enemy.x,
                       y: enemy.y + 20,
                       vx: weapon.bulletSpeed,
-                      vy: (hero.y - enemy.y) / (distToPlayer / weapon.bulletSpeed) * 0.5, // slight tracking
+                      vy: (hero.y - enemy.y) / (distToPlayer / weapon.bulletSpeed) * 0.5,
                       isEnemy: true,
                       damage: 1,
                       color: "#ef4444",
                       distance: 0,
                       maxRange: weapon.range,
                    });
-                }
-            }
-
-          } else {
-            enemy.y -= 1.2;
+                 }
+             }
           }
+
           if (enemy.hitFlash > 0) enemy.hitFlash -= 1;
 
           // Hero vs Enemy Collision
@@ -903,145 +916,70 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
               heroBox.y < enemyBox.y + enemyBox.height &&
               heroBox.y + heroBox.height > enemyBox.y
             ) {
-              s.lives -= 1;
-              setLives(s.lives);
               hero.invulnerableTimer = 45;
               playSound("hit");
-
-              if (s.lives <= 0) {
-                playSound("over");
-                finishGameSession();
-                return;
-              }
+              playSound("over");
+              finishGameSession();
+              return;
             }
           }
 
-          if (enemy.x < -60 || (enemy.defeated && enemy.hitFlash <= 0)) {
+          if (enemy.x < -100 && !enemy.defeated) {
             s.enemies.splice(i, 1);
-          }
-        }
-
-        // Update Obstacles & Player Collision
-        for (let i = s.obstacles.length - 1; i >= 0; i--) {
-          const obs = s.obstacles[i];
-          obs.x -= s.gameSpeed;
-
-          if (hero.invulnerableTimer <= 0) {
-            const heroBox = { x: hero.x + 10, y: hero.y + 10, width: hero.width - 20, height: hero.height - 10 };
-            const obsBox = { x: obs.x + 4, y: obs.y + 4, width: obs.width - 8, height: obs.height - 4 };
-
-            if (
-              heroBox.x < obsBox.x + obsBox.width &&
-              heroBox.x + heroBox.width > obsBox.x &&
-              heroBox.y < obsBox.y + obsBox.height &&
-              heroBox.y + heroBox.height > obsBox.y
-            ) {
-              s.lives -= 1;
-              setLives(s.lives);
-              hero.invulnerableTimer = 45;
-              playSound("hit");
-
-              if (s.lives <= 0) {
-                playSound("over");
-                finishGameSession();
-                return;
-              }
-            }
-          }
-
-          if (obs.x < -50) {
-            s.obstacles.splice(i, 1);
           }
         }
 
         s.gameSpeed = Math.min(6.0, 3.5 + s.enemiesDefeated * 0.04);
       }
 
-      // ── 4. Draw Obstacles (Metallic Spikes) ────────────────────────────
-      s.obstacles.forEach((obs) => {
-        ctx.fillStyle = "#ef4444";
-        ctx.shadowColor = "#ef4444";
-        ctx.shadowBlur = 8;
-        ctx.beginPath();
-        const step = obs.width / 3;
-        for (let k = 0; k < 3; k++) {
-          const sx = obs.x + k * step;
-          ctx.moveTo(sx, obs.y + obs.height);
-          ctx.lineTo(sx + step / 2, obs.y);
-          ctx.lineTo(sx + step, obs.y + obs.height);
-        }
-        ctx.fill();
-        ctx.shadowBlur = 0;
-      });
 
-      // ── 5. Draw Enemies (Hooded Skeleton Warriors) ─────────────────────
+
+      // ── 5. Draw Enemies ─────────────────────
       s.enemies.forEach((enemy) => {
-        if (enemy.defeated) return;
-
         const ex = enemy.x;
         const ey = enemy.y;
 
         ctx.save();
+
         if (enemy.hitFlash > 0) {
-          ctx.filter = "brightness(2) drop-shadow(0 0 12px #ff0055)";
+           ctx.filter = "brightness(2) sepia(1) hue-rotate(-50deg) saturate(5)";
         }
 
-        // Dark Cloak
-        ctx.fillStyle = "#1e1b2e";
-        ctx.beginPath();
-        ctx.moveTo(ex + 10, ey + 18);
-        ctx.lineTo(ex + enemy.width - 10, ey + 18);
-        ctx.lineTo(ex + enemy.width, ey + enemy.height);
-        ctx.lineTo(ex, ey + enemy.height);
-        ctx.closePath();
-        ctx.fill();
+        let img = null;
+        let framesCount = 4;
 
-        // Hood / Head
-        ctx.fillStyle = "#2d2438";
-        ctx.beginPath();
-        ctx.arc(ex + enemy.width / 2, ey + 18, 14, 0, Math.PI * 2);
-        ctx.fill();
+        if (enemy.state === "walking") { img = enemyWalkImagesRef.current; framesCount = 4; }
+        else if (enemy.state === "running") { img = enemyRunImagesRef.current; framesCount = 4; }
+        else if (enemy.state === "shooting") { img = enemyShootImagesRef.current; framesCount = 4; }
+        else if (enemy.state === "death") { img = enemyDeathImagesRef.current; framesCount = 4; }
 
-        // Skull Face
-        ctx.fillStyle = "#f1f5f9";
-        ctx.beginPath();
-        ctx.arc(ex + enemy.width / 2 - 2, ey + 18, 9, 0, Math.PI * 2);
-        ctx.fill();
+        if (img && img.complete && img.naturalWidth > 0) {
+            let fw = img.width / framesCount;
+            let clampedFrame = enemy.frameIndex;
+            if (enemy.state === "death" && clampedFrame >= framesCount) {
+                clampedFrame = framesCount - 1; // clamp to last frame
+            } else {
+                clampedFrame = clampedFrame % framesCount;
+            }
+            let frameX = clampedFrame * fw;
 
-        // Glowing Red Eyes
-        ctx.fillStyle = "#ef4444";
-        ctx.shadowColor = "#ef4444";
-        ctx.shadowBlur = 8;
-        ctx.beginPath();
-        ctx.arc(ex + enemy.width / 2 - 5, ey + 17, 2.5, 0, Math.PI * 2);
-        ctx.arc(ex + enemy.width / 2 + 1, ey + 17, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-
-        // Enemy Weapon
-        const wImg = weaponImagesRef.current[enemy.weaponId];
-        if (wImg && wImg.complete && wImg.naturalWidth > 0) {
-            ctx.imageSmoothingEnabled = false;
-            ctx.save();
-            ctx.translate(ex, ey + 15);
-            ctx.scale(-1, 1); // Face left
-            ctx.drawImage(wImg, 0, 0, 32, 32);
-            ctx.restore();
-            ctx.imageSmoothingEnabled = true;
+            ctx.drawImage(img, frameX, 0, fw, img.height, ex - 10, ey - 10, 70, 70);
+        } else {
+           ctx.fillStyle = "#ef4444";
+           ctx.fillRect(ex, ey, enemy.width, enemy.height);
         }
-
-        // HP Bar
-        const barWidth = 32;
-        const barHeight = 4;
-        const barX = ex + (enemy.width - barWidth) / 2;
-        const barY = ey - 10;
-        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
-        ctx.fillRect(barX, barY, barWidth, barHeight);
-        ctx.fillStyle = "#ef4444";
-        ctx.fillRect(barX, barY, (barWidth * enemy.hp) / enemy.maxHp, barHeight);
 
         ctx.restore();
+
+        // HP Bar
+        if (!enemy.defeated) {
+          ctx.fillStyle = "rgba(0,0,0,0.5)";
+          ctx.fillRect(ex, ey - 10, enemy.width, 4);
+          ctx.fillStyle = "#ef4444";
+          ctx.fillRect(ex, ey - 10, enemy.width * (enemy.hp / enemy.maxHp), 4);
+        }
       });
+
 
       // ── 6. Draw Hero (Animated Adventurer Sprite Frames) ──────────────
       const hero = s.hero;
@@ -1212,32 +1150,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
       >
         {/* Left: Hearts & Enemies Defeated */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {/* Hearts */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 3,
-              background: "rgba(10, 16, 38, 0.85)",
-              border: "1px solid rgba(239, 68, 68, 0.45)",
-              borderRadius: 12,
-              padding: "4px 8px",
-              boxShadow: "0 0 12px rgba(239, 68, 68, 0.25)",
-            }}
-          >
-            {[1, 2, 3].map((h) => (
-              <Heart
-                key={h}
-                size={16}
-                fill={h <= lives ? "#ef4444" : "transparent"}
-                color={h <= lives ? "#ef4444" : "rgba(255,255,255,0.3)"}
-                style={{
-                  transition: "all 0.2s ease",
-                  filter: h <= lives ? "drop-shadow(0 0 4px #ef4444)" : "none",
-                }}
-              />
-            ))}
-          </div>
+
 
           {/* Enemies Defeated */}
           <div
