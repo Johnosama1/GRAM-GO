@@ -17,6 +17,7 @@ import {
   Settings as SettingsIcon,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
   Copy,
   Check,
   CheckCircle,
@@ -32,6 +33,7 @@ import {
 } from "lucide-react";
 import { useLocation } from "wouter";
 import SwapModal from "../components/SwapModal";
+import { faqs } from "../constants/faq";
 
 function maskWallet(addr: string) {
   if (!addr || addr.length < 10) return addr;
@@ -57,12 +59,12 @@ export default function ProfilePage() {
   const { t, language, setLanguage, isRtl } = useLanguage();
   const [, setLocation] = useLocation();
 
-  // Current view inside Profile: "menu" | "wallet" | "settings"
-  const [currentView, setCurrentView] = useState<"menu" | "wallet" | "settings">(() => {
+  // Current view inside Profile: "menu" | "wallet" | "settings" | "support" | "faq"
+  const [currentView, setCurrentView] = useState<"menu" | "wallet" | "settings" | "support" | "faq">(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab");
-      if (tabParam === "wallet" || tabParam === "settings") {
+      if (tabParam === "wallet" || tabParam === "settings" || tabParam === "support" || tabParam === "faq") {
         return tabParam;
       }
     } catch {
@@ -70,6 +72,9 @@ export default function ProfilePage() {
     }
     return "menu";
   });
+
+  // FAQ state
+  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
 
   // Wallet mode: "deposit" | "withdraw"
   const [walletMode, setWalletMode] = useState<"deposit" | "withdraw">("deposit");
@@ -1633,6 +1638,84 @@ export default function ProfilePage() {
           </div>
 
           {/* Support Info */}
+          <button
+            onClick={() => setCurrentView("support")}
+            style={{
+              background: "rgba(18, 16, 32, 0.9)",
+              border: "1px solid rgba(139, 92, 246, 0.16)",
+              borderRadius: 20,
+              padding: "16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              cursor: "pointer",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 12,
+                  background: "rgba(139, 92, 246, 0.14)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Headphones size={18} color="#c084fc" />
+              </div>
+              <span style={{ fontSize: 15, fontWeight: 800, color: "#ffffff" }}>Support & Info</span>
+            </div>
+            <ChevronRight size={20} color="rgba(255, 255, 255, 0.4)" />
+          </button>
+        </div>
+      )}
+
+
+
+
+      {/* ══════════════════════════════════════════════════════════════════
+          VIEW 5: SUPPORT SUBPAGE
+      ══════════════════════════════════════════════════════════════════ */}
+      {currentView === "support" && (
+        <div
+          className="page-fade"
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            overflowX: "hidden",
+            WebkitOverflowScrolling: "touch" as never,
+            padding: "max(env(safe-area-inset-top, 0px), 16px) 16px 90px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+          }}
+        >
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
+            <button
+              onClick={() => setCurrentView("settings")}
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                background: "rgba(49, 39, 74, 0.7)",
+                border: "1px solid rgba(139, 92, 246, 0.25)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#ffffff",
+                cursor: "pointer",
+              }}
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div style={{ fontSize: 20, fontWeight: 900, color: "#ffffff" }}>
+              {language === "ar" ? "الدعم والمعلومات" : "Support & Info"}
+            </div>
+          </div>
+
           <div
             style={{
               background: "rgba(18, 16, 32, 0.9)",
@@ -1641,36 +1724,204 @@ export default function ProfilePage() {
               padding: "16px",
               display: "flex",
               flexDirection: "column",
-              gap: 10,
+              gap: 12,
             }}
           >
-            <div style={{ fontSize: 14, fontWeight: 800, color: "#ffffff" }}>Support & Info</div>
+            {/* 1. Submit a Complaint */}
             <a
-              href="https://t.me/GramGoSupport"
+              href="https://t.me/J_O_H_N8"
               target="_blank"
               rel="noreferrer"
               style={{
-                padding: "12px",
+                padding: "16px",
                 borderRadius: 14,
-                background: "rgba(139, 92, 246, 0.14)",
-                border: "1px solid rgba(139, 92, 246, 0.3)",
-                color: "#c084fc",
-                fontSize: 13,
-                fontWeight: 800,
-                textDecoration: "none",
+                background: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
+                justifyContent: "space-between",
+                cursor: "pointer",
+                textDecoration: "none",
               }}
             >
-              <Headphones size={15} /> Contact Support
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 20 }}>📝</span>
+                <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>
+                  {language === "ar" ? "تقديم شكوى" : "Submit a Complaint"}
+                </span>
+              </div>
+              <ExternalLink size={18} color="rgba(255, 255, 255, 0.4)" />
+            </a>
+
+            {/* 2. FAQ */}
+            <button
+              onClick={() => setCurrentView("faq")}
+              style={{
+                padding: "16px",
+                borderRadius: 14,
+                background: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                cursor: "pointer",
+                width: "100%",
+                textAlign: "left",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 20 }}>❓</span>
+                <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>
+                  {language === "ar" ? "الأسئلة الشائعة" : "FAQ"}
+                </span>
+              </div>
+              <ChevronRight size={20} color="rgba(255, 255, 255, 0.4)" />
+            </button>
+
+            {/* 3. Contact Support */}
+            <a
+              href="https://t.me/J_O_H_N8"
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                padding: "16px",
+                borderRadius: 14,
+                background: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                cursor: "pointer",
+                textDecoration: "none",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 20 }}>🎧</span>
+                <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>
+                  {language === "ar" ? "التواصل مع الدعم" : "Contact Support"}
+                </span>
+              </div>
+              <ExternalLink size={18} color="rgba(255, 255, 255, 0.4)" />
             </a>
           </div>
         </div>
       )}
 
 
+      {/* ══════════════════════════════════════════════════════════════════
+          VIEW 6: FAQ SUBPAGE
+      ══════════════════════════════════════════════════════════════════ */}
+      {currentView === "faq" && (
+        <div
+          className="page-fade"
+          style={{
+            flex: 1,
+            overflowY: "auto",
+            overflowX: "hidden",
+            WebkitOverflowScrolling: "touch" as never,
+            padding: "max(env(safe-area-inset-top, 0px), 16px) 16px 90px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 16,
+          }}
+        >
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
+            <button
+              onClick={() => setCurrentView("support")}
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 12,
+                background: "rgba(49, 39, 74, 0.7)",
+                border: "1px solid rgba(139, 92, 246, 0.25)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#ffffff",
+                cursor: "pointer",
+              }}
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div style={{ fontSize: 20, fontWeight: 900, color: "#ffffff" }}>
+              {language === "ar" ? "الأسئلة الشائعة" : "FAQ"}
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
+            {faqs.map((faq, index) => {
+              const isExpanded = expandedFaq === index;
+              return (
+                <div
+                  key={index}
+                  style={{
+                    background: "rgba(18, 16, 32, 0.9)",
+                    border: isExpanded ? "1px solid rgba(139, 92, 246, 0.4)" : "1px solid rgba(139, 92, 246, 0.16)",
+                    borderRadius: 16,
+                    overflow: "hidden",
+                    transition: "all 0.2s ease-in-out",
+                  }}
+                >
+                  <button
+                    onClick={() => setExpandedFaq(isExpanded ? null : index)}
+                    style={{
+                      width: "100%",
+                      padding: "16px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                      textAlign: isRtl ? "right" : "left",
+                      direction: isRtl ? "rtl" : "ltr",
+                    }}
+                  >
+                    <span style={{ color: "#ffffff", fontSize: 14, fontWeight: 800, lineHeight: 1.4, flex: 1, paddingRight: isRtl ? 0 : 12, paddingLeft: isRtl ? 12 : 0 }}>
+                      {faq.question}
+                    </span>
+                    <div
+                      style={{
+                        transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                        transition: "transform 0.2s ease",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        minWidth: 24,
+                      }}
+                    >
+                      <ChevronDown size={20} color={isExpanded ? "#c084fc" : "rgba(255, 255, 255, 0.4)"} />
+                    </div>
+                  </button>
+
+                  {isExpanded && (
+                    <div
+                      style={{
+                        padding: "0 16px 16px",
+                        color: "rgba(255, 255, 255, 0.7)",
+                        fontSize: 13,
+                        lineHeight: 1.6,
+                        textAlign: isRtl ? "right" : "left",
+                        direction: isRtl ? "rtl" : "ltr",
+                      }}
+                    >
+                      <div style={{ height: 1, background: "rgba(139, 92, 246, 0.1)", marginBottom: 12 }}></div>
+                      {faq.answer}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
 
       {/* ── Swap Modal ──────────────────────────────────────────────── */}
