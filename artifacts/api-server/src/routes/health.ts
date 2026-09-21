@@ -54,7 +54,7 @@ router.get("/config", async (_req, res) => {
     minWithdrawal: Math.max(0.001, parseFloat(rawMin ?? "0.1") || 0.1),
     depositWalletAddress: depositWallet || undefined,
     minDeposit: Math.max(0.001, parseFloat(rawMinDeposit ?? "0.1") || 0.1),
-    gramToGoRate: Math.max(1, parseFloat(rawGramRate ?? "800") || 800),
+    gramToGoRate: Math.max(1, parseFloat(rawGramRate ?? "1000") || 1000),
   });
 });
 

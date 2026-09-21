@@ -21,7 +21,7 @@ export default function SwapModal({ isOpen, onClose, onSuccess }: SwapModalProps
   const { user, refresh } = useUser();
   const [amount, setAmount] = useState<string>("");
   const [swapping, setSwapping] = useState<boolean>(false);
-  const [rate, setRate] = useState<number>(800); // 1 GRAM = 800 GO
+  const [rate, setRate] = useState<number>(1000); // 1 GRAM = 1000 GO
   const [error, setError] = useState<string>("");
   const [successResult, setSuccessResult] = useState<{
     gramAmount: string;

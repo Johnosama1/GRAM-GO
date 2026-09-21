@@ -973,7 +973,7 @@ router.delete("/admins/:id", requireAdminPerm("canManageAdmins"), async (req: Ad
 
 // ── 18. MINING RATE (% GLOBAL LIVE UPDATE) ──────────────────────────────────
 router.get("/mining/rate", async (_req: AdminRequest, res: Response) => {
-  const rate = await getSetting("global_mining_rate") || "0.001250";
+  const rate = await getSetting("global_mining_rate") || "0.03";
   const num = parseFloat(rate);
   res.json({ rate, percentage: (num * 100).toFixed(3) + "%" });
 });
