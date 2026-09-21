@@ -1194,9 +1194,13 @@ function setupBotHandlers() {
       const [u] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
       if (!u) return;
 
-      const rawRate = await getSetting("global_mining_rate").catch(() => null);
-      const globalRate = rawRate ? parseFloat(rawRate) : 0.00125;
-      const calc = calculateUserMining(u, globalRate);
+      const [rawRate, startMinerVisibleStr] = await Promise.all([
+        getSetting("global_mining_rate").catch(() => null),
+        getSetting("start_miner_visible").catch(() => null)
+      ]);
+      const globalRate = rawRate ? parseFloat(rawRate) : 0.03;
+      const startMinerVisible = startMinerVisibleStr !== "false";
+      const calc = calculateUserMining(u, globalRate, startMinerVisible);
 
       const text =
         `💰 <b>تفاصيل رصيدك الحالي — GramGo</b>\n\n` +
@@ -1330,10 +1334,14 @@ function setupBotHandlers() {
         .limit(1);
       if (!u) return;
 
-      const rawRate = await getSetting("global_mining_rate").catch(() => null);
-      const globalRate = rawRate ? parseFloat(rawRate) : 0.00125;
+      const [rawRate, startMinerVisibleStr] = await Promise.all([
+        getSetting("global_mining_rate").catch(() => null),
+        getSetting("start_miner_visible").catch(() => null)
+      ]);
+      const globalRate = rawRate ? parseFloat(rawRate) : 0.03;
+      const startMinerVisible = startMinerVisibleStr !== "false";
 
-      const calc = calculateUserMining(u, globalRate);
+      const calc = calculateUserMining(u, globalRate, startMinerVisible);
       const goBal = calc.goBalance;
       const unclaimedGo = calc.unclaimedGo;
       const rate = calc.miningRate;

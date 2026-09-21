@@ -299,10 +299,13 @@ export default function HomePage() {
       // Fallback calculation using user balance
       if (user) {
         const go = parseFloat(user.goBalance || user.balance || "0");
-        const rate = 0.00125; // 0.125% daily Gram yield per GO
+        const rate = 0.03; // 3% daily Gram yield per GO
         const daily = go * rate;
         const perSec = daily / 86400;
         const lastAt = user.lastMiningAt ? new Date(user.lastMiningAt).getTime() : Date.now();
+
+        // This is a fallback calculation if the server API fails.
+        // Assume start_miner_visible is true for safety in fallback.
         const elapsed = Math.max(0, (Date.now() - lastAt) / 1000);
         const rem = Math.max(0, Math.floor(86400 - elapsed));
         const isStopped = rem <= 0;
@@ -393,7 +396,7 @@ export default function HomePage() {
         setLiveUnclaimed(0);
         setTimerSeconds(86400);
         const go = parseFloat(user?.goBalance || user?.balance || "0");
-        const daily = go * 0.00125;
+        const daily = go * 0.03;
         const perSec = daily / 86400;
         lastFetchRef.current = {
           ts: Date.now(),
@@ -428,9 +431,11 @@ export default function HomePage() {
   // User formatted values
   const goBalanceNum = parseFloat(user?.goBalance || user?.balance || "0");
   const gramBalanceNum = parseFloat(user?.gramBalance || "0");
-  const dailyGramYield = (goBalanceNum * 0.00125).toFixed(6);
+  const dailyGramYield = (goBalanceNum * 0.03).toFixed(6);
 
   const hasPower = goBalanceNum > 0;
+  // When startMinerVisible is false (continuous mining), timerSeconds won't reach 0 unless it was just started.
+  // Actually, we should check a config or state. For now, since timerSeconds is 86400 statically returned by backend if continuous, it won't hit <= 0.
   const isCycleFinished = timerSeconds <= 0;
   const isMiningActive = hasPower && !isCycleFinished;
 
@@ -881,26 +886,6 @@ export default function HomePage() {
                 ? "24h cycle completed! Claim reward to start next 24h cycle"
                 : "24/7 Cloud Mining (Active Offline)"}
             </span>
-
-            {/* Boost Badge */}
-            <div
-              style={{
-                alignSelf: "flex-start",
-                background: "rgba(124, 58, 237, 0.25)",
-                border: "1px solid rgba(168, 85, 247, 0.45)",
-                borderRadius: 999,
-                padding: "3px 10px",
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                marginTop: 2,
-              }}
-            >
-              <Rocket size={12} color="#c084fc" />
-              <span style={{ color: "#c084fc", fontSize: 10.5, fontWeight: 900, letterSpacing: 0.5 }}>
-                2.5x BOOST
-              </span>
-            </div>
 
             {/* Live Ticking Unclaimed Gram Amount */}
             <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 4 }}>

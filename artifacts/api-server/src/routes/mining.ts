@@ -18,26 +18,28 @@ export function calculateUserMining(
     miningRate?: string | null;
     lastMiningAt?: Date | null;
   },
-  globalMiningRate?: number
+  globalMiningRate?: number,
+  startMinerVisible: boolean = true
 ) {
   const goBal = Math.max(0, parseFloat(user.goBalance ?? user.balance ?? "0") || 0);
   const gramBal = Math.max(0, parseFloat(user.gramBalance ?? "0") || 0);
-  const defaultRate = globalMiningRate ?? 0.00125; // 0.125% daily rate
-  const rate = Math.max(0, parseFloat(String(globalMiningRate ?? user.miningRate ?? "0.001250")) || defaultRate);
+  const defaultRate = globalMiningRate ?? 0.03; // 3% daily rate
+  const rate = Math.max(0, parseFloat(String(globalMiningRate ?? user.miningRate ?? "0.03")) || defaultRate);
   
   const lastAt = user.lastMiningAt ? new Date(user.lastMiningAt).getTime() : Date.now();
   const now = Date.now();
   const rawElapsedSec = Math.max(0, (now - lastAt) / 1000);
   const cycleDurationSec = 86400; // 24 hours
-  const elapsedSec = Math.min(rawElapsedSec, cycleDurationSec);
-  const remainingSec = Math.max(0, cycleDurationSec - rawElapsedSec);
 
-  // User GO power generates Gram yield: e.g. 800 GO * 0.00125 = 1.000000 Gram / 24h
+  const elapsedSec = startMinerVisible ? Math.min(rawElapsedSec, cycleDurationSec) : rawElapsedSec;
+  const remainingSec = startMinerVisible ? Math.max(0, cycleDurationSec - rawElapsedSec) : cycleDurationSec;
+
+  // User GO power generates Gram yield: e.g. 1000 GO * 0.03 = 30.000000 Gram / 24h
   const dailyYield = goBal * rate; // Gram per 24h
   const perSecondYield = dailyYield / cycleDurationSec; // Gram per second
   const unclaimedGram = elapsedSec * perSecondYield;
   const isMining = goBal > 0 && remainingSec > 0;
-  const isCycleCompleted = goBal > 0 && remainingSec === 0;
+  const isCycleCompleted = startMinerVisible ? (goBal > 0 && remainingSec === 0) : false;
 
   return {
     goBalance: goBal,
@@ -66,8 +68,12 @@ router.get("/status", requireSession, async (req, res) => {
   }
 
   try {
-    const rawRate = await getSetting("global_mining_rate").catch(() => null);
-    const globalRate = rawRate ? parseFloat(rawRate) : 0.00125;
+    const [rawRate, startMinerVisibleStr] = await Promise.all([
+      getSetting("global_mining_rate").catch(() => null),
+      getSetting("start_miner_visible").catch(() => null)
+    ]);
+    const globalRate = rawRate ? parseFloat(rawRate) : 0.03;
+    const startMinerVisible = startMinerVisibleStr !== "false";
 
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
     if (!user) {
@@ -75,7 +81,7 @@ router.get("/status", requireSession, async (req, res) => {
       return;
     }
 
-    const calc = calculateUserMining(user, globalRate);
+    const calc = calculateUserMining(user, globalRate, startMinerVisible);
 
     res.setHeader("Cache-Control", "no-store");
     res.json({
@@ -108,8 +114,12 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
   }
 
   try {
-    const rawRate = await getSetting("global_mining_rate").catch(() => null);
-    const globalRate = rawRate ? parseFloat(rawRate) : 0.00125;
+    const [rawRate, startMinerVisibleStr] = await Promise.all([
+      getSetting("global_mining_rate").catch(() => null),
+      getSetting("start_miner_visible").catch(() => null)
+    ]);
+    const globalRate = rawRate ? parseFloat(rawRate) : 0.03;
+    const startMinerVisible = startMinerVisibleStr !== "false";
 
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
     if (!user) {
@@ -121,7 +131,7 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
       return;
     }
 
-    const calc = calculateUserMining(user, globalRate);
+    const calc = calculateUserMining(user, globalRate, startMinerVisible);
     if (calc.unclaimedGram < 0.000001) {
       res.status(400).json({ error: "لا توجد أرباح كافية للتجميع حالياً" });
       return;
@@ -161,7 +171,7 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
 router.get("/stats", async (_req, res) => {
   try {
     const rawRate = await getSetting("global_mining_rate").catch(() => null);
-    const globalRate = rawRate ? parseFloat(rawRate) : 0.00125;
+    const globalRate = rawRate ? parseFloat(rawRate) : 0.03;
 
     const [usersStats] = await db.select({
       totalUsers: sql<number>`count(*)`,

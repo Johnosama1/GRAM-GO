@@ -365,7 +365,7 @@ export default function AdminPage() {
         setSettings(setts);
         if (setts["global_mining_rate"]) {
           const rateVal = parseFloat(setts["global_mining_rate"]) * 100;
-          setMiningRateInput(rateVal ? rateVal.toString() : "0.125");
+          setMiningRateInput(rateVal ? rateVal.toString() : "3.0");
         }
         if (setts["monetag_zone_id"]) setMonetagZoneId(setts["monetag_zone_id"]);
         if (setts["ad_reward_rush"]) setAdRewardRush(setts["ad_reward_rush"]);
@@ -1493,12 +1493,12 @@ export default function AdminPage() {
             onToggle={() => toggleSection("mining_rate")}
           >
             <p style={{ fontSize: 11, color: "#8A8F98", lineHeight: 1.6, marginBottom: 12 }}>
-              نسبة التعدين اليومية من رصيد GO (الافتراضي 0.125% أي كل 800 GO تنتج 1 GRAM يومياً).
+              نسبة التعدين اليومية من رصيد GO (الافتراضي 3.0% أي كل 1000 GO تنتج 30 GRAM يومياً).
             </p>
 
             {/* Preset Chips */}
             <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-              {["0.125", "0.25", "0.5", "1.0", "2.0"].map((r) => (
+              {["3.0", "0.25", "0.5", "1.0", "2.0"].map((r) => (
                 <button
                   key={r}
                   onClick={() => setMiningRateInput(r)}
@@ -1534,7 +1534,7 @@ export default function AdminPage() {
 
             {/* Simulation Preview */}
             <div style={{ background: "rgba(0,0,0,0.3)", borderRadius: 10, padding: 10, marginBottom: 12, fontSize: 11, color: "#8A8F98" }}>
-              💡 رصيد 800 GO ينتج: <strong style={{ color: "#11ABEC" }}>+{((800 * (parseFloat(miningRateInput) || 0.125)) / 100).toFixed(4)} GRAM / يوم</strong>
+              💡 رصيد 1000 GO ينتج: <strong style={{ color: "#11ABEC" }}>+{((1000 * (parseFloat(miningRateInput) || 3.0)) / 100).toFixed(4)} GRAM / يوم</strong>
             </div>
 
             <button
