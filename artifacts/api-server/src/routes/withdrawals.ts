@@ -525,18 +525,45 @@ router.post(
             throw new Error("Transaction already processed");
           }
 
-          const [dep] = await tx
-            .insert(depositsTable)
-            .values({
-              userId: numUserId,
-              amount: String(verifiedAmt),
-              currency: "TON",
-              walletAddress: senderWallet,
-              txHash: confirmedTxHash,
-              status: "confirmed",
-              confirmedAt: verification.confirmedAt || new Date(),
-            })
-            .returning();
+          const existingPending = await tx
+            .select()
+            .from(depositsTable)
+            .where(
+              and(
+                eq(depositsTable.txHash, confirmedTxHash),
+                eq(depositsTable.status, "pending")
+              )
+            )
+            .limit(1);
+
+          let dep;
+          if (existingPending.length > 0) {
+            const [updated] = await tx
+              .update(depositsTable)
+              .set({
+                status: "confirmed",
+                amount: String(verifiedAmt),
+                walletAddress: senderWallet,
+                confirmedAt: verification.confirmedAt || new Date(),
+              })
+              .where(eq(depositsTable.id, existingPending[0].id))
+              .returning();
+            dep = updated;
+          } else {
+            const [inserted] = await tx
+              .insert(depositsTable)
+              .values({
+                userId: numUserId,
+                amount: String(verifiedAmt),
+                currency: "TON",
+                walletAddress: senderWallet,
+                txHash: confirmedTxHash,
+                status: "confirmed",
+                confirmedAt: verification.confirmedAt || new Date(),
+              })
+              .returning();
+            dep = inserted;
+          }
 
           const goAmount = verifiedAmt * 1000;
           await addGoBalanceAndClaim(tx, numUserId, goAmount);
@@ -676,17 +703,44 @@ router.post(
 
     // ── 6. Case B: Transaction is Pending on Blockchain ───────────────────────
     if (verification.isPending) {
-      const [pendingDep] = await db
-        .insert(depositsTable)
-        .values({
-          userId: numUserId,
-          amount: String(amtNum),
-          currency: "TON",
-          walletAddress: cleanWallet,
-          txHash: cleanTxHash || verification.txHash,
-          status: "pending",
-        })
-        .returning();
+      const targetHash = cleanTxHash || verification.txHash;
+      let pendingDep;
+
+      if (targetHash) {
+        const existing = await db
+          .select()
+          .from(depositsTable)
+          .where(
+            and(
+              or(
+                eq(depositsTable.txHash, targetHash),
+                eq(depositsTable.txHash, targetHash.toLowerCase()),
+                eq(depositsTable.txHash, targetHash.toUpperCase())
+              ),
+              eq(depositsTable.status, "pending")
+            )
+          )
+          .limit(1);
+
+        if (existing.length > 0) {
+          pendingDep = existing[0];
+        }
+      }
+
+      if (!pendingDep) {
+        const [insertedDep] = await db
+          .insert(depositsTable)
+          .values({
+            userId: numUserId,
+            amount: String(amtNum),
+            currency: "TON",
+            walletAddress: cleanWallet,
+            txHash: targetHash,
+            status: "pending",
+          })
+          .returning();
+        pendingDep = insertedDep;
+      }
 
       if (bot) {
         try {
