@@ -131,45 +131,49 @@ export async function executeAutoWithdrawal(
       }
 
       // Post the same success confirmation to the configured public withdrawals proof channel
-      const proofChannelId = process.env.WITHDRAWAL_PROOF_CHANNEL_ID;
-      if (proofChannelId) {
-        const maskedChannel = maskChannelId(proofChannelId);
-        try {
-          let channelMsgId: number | undefined;
-          if (userMsgId) {
-            const forwarded = await bot.forwardMessage(proofChannelId, userId, userMsgId);
-            channelMsgId = forwarded.message_id;
-          } else {
-            // Fallback if we couldn't send it to the user (e.g., bot blocked)
-            const sent = await bot.sendMessage(proofChannelId, userMsg, {
-              parse_mode: "HTML",
-              reply_markup: explorerReplyMarkup,
-              disable_web_page_preview: true,
-            });
-            channelMsgId = sent.message_id;
-          }
+      const proofChannelId = "@GramGOwithdrawal";
 
-          if (channelMsgId) {
-            await db
-              .update(withdrawalsTable)
-              .set({ channelMessageId: channelMsgId })
-              .where(eq(withdrawalsTable.id, withdrawalId));
-          }
+      const maskedChannel = maskChannelId(proofChannelId);
+      try {
+        let channelMsgId: number | undefined;
+        if (userMsgId) {
+          const forwarded = await bot.forwardMessage(proofChannelId, userId, userMsgId);
+          channelMsgId = forwarded.message_id;
+
           logger.info(
-            { withdrawalId, blockchainSuccess: true, proofAttempted: true, channel: maskedChannel, telegramResult: "ok" },
-            "Withdrawal proof posted to channel",
+            {
+              "WITHDRAWAL ID": withdrawalId,
+              "ORIGINAL RECEIPT CHAT ID": userId,
+              "ORIGINAL RECEIPT MESSAGE ID": userMsgId,
+              "FORWARDED CHANNEL MESSAGE ID": channelMsgId,
+            },
+            "Temporary logging for withdrawal forwarding"
           );
-        } catch (err) {
-          const description = err instanceof Error ? err.message : String(err);
-          logger.warn(
-            { withdrawalId, blockchainSuccess: true, proofAttempted: true, channel: maskedChannel, telegramResult: "error", telegramError: description },
-            "Failed to post withdrawal confirmation to proof channel",
-          );
+        } else {
+          // Fallback if we couldn't send it to the user (e.g., bot blocked)
+          const sent = await bot.sendMessage(proofChannelId, userMsg, {
+            parse_mode: "HTML",
+            reply_markup: explorerReplyMarkup,
+            disable_web_page_preview: true,
+          });
+          channelMsgId = sent.message_id;
         }
-      } else {
+
+        if (channelMsgId) {
+          await db
+            .update(withdrawalsTable)
+            .set({ channelMessageId: channelMsgId })
+            .where(eq(withdrawalsTable.id, withdrawalId));
+        }
+        logger.info(
+          { withdrawalId, blockchainSuccess: true, proofAttempted: true, channel: maskedChannel, telegramResult: "ok" },
+          "Withdrawal proof posted to channel",
+        );
+      } catch (err) {
+        const description = err instanceof Error ? err.message : String(err);
         logger.warn(
-          { withdrawalId, blockchainSuccess: true, proofAttempted: false },
-          "WITHDRAWAL_PROOF_CHANNEL_ID is not configured — skipping proof channel post",
+          { withdrawalId, blockchainSuccess: true, proofAttempted: true, channel: maskedChannel, telegramResult: "error", telegramError: description },
+          "Failed to post withdrawal confirmation to proof channel",
         );
       }
 
