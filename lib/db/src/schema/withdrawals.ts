@@ -18,6 +18,7 @@ export const withdrawalsTable = pgTable("withdrawals", {
   errorMsg: text("error_msg"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   processedAt: timestamp("processed_at"),
+  channelMessageId: integer("channel_message_id"),
 });
 
 export const depositsTable = pgTable("deposits", {

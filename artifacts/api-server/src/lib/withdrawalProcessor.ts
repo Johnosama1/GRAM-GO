@@ -135,17 +135,25 @@ export async function executeAutoWithdrawal(
       if (proofChannelId) {
         const maskedChannel = maskChannelId(proofChannelId);
         try {
+          let channelMsgId: number | undefined;
           if (userMsgId) {
-            await bot.copyMessage(proofChannelId, userId, userMsgId, {
-              reply_markup: explorerReplyMarkup,
-            });
+            const forwarded = await bot.forwardMessage(proofChannelId, userId, userMsgId);
+            channelMsgId = forwarded.message_id;
           } else {
             // Fallback if we couldn't send it to the user (e.g., bot blocked)
-            await bot.sendMessage(proofChannelId, userMsg, {
+            const sent = await bot.sendMessage(proofChannelId, userMsg, {
               parse_mode: "HTML",
               reply_markup: explorerReplyMarkup,
               disable_web_page_preview: true,
             });
+            channelMsgId = sent.message_id;
+          }
+
+          if (channelMsgId) {
+            await db
+              .update(withdrawalsTable)
+              .set({ channelMessageId: channelMsgId })
+              .where(eq(withdrawalsTable.id, withdrawalId));
           }
           logger.info(
             { withdrawalId, blockchainSuccess: true, proofAttempted: true, channel: maskedChannel, telegramResult: "ok" },
