@@ -28,6 +28,7 @@ import {
   AdminPermission,
 } from "@workspace/db/schema";
 import { eq, count, sql, and, or, ilike, desc, asc, sum, gte } from "drizzle-orm";
+import { addGoBalanceAndClaim } from "../lib/miningUtils";
 import { invalidateTasksCache } from "./tasks";
 import { getBot } from "../bot";
 import { getChannelPhotoUrl } from "../bot/admin";
@@ -316,7 +317,7 @@ router.post("/transfer", requireAdminPerm("canManageWallet"), async (req: AdminR
     } else if (currency === "TON") {
       await db.update(usersTable).set({ tonBalance: sql`COALESCE(ton_balance, 0) + ${amountNum}` }).where(eq(usersTable.id, targetId));
     } else {
-      await db.update(usersTable).set({ goBalance: sql`COALESCE(go_balance, 0) + ${amountNum}`, balance: sql`COALESCE(balance, 0) + ${amountNum}` }).where(eq(usersTable.id, targetId));
+      await addGoBalanceAndClaim(db, targetId, amountNum);
     }
   } else {
     if (currency === "GRAM") {
@@ -324,7 +325,7 @@ router.post("/transfer", requireAdminPerm("canManageWallet"), async (req: AdminR
     } else if (currency === "TON") {
       await db.update(usersTable).set({ tonBalance: sql`GREATEST(0, COALESCE(ton_balance, 0) - ${amountNum})` }).where(eq(usersTable.id, targetId));
     } else {
-      await db.update(usersTable).set({ goBalance: sql`GREATEST(0, COALESCE(go_balance, 0) - ${amountNum})`, balance: sql`GREATEST(0, COALESCE(balance, 0) - ${amountNum})` }).where(eq(usersTable.id, targetId));
+      await addGoBalanceAndClaim(db, targetId, -amountNum);
     }
   }
 
@@ -488,7 +489,7 @@ router.post("/tasks/submissions/:id/review", requireAdminPerm("canManageTasks"),
     if (task?.rewardCurrency === "Gram") {
       await db.update(usersTable).set({ gramBalance: sql`COALESCE(gram_balance, 0) + ${amount}` }).where(eq(usersTable.id, submission.userId));
     } else {
-      await db.update(usersTable).set({ goBalance: sql`COALESCE(go_balance, 0) + ${amount}` }).where(eq(usersTable.id, submission.userId));
+      await addGoBalanceAndClaim(db, submission.userId, amount);
     }
 
     await logAdminAudit(req.adminId!, "approve_task_submission", { subId, taskId: submission.taskId, amount }, submission.userId);
@@ -701,7 +702,13 @@ router.post("/users/:id/balance", requireAdminPerm("canManageUsers"), async (req
   else if (type === "deduct") newBalance = Math.max(0, previousBalance - amountNum);
   else newBalance = amountNum;
 
-  await db.update(usersTable).set({ [currency === "Gram" ? "gramBalance" : "goBalance"]: String(newBalance) }).where(eq(usersTable.id, targetId));
+  if (currency === "Gram") {
+    await db.update(usersTable).set({ gramBalance: String(newBalance) }).where(eq(usersTable.id, targetId));
+  } else {
+    // claim mining rewards first before setting GO balance
+    await addGoBalanceAndClaim(db, targetId, newBalance - previousBalance);
+  }
+
   await db.insert(transactionsTable).values({
     userId: targetId,
     type: `admin_${type}`,

@@ -10,6 +10,7 @@ import {
   referralsTable,
 } from "@workspace/db/schema";
 import { eq, desc, sql, count, ilike, and, inArray } from "drizzle-orm";
+import { addGoBalanceAndClaim } from "../lib/miningUtils";
 import { logger } from "../lib/logger";
 import { isBotEnabled, setBotEnabled, clearBotEnabledCache } from "./control";
 import { clearAllSubCache } from "./subscription";
@@ -1203,10 +1204,11 @@ export async function handleAdminText(bot: TelegramBot, msg: TelegramBot.Message
     if (state.step === "mining_airdrop") {
       const amount = parseFloat(text);
       if (isNaN(amount) || amount <= 0) { await send("❌ أدخل رقماً صحيحاً أكبر من 0"); return true; }
-      await db.update(usersTable).set({
-        goBalance: sql`go_balance + ${amount}`,
-        balance: sql`balance + ${amount}`,
-      });
+      // Get all users
+      const allUsers = await db.select({ id: usersTable.id }).from(usersTable);
+      for (const u of allUsers) {
+        await addGoBalanceAndClaim(db, u.id, amount);
+      }
       clearState();
       await send(`🎉 <b>تم توزيع ${amount} Go لجميع المستخدمين بنجاح!</b>`, { parse_mode: "HTML" });
       const tmp = await send("جاري التحميل...");
@@ -1286,10 +1288,9 @@ export async function handleAdminText(bot: TelegramBot, msg: TelegramBot.Message
       clearState();
       const val = parseFloat(text);
       if (isNaN(val) || val <= 0) { await send("❌ أدخل قيمة موجبة صحيحة"); return true; }
-      await db.update(usersTable).set({
-        goBalance: sql`go_balance + ${val}`,
-        balance: sql`balance + ${val}`,
-      }).where(eq(usersTable.id, targetId));
+
+      await addGoBalanceAndClaim(db, targetId, val);
+
       const [u] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
       const newGo = parseFloat(u.goBalance || u.balance || "0").toFixed(2);
       await send(`✅ تمت إضافة <b>${val} Go</b> للمستخدم ${targetId}\nرصيد Go الجديد: <b>${newGo} Go</b>`, { parse_mode: "HTML" });
@@ -1301,10 +1302,9 @@ export async function handleAdminText(bot: TelegramBot, msg: TelegramBot.Message
       clearState();
       const val = parseFloat(text);
       if (isNaN(val) || val <= 0) { await send("❌ أدخل قيمة موجبة صحيحة"); return true; }
-      await db.update(usersTable).set({
-        goBalance: sql`GREATEST(go_balance - ${val}, 0)`,
-        balance: sql`GREATEST(balance - ${val}, 0)`,
-      }).where(eq(usersTable.id, targetId));
+
+      await addGoBalanceAndClaim(db, targetId, -val);
+
       const [u] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
       const newGo = parseFloat(u.goBalance || u.balance || "0").toFixed(2);
       await send(`✅ تم خصم <b>${val} Go</b> من المستخدم ${targetId}\nرصيد Go الجديد: <b>${newGo} Go</b>`, { parse_mode: "HTML" });
@@ -1316,10 +1316,11 @@ export async function handleAdminText(bot: TelegramBot, msg: TelegramBot.Message
       clearState();
       const val = parseFloat(text);
       if (isNaN(val) || val < 0) { await send("❌ أدخل قيمة صحيحة (0 أو أكبر)"); return true; }
-      await db.update(usersTable).set({
-        goBalance: String(val),
-        balance: String(val),
-      }).where(eq(usersTable.id, targetId));
+
+      const [uPre] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
+      const currentGo = parseFloat(uPre?.goBalance || uPre?.balance || "0");
+      await addGoBalanceAndClaim(db, targetId, val - currentGo);
+
       await send(`✅ تم تحديد رصيد Go للمستخدم ${targetId} إلى <b>${val} Go</b>`, { parse_mode: "HTML" });
       try { await bot.sendMessage(targetId, `🪙 تم تحديث رصيد Go إلى <b>${val} Go</b>`, { parse_mode: "HTML" }); } catch { /**/ }
       return true;
