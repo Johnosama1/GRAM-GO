@@ -970,7 +970,7 @@ export default function ProfilePage() {
                     fontWeight: 700,
                   }}
                 >
-                  ✅ Deposit confirmed & added to TON Balance successfully!
+                  ✅ Deposit confirmed & added to GO Balance successfully!
                 </div>
               )}
 

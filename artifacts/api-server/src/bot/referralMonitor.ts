@@ -2,6 +2,7 @@ import TelegramBot from "node-telegram-bot-api";
 import { db } from "@workspace/db";
 import { usersTable, referralsTable, botSettingsTable } from "@workspace/db/schema";
 import { eq, and, isNotNull, sql } from "drizzle-orm";
+import { addGoBalanceAndClaim } from "../lib/miningUtils";
 import { getRequiredChannels, getMissingChannels } from "./subscription";
 import { logger } from "../lib/logger";
 import { getSetting } from "../lib/settingsCache";
@@ -88,12 +89,13 @@ async function activatePendingReferrals(bot: TelegramBot): Promise<number> {
         .set({ status: "active" })
         .where(eq(referralsTable.id, ref.id));
 
+      // Process mining rewards first before updating GO balance
+      await addGoBalanceAndClaim(db, ref.referrerId, 10);
+
       const [inviter] = await db
         .update(usersTable)
         .set({
           referralCount: sql`referral_count + 1`,
-          goBalance: sql`go_balance + 10`,
-          balance: sql`balance + 10`,
         })
         .where(eq(usersTable.id, ref.referrerId))
         .returning({ id: usersTable.id, referralCount: usersTable.referralCount, goBalance: usersTable.goBalance });

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable, transactionsTable } from "@workspace/db/schema";
+import { addGoBalanceAndClaim } from "../lib/miningUtils";
 import { eq, sql } from "drizzle-orm";
 import { requireSession, type SessionRequest } from "../middlewares/requireSession";
 import { verifyAccessMiddleware } from "../middlewares/verifyAccess";
@@ -148,13 +149,7 @@ router.post("/sword-adventure/finish", requireSession, verifyAccessMiddleware, a
     if (reward > 0) {
       // Atomic transaction: update user balance & create transaction record
       await db.transaction(async (tx) => {
-        await tx
-          .update(usersTable)
-          .set({
-            goBalance: sql`COALESCE(go_balance, 0) + ${sql.raw(rewardStr)}`,
-            balance: sql`COALESCE(balance, 0) + ${sql.raw(rewardStr)}`,
-          })
-          .where(eq(usersTable.id, userId));
+        await addGoBalanceAndClaim(tx, userId, reward);
 
         await tx.insert(transactionsTable).values({
           userId,

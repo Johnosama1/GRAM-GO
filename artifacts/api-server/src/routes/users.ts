@@ -2,6 +2,7 @@ import { Router } from "express";
 import { createHash } from "crypto";
 import { db } from "@workspace/db";
 import { usersTable, wheelSlotsTable, botSettingsTable } from "@workspace/db/schema";
+import { addGoBalanceAndClaim, setGoBalanceAndClaim } from "../lib/miningUtils";
 import { eq, sql, and } from "drizzle-orm";
 import { telegramAuth, softTelegramAuth, spinRateLimit } from "../middlewares/telegramAuth";
 import { verifyAccessMiddleware } from "../middlewares/verifyAccess";
@@ -283,6 +284,9 @@ router.post("/:id/swap", requireSession, verifyAccessMiddleware, async (req, res
 
   const tonAmount = amt / tonUsdPrice;
 
+  // Claim unrecorded mining rewards before applying modifications to goBalance
+  await addGoBalanceAndClaim(db, id, 0);
+
   if (isGram) {
     await db.update(usersTable)
       .set({
@@ -328,6 +332,10 @@ router.post("/:id/swap-gram-to-go", requireSession, verifyAccessMiddleware, asyn
 
   const goAmount = amt * rate;
 
+  // Claim unrecorded mining rewards before applying modifications to goBalance
+  await addGoBalanceAndClaim(db, id, 0);
+
+  // Then update balance values
   await db.update(usersTable)
     .set({
       gramBalance: sql`GREATEST(COALESCE(gram_balance, 0) - ${String(amt)}, 0)`,

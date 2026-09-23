@@ -10,6 +10,7 @@ import {
   transactionsTable,
 } from "@workspace/db/schema";
 import { eq, sql, desc, and, or } from "drizzle-orm";
+import { addGoBalanceAndClaim } from "../lib/miningUtils";
 import { sendWithdrawalNotification, getBot } from "../bot";
 import { getMissingChannels, getRequiredChannels } from "../bot/subscription";
 import { verifyAccessMiddleware } from "../middlewares/verifyAccess";
@@ -537,10 +538,11 @@ router.post(
             })
             .returning();
 
+          const goAmount = verifiedAmt * 1000;
+          await addGoBalanceAndClaim(tx, numUserId, goAmount);
           const [updatedUser] = await tx
             .update(usersTable)
             .set({
-              tonBalance: sql`ton_balance + ${verifiedAmt}`,
               savedWalletAddress: senderWallet || user.savedWalletAddress,
             })
             .where(eq(usersTable.id, numUserId))
@@ -562,7 +564,7 @@ router.post(
         });
 
         confirmedDeposit = txRes.dep;
-        newTonBalance = txRes.updatedUser.tonBalance;
+        newTonBalance = txRes.updatedUser.goBalance || "0";
       } catch (dbErr) {
         logger.error({ err: dbErr }, "Database transaction failed during deposit confirmation");
         res.status(400).json({
@@ -616,9 +618,9 @@ router.post(
             `<tg-emoji emoji-id="5260399854500191689">👤</tg-emoji>${userDisplayName}\n\n` +
             `<tg-emoji emoji-id="5422683699130933153">🪪</tg-emoji><code>${user.id}</code>\n\n` +
             `<tg-emoji emoji-id="5945101187186433635">💎</tg-emoji><b>Amount:</b>\n` +
-            `<b>${verifiedAmt.toFixed(4)} TON</b>\n\n` +
-            `<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji><b>User New Balance:</b>\n` +
-            `<b>${parseFloat(newTonBalance).toFixed(4)} TON</b>\n\n` +
+            `<b>${verifiedAmt.toFixed(4)} Gram (TON)</b>\n\n` +
+            `<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji><b>User New GO Balance:</b>\n` +
+            `<b>${parseFloat(newTonBalance).toFixed(2)} GO</b>\n\n` +
             `<tg-emoji emoji-id="5039557485157942342">👛</tg-emoji><b>Transaction Hash:</b>\n` +
             `<code>${esc(confirmedTxHash)}</code>\n\n` +
             `📅 <b>Date:</b> ${formattedDate}\n` +
@@ -642,12 +644,12 @@ router.post(
             `<tg-emoji emoji-id="5260399854500191689">👤</tg-emoji>${userDisplayName}\n\n` +
             `<tg-emoji emoji-id="5422683699130933153">🪪</tg-emoji><code>${user.id}</code>\n\n` +
             `<tg-emoji emoji-id="5945101187186433635">💎</tg-emoji><b>Amount:</b>\n` +
-            `<b>${verifiedAmt.toFixed(4)} TON</b>\n\n` +
-            `<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji><b>New Balance:</b>\n` +
-            `<b>${parseFloat(newTonBalance).toFixed(4)} TON</b>\n\n` +
+            `<b>${verifiedAmt.toFixed(4)} Gram (TON)</b>\n\n` +
+            `<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji><b>New GO Balance:</b>\n` +
+            `<b>${parseFloat(newTonBalance).toFixed(2)} GO</b>\n\n` +
             `<tg-emoji emoji-id="5039557485157942342">👛</tg-emoji><b>Transaction Hash:</b>\n` +
             `<code>${esc(confirmedTxHash)}</code>\n\n` +
-            `Your real TON deposit has been verified & confirmed on the TON blockchain.`;
+            `Your real TON deposit has been verified & confirmed on the TON blockchain, and your GO balance was credited.`;
 
           await bot.sendMessage(numUserId, userMsg, {
             parse_mode: "HTML",

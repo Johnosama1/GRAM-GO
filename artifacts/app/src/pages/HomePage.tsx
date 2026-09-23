@@ -284,36 +284,31 @@ export default function HomePage() {
         remSec = Math.max(0, Math.floor(86400 - elapsed));
       }
 
-      const isStopped = remSec <= 0;
-      const effectiveBase = isStopped && maxYield > 0 ? maxYield : base;
-
       lastFetchRef.current = {
         ts: Date.now(),
-        baseUnclaimed: effectiveBase,
-        perSec: isStopped ? 0 : perSec,
+        baseUnclaimed: base,
+        perSec: perSec,
         maxYield: maxYield,
       };
-      setLiveUnclaimed(effectiveBase);
+      setLiveUnclaimed(base);
       setTimerSeconds(remSec);
     } catch {
       // Fallback calculation using user balance
       if (user) {
         const go = parseFloat(user.goBalance || user.balance || "0");
         const rate = 0.03; // 3% daily Gram yield per GO
-        const daily = go * rate;
+        const daily = (go * rate) / 1000;
         const perSec = daily / 86400;
         const lastAt = user.lastMiningAt ? new Date(user.lastMiningAt).getTime() : Date.now();
 
         // This is a fallback calculation if the server API fails.
-        // Assume start_miner_visible is true for safety in fallback.
         const elapsed = Math.max(0, (Date.now() - lastAt) / 1000);
         const rem = Math.max(0, Math.floor(86400 - elapsed));
-        const isStopped = rem <= 0;
-        const unclaimed = isStopped ? daily : Math.min(daily, elapsed * perSec);
+        const unclaimed = elapsed * perSec;
         lastFetchRef.current = {
           ts: Date.now(),
           baseUnclaimed: unclaimed,
-          perSec: isStopped ? 0 : perSec,
+          perSec: perSec,
           maxYield: daily,
         };
         setLiveUnclaimed(unclaimed);
@@ -349,10 +344,10 @@ export default function HomePage() {
   // ── 60fps Real-Time Ticker for live continuous yield ───────────────
   useEffect(() => {
     const interval = setInterval(() => {
-      const { ts, baseUnclaimed, perSec, maxYield } = lastFetchRef.current;
-      if (perSec > 0 && maxYield > 0) {
+      const { ts, baseUnclaimed, perSec } = lastFetchRef.current;
+      if (perSec > 0) {
         const elapsedSec = (Date.now() - ts) / 1000;
-        const current = Math.min(maxYield, baseUnclaimed + elapsedSec * perSec);
+        const current = baseUnclaimed + elapsedSec * perSec;
         setLiveUnclaimed(current);
       }
     }, 50);
@@ -360,15 +355,11 @@ export default function HomePage() {
     return () => clearInterval(interval);
   }, []);
 
-  // ── Timer countdown (24-hour cycle) ────────────────────────────────
+  // ── Timer countdown (24-hour cycle reference) ────────────────────────────────
   useEffect(() => {
     const timer = setInterval(() => {
       setTimerSeconds((prev) => {
         if (prev <= 1) {
-          if (lastFetchRef.current.maxYield > 0) {
-            setLiveUnclaimed(lastFetchRef.current.maxYield);
-          }
-          lastFetchRef.current.perSec = 0;
           return 0;
         }
         return prev - 1;
@@ -396,7 +387,7 @@ export default function HomePage() {
         setLiveUnclaimed(0);
         setTimerSeconds(86400);
         const go = parseFloat(user?.goBalance || user?.balance || "0");
-        const daily = go * 0.03;
+        const daily = (go * 0.03) / 1000;
         const perSec = daily / 86400;
         lastFetchRef.current = {
           ts: Date.now(),
@@ -431,13 +422,11 @@ export default function HomePage() {
   // User formatted values
   const goBalanceNum = parseFloat(user?.goBalance || user?.balance || "0");
   const gramBalanceNum = parseFloat(user?.gramBalance || "0");
-  const dailyGramYield = (goBalanceNum * 0.03).toFixed(6);
+  const dailyGramYield = ((goBalanceNum * 0.03) / 1000).toFixed(6);
 
   const hasPower = goBalanceNum > 0;
-  // When startMinerVisible is false (continuous mining), timerSeconds won't reach 0 unless it was just started.
-  // Actually, we should check a config or state. For now, since timerSeconds is 86400 statically returned by backend if continuous, it won't hit <= 0.
-  const isCycleFinished = timerSeconds <= 0;
-  const isMiningActive = hasPower && !isCycleFinished;
+  const isCycleFinished = false; // Always false since mining is continuous
+  const isMiningActive = hasPower; // Continuous mining means it's always active if there's power
 
   const activeWallet = user?.savedWalletAddress || connectedAddress;
   const walletDisplay = activeWallet
@@ -948,7 +937,7 @@ export default function HomePage() {
           ) : (
             <>
               <span style={{ fontSize: 17 }}>⚡</span>
-              {isCycleFinished && liveUnclaimed > 0 ? "CLAIM GRAM REWARD & RESTART" : "CLAIM GRAM REWARD"}
+              {"CLAIM GRAM REWARD"}
             </>
           )}
         </button>

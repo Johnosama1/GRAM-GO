@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { tasksTable, userTasksTable, usersTable } from "@workspace/db/schema";
+import { addGoBalanceAndClaim } from "../lib/miningUtils";
 import { eq, and, sql } from "drizzle-orm";
 import { getBot } from "../bot";
 import { checkChannelMembership } from "../bot/admin";
@@ -113,12 +114,14 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
   if (user) {
     const newTasksCompleted = (user.tasksCompleted || 0) + 1;
+
+    // Process mining rewards first before updating GO balance
+    await addGoBalanceAndClaim(db, userId, 5);
+
     await db
       .update(usersTable)
       .set({
         tasksCompleted: newTasksCompleted,
-        goBalance: sql`go_balance + 5`,
-        balance: sql`balance + 5`,
       })
       .where(eq(usersTable.id, userId));
 

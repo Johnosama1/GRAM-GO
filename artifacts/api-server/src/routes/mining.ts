@@ -31,15 +31,16 @@ export function calculateUserMining(
   const rawElapsedSec = Math.max(0, (now - lastAt) / 1000);
   const cycleDurationSec = 86400; // 24 hours
 
-  const elapsedSec = startMinerVisible ? Math.min(rawElapsedSec, cycleDurationSec) : rawElapsedSec;
-  const remainingSec = startMinerVisible ? Math.max(0, cycleDurationSec - rawElapsedSec) : cycleDurationSec;
+  const elapsedSec = rawElapsedSec; // Continuous accrual over 24h limit
+  const remainingSec = Math.max(0, cycleDurationSec - rawElapsedSec); // keep this for compatibility if frontend still reads it
 
-  // User GO power generates Gram yield: e.g. 1000 GO * 0.03 = 30.000000 Gram / 24h
-  const dailyYield = goBal * rate; // Gram per 24h
+  // User GO power generates Gram yield: e.g. 1000 GO * 0.03 = 30 GO / 24h => 0.030000 Gram / 24h
+  const dailyYieldGo = goBal * rate; // GO per 24h
+  const dailyYield = dailyYieldGo / 1000; // Gram per 24h
   const perSecondYield = dailyYield / cycleDurationSec; // Gram per second
   const unclaimedGram = elapsedSec * perSecondYield;
-  const isMining = goBal > 0 && remainingSec > 0;
-  const isCycleCompleted = startMinerVisible ? (goBal > 0 && remainingSec === 0) : false;
+  const isMining = goBal > 0;
+  const isCycleCompleted = false; // Continuous mining, cycle never effectively completes in a way that stops mining
 
   return {
     goBalance: goBal,
