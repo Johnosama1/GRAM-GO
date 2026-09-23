@@ -279,7 +279,7 @@ export async function verifyTonDepositTransaction(
 
     // If transaction was not found in the recent list:
     // If user provided a recent boc / txHash from TonConnect, it might still be propagating to the blockchain.
-    if (boc || cleanTxHash) {
+    if ((boc && boc !== "undefined" && boc !== "null") || (cleanTxHash && cleanTxHash !== "undefined" && cleanTxHash !== "null")) {
       return {
         verified: false,
         isPending: true,

@@ -323,6 +323,10 @@ export default function ProfilePage() {
         ],
       });
 
+      if (!result || !result.boc) {
+        throw new Error("فشلت المعاملة: لم يتم استلام استجابة صحيحة من المحفظة (No BOC returned)");
+      }
+
       const res = await recordDeposit({
         userId: user.id,
         amount: String(amt),
