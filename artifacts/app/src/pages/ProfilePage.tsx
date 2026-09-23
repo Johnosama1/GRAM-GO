@@ -1369,9 +1369,14 @@ export default function ProfilePage() {
                         }}
                       >
                         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 15 }}>
-                            +{parseFloat(dep.amount).toFixed(2)} TON
-                          </span>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                            <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 15 }}>
+                              +{parseFloat(dep.amount).toFixed(2)} TON
+                            </span>
+                            <span style={{ color: "#fbbf24", fontWeight: 800, fontSize: 13 }}>
+                              🪙 +{(parseFloat(dep.amount) * 1000).toFixed(2)} GO
+                            </span>
+                          </div>
                           <span
                             style={{
                               fontSize: 11,
