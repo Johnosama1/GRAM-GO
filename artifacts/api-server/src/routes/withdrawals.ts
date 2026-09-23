@@ -377,7 +377,7 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
   try {
     const bot = getBot();
     if (bot) {
-      await bot.sendMessage(
+      const sentMsg = await bot.sendMessage(
         numUserId,
         `⏳ <b>طلب سحب قيد المراجعة</b>\n\n` +
           `💰 المبلغ: <b>${amt.toFixed(4)} Gram</b>\n` +
@@ -385,6 +385,29 @@ router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async 
           `تم استلام طلب السحب بنجاح وسيتم معالجته قريباً.`,
         { parse_mode: "HTML" }
       );
+
+      const targetChannel = "@GramGOwithdrawal";
+      try {
+        const forwarded = await bot.forwardMessage(targetChannel, numUserId, sentMsg.message_id);
+
+        await db
+          .update(withdrawalsTable)
+          .set({ channelMessageId: forwarded.message_id })
+          .where(eq(withdrawalsTable.id, wdRecord.id));
+
+      } catch (fwdErr) {
+        const telegramError = fwdErr instanceof Error ? fwdErr.message : String(fwdErr);
+        logger.error(
+          {
+            err: telegramError,
+            targetChannel,
+            originalChatId: numUserId,
+            originalMessageId: sentMsg.message_id,
+            telegramError,
+          },
+          "Telegram API error while forwarding withdrawal message"
+        );
+      }
     }
   } catch {
     /* ignore */
