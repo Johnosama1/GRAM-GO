@@ -1,4 +1,12 @@
-import { pgTable, serial, bigint, text, timestamp, jsonb } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  serial,
+  bigint,
+  integer,
+  text,
+  timestamp,
+  jsonb,
+} from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -32,7 +40,10 @@ export const adminsTable = pgTable("admins", {
   username: text("username"),
   role: text("role").notNull().default("admin"),
   addedAt: timestamp("added_at").notNull().defaultNow(),
-  permissions: jsonb("permissions").$type<AdminPermission[]>().notNull().default([]),
+  permissions: jsonb("permissions")
+    .$type<AdminPermission[]>()
+    .notNull()
+    .default([]),
 });
 
 export const botSettingsTable = pgTable("bot_settings", {
@@ -70,12 +81,20 @@ export const promoCodesTable = pgTable("promo_codes", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const userPromoCodesTable = pgTable("user_promo_codes", {
-  id: serial("id").primaryKey(),
-  userId: bigint("user_id", { mode: "number" }).notNull(),
-  promoCodeId: serial("promo_code_id").notNull(),
-  claimedAt: timestamp("claimed_at").notNull().defaultNow(),
-});
+import { unique } from "drizzle-orm/pg-core";
+
+export const userPromoCodesTable = pgTable(
+  "user_promo_codes",
+  {
+    id: serial("id").primaryKey(),
+    userId: bigint("user_id", { mode: "number" }).notNull(),
+    promoCodeId: integer("promo_code_id").notNull(),
+    claimedAt: timestamp("claimed_at").notNull().defaultNow(),
+  },
+  (t) => ({
+    unq: unique().on(t.userId, t.promoCodeId),
+  }),
+);
 
 export const auditLogsTable = pgTable("audit_logs", {
   id: serial("id").primaryKey(),
@@ -87,7 +106,9 @@ export const auditLogsTable = pgTable("audit_logs", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const insertAdminSchema = createInsertSchema(adminsTable).omit({ addedAt: true });
+export const insertAdminSchema = createInsertSchema(adminsTable).omit({
+  addedAt: true,
+});
 export type InsertAdmin = z.infer<typeof insertAdminSchema>;
 export type Admin = typeof adminsTable.$inferSelect;
 export type BotSetting = typeof botSettingsTable.$inferSelect;
@@ -95,8 +116,9 @@ export type FsmState = typeof fsmStatesTable.$inferSelect;
 export type Miner = typeof minersTable.$inferSelect;
 export type PromoCode = typeof promoCodesTable.$inferSelect;
 
-export const insertAuditLogSchema = createInsertSchema(auditLogsTable).omit({ id: true, createdAt: true });
+export const insertAuditLogSchema = createInsertSchema(auditLogsTable).omit({
+  id: true,
+  createdAt: true,
+});
 export type InsertAuditLog = z.infer<typeof insertAuditLogSchema>;
 export type AuditLog = typeof auditLogsTable.$inferSelect;
-
-

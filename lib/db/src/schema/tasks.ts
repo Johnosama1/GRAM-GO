@@ -13,6 +13,7 @@ export const tasksTable = pgTable("tasks", {
   rewardCurrency: text("reward_currency").notNull().default("GO"), // GO or Gram
   maxClaims: integer("max_claims"),
   isActive: boolean("is_active").notNull().default(true),
+  category: text("category").notNull().default("all"),
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
