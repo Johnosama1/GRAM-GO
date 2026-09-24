@@ -1,3 +1,4 @@
+import { resolveMiniAppUrl } from "../lib/envUrls";
 import { AsyncLocalStorage } from "node:async_hooks";
 import TelegramBot from "node-telegram-bot-api";
 import { db } from "@workspace/db";
@@ -628,12 +629,7 @@ export async function sendWelcomeMessage(
   firstName?: string,
   username?: string,
 ) {
-  const vercelDomain =
-    process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
-  const MINI_APP_URL =
-    process.env.MINI_APP_URL ||
-    (vercelDomain ? `https://${vercelDomain}/` : "") ||
-    "https://gram-go-ivory.vercel.app/";
+  const MINI_APP_URL = resolveMiniAppUrl();
 
   const customWelcome = await getSetting("welcome_message").catch(() => null);
 
@@ -686,12 +682,7 @@ export async function sendWelcomeMessage(
 }
 
 function setMenuButton() {
-  const vercelDomain =
-    process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
-  const MINI_APP_URL =
-    process.env.MINI_APP_URL ||
-    (vercelDomain ? `https://${vercelDomain}/` : "") ||
-    "https://gram-go-ivory.vercel.app/";
+  const MINI_APP_URL = resolveMiniAppUrl();
 
   const token =
     process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || TOKEN;
@@ -1353,12 +1344,7 @@ function setupBotHandlers() {
       const dailyYield = calc.dailyYield.toFixed(4);
       const ratePercent = (rate * 100).toFixed(3);
 
-      const vercelDomain =
-        process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
-      const MINI_APP_URL =
-        process.env.MINI_APP_URL ||
-        (vercelDomain ? `https://${vercelDomain}/` : "") ||
-        "https://gram-go-ivory.vercel.app/";
+      const MINI_APP_URL = resolveMiniAppUrl();
 
       const text =
         `⛏️ <b>محطة التعدين السحابية — GramGo</b>\n\n` +

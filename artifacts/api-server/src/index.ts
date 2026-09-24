@@ -1,3 +1,4 @@
+import { resolveWebhookUrl, resolveAppUrl } from "./lib/envUrls";
 import app from "./app";
 import { logger } from "./lib/logger";
 import { initBotWebhook, initBotPolling, getBot } from "./bot";
