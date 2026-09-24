@@ -14,6 +14,11 @@ export const tasksTable = pgTable("tasks", {
   maxClaims: integer("max_claims"),
   isActive: boolean("is_active").notNull().default(true),
   category: text("category").notNull().default("all"),
+  channelUsername: text("channel_username"),
+  botUsername: text("bot_username"),
+  botLink: text("bot_link"),
+  requiredReferrals: integer("required_referrals"),
+  verificationType: text("verification_type"),
   expiresAt: timestamp("expires_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });

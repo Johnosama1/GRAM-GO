@@ -1140,7 +1140,7 @@ export default function ProfilePage() {
                     marginBottom: "8px",
                   }}
                 >
-                  1000 GO = 1 Gram (TON)
+                  1000 GO = 1 Gram
                 </div>
 
                 <div

@@ -508,6 +508,11 @@ export interface Task {
   url: string | null;
   icon: string | null;
   category?: string;
+  channelUsername?: string | null;
+  botUsername?: string | null;
+  botLink?: string | null;
+  requiredReferrals?: number | null;
+  verificationType?: string | null;
   channelPhotoUrl: string | null;
   rewardAmount?: string;
   rewardCurrency?: string;

@@ -399,15 +399,33 @@ router.get("/tasks", async (_req: AdminRequest, res: Response) => {
 });
 
 router.post("/tasks", requireAdminPerm("canManageTasks"), async (req: AdminRequest, res: Response) => {
-  const { title, description, url, icon, rewardAmount, rewardCurrency, maxClaims, isActive } = req.body;
+  const { category, title, description, url, icon, rewardAmount, rewardCurrency, maxClaims, isActive, channelUsername, botUsername, botLink, requiredReferrals, verificationType } = req.body;
   if (!title) {
     res.status(400).json({ error: "Title is required" });
+    return;
+  }
+
+  const parsedCategory = category || "normal";
+
+  if (parsedCategory === "referral" && (!requiredReferrals || requiredReferrals <= 0)) {
+    res.status(400).json({ error: "Required referrals must be > 0" });
+    return;
+  }
+
+  if (parsedCategory === "bot" && !botUsername) {
+    res.status(400).json({ error: "Bot username is required" });
+    return;
+  }
+
+  if (parsedCategory === "channel" && !channelUsername) {
+    res.status(400).json({ error: "Channel username is required" });
     return;
   }
 
   const [newTask] = await db
     .insert(tasksTable)
     .values({
+      category: parsedCategory,
       title,
       description,
       url,
@@ -415,6 +433,11 @@ router.post("/tasks", requireAdminPerm("canManageTasks"), async (req: AdminReque
       rewardAmount: String(rewardAmount || "5"),
       rewardCurrency: rewardCurrency || "GO",
       maxClaims: maxClaims ? parseInt(String(maxClaims)) : null,
+      channelUsername: channelUsername || null,
+      botUsername: botUsername || null,
+      botLink: botLink || null,
+      requiredReferrals: requiredReferrals ? parseInt(String(requiredReferrals)) : null,
+      verificationType: verificationType || "manual",
       isActive: isActive !== false,
     })
     .returning();
