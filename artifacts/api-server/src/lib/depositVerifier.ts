@@ -244,11 +244,16 @@ export async function verifyTonDepositTransaction(
       const isRecent = txTime >= twoHoursAgoSeconds || txTime === 0;
 
       // Case A: Explicit hash match
+      // Additionally, check inMsg message hash from TonCenter if available
+      const inMsgHashStr = inMsg.hash || "";
+
+      // Case A: Explicit hash match
       const matchesExplicitHash =
         cleanTxHash &&
         (hashStr.toLowerCase() === cleanTxHash.toLowerCase() ||
           ltStr === cleanTxHash ||
-          (bocHashHex && hashStr.toLowerCase() === bocHashHex.toLowerCase()));
+          inMsgHashStr.toLowerCase() === cleanTxHash.toLowerCase() ||
+          (bocHashHex && (hashStr.toLowerCase() === bocHashHex.toLowerCase() || inMsgHashStr.toLowerCase() === bocHashHex.toLowerCase())));
 
       // Case B: Sender + Amount match
       const matchesSenderAndAmount =
@@ -265,6 +270,24 @@ export async function verifyTonDepositTransaction(
         amountMatches &&
         isRecent;
 
+      // Diagnostic logging for matching
+      logger.info({
+          userId,
+          expectedAmt,
+          txTonAmt,
+          matchesExplicitHash,
+          matchesSenderAndAmount,
+          matchesCommentAndAmount,
+          normalizedUserWallet,
+          normalizedSrc,
+          cleanTxHash,
+          hashStr,
+          inMsgHashStr,
+          bocHashHex,
+          txTime,
+          isRecent
+      }, "Deposit matching diagnostic");
+
       if (matchesExplicitHash || matchesSenderAndAmount || matchesCommentAndAmount) {
         const resolvedTxHash = hashStr || cleanTxHash || ltStr || `tx_${Date.now()}`;
         return {
@@ -276,6 +299,8 @@ export async function verifyTonDepositTransaction(
         };
       }
     }
+
+    logger.info({ userId, amount: expectedAmt, cleanTxHash, depositWalletStr }, "Deposit transaction not found on-chain yet");
 
     // If transaction was not found in the recent list:
     // If user provided a recent boc / txHash from TonConnect, it might still be propagating to the blockchain.

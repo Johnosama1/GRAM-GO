@@ -775,7 +775,7 @@ export default function ProfilePage() {
                       marginTop: 2,
                     }}
                   >
-                    1 Gram = {gramRate} GO (Boost Power)
+                    {gramRate} GO = 1 Gram (Boost Power)
                   </div>
                 </div>
               </div>
