@@ -91,11 +91,22 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
     return;
   }
 
-  // Channel membership verification
-  const channelUsername = extractChannelUsername(task.url);
-  const isChannelTask = !!channelUsername;
+  // Task specific validations
+  if (task.category === "referral") {
+    const [userRefCheck] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    const userReferralsCount = userRefCheck?.referralCount || 0;
+    const reqReferrals = task.requiredReferrals || 0;
+    if (userReferralsCount < reqReferrals) {
+      res.status(400).json({ error: "لم تصل لعدد الإحالات المطلوب" });
+      return;
+    }
+  }
 
-  if (channelUsername) {
+  // Channel membership verification
+  const channelUsername = task.channelUsername || extractChannelUsername(task.url);
+  const isChannelTask = !!channelUsername && task.category === "channel";
+
+  if (isChannelTask) {
     try {
       const botInstance = getBot();
       if (botInstance) {
@@ -116,15 +127,20 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
   if (user) {
     const newTasksCompleted = (user.tasksCompleted || 0) + 1;
 
-    // Process mining rewards first before updating GO balance
-    await addGoBalanceAndClaim(db, userId, 5);
+    const rewardAmountNum = parseFloat(task.rewardAmount || "0") || 0;
 
-    await db
-      .update(usersTable)
-      .set({
+    if (task.rewardCurrency === "Gram") {
+      await addGoBalanceAndClaim(db, userId, 0); // harvest continuous mining first
+      await db.update(usersTable).set({
+        gramBalance: sql`gram_balance + ${rewardAmountNum}`,
         tasksCompleted: newTasksCompleted,
-      })
-      .where(eq(usersTable.id, userId));
+      }).where(eq(usersTable.id, userId));
+    } else {
+      await addGoBalanceAndClaim(db, userId, rewardAmountNum);
+      await db.update(usersTable).set({
+        tasksCompleted: newTasksCompleted,
+      }).where(eq(usersTable.id, userId));
+    }
 
     if (isChannelTask) {
       await recordChannelReward(userId, 1);
@@ -132,7 +148,7 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
   }
 
   const [updated] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-  res.json({ success: true, user: updated, rewardedGo: 5 });
+  res.json({ success: true, user: updated });
 });
 
 router.get("/:userId/completed", async (req, res) => {

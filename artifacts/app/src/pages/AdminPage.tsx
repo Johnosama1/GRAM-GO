@@ -366,8 +366,12 @@ export default function AdminPage() {
 
   // Task Form
   const [taskForm, setTaskForm] = useState({
-    section: "channels",
+    category: "normal",
     channelUsername: "",
+    botUsername: "",
+    botLink: "",
+    requiredReferrals: "",
+    verificationType: "manual",
     title: "",
     description: "",
     rewardAmount: "0.5",
@@ -375,7 +379,6 @@ export default function AdminPage() {
     icon: "",
     url: "",
     seatsLimit: "50",
-    isDaily: false,
   });
 
   // Channel Form
@@ -741,23 +744,44 @@ export default function AdminPage() {
   };
 
   const handleCreateTask = async () => {
-    if (!taskForm.title.trim())
+    if (taskForm.category === "daily") {
+      try {
+        await api.adminUpdateCheckinSettings(checkinRewards);
+        showToast("تم حفظ إعدادات تسجيل الدخول اليومي بنجاح 📅");
+        return;
+      } catch (err: unknown) {
+        showToast("فشل حفظ مكافآت التسجيل اليومي", "err");
+        return;
+      }
+    }
+
+    if (!taskForm.title.trim() && taskForm.category !== "daily")
       return showToast("يرجى إدخال عنوان المهمة", "err");
     try {
       await api.adminCreateTask({
+        category: taskForm.category,
         title: taskForm.title.trim(),
         description: taskForm.description.trim() || undefined,
         rewardAmount: taskForm.rewardAmount,
         rewardCurrency: taskForm.rewardCurrency,
         icon: taskForm.icon.trim() || undefined,
         url: taskForm.url.trim() || undefined,
+        channelUsername: taskForm.channelUsername.trim() || undefined,
+        botUsername: taskForm.botUsername.trim() || undefined,
+        botLink: taskForm.botLink.trim() || undefined,
+        requiredReferrals: taskForm.requiredReferrals ? parseInt(taskForm.requiredReferrals) : undefined,
+        verificationType: taskForm.verificationType,
         maxClaims: parseInt(taskForm.seatsLimit) || null,
         isActive: true,
       });
       showToast("تم إنشاء المهمة بنجاح 📋");
       setTaskForm({
-        section: "channels",
+        category: "normal",
         channelUsername: "",
+        botUsername: "",
+        botLink: "",
+        requiredReferrals: "",
+        verificationType: "manual",
         title: "",
         description: "",
         rewardAmount: "0.5",
@@ -765,7 +789,6 @@ export default function AdminPage() {
         icon: "",
         url: "",
         seatsLimit: "50",
-        isDaily: false,
       });
       loadAllData();
     } catch (err: unknown) {
@@ -3126,147 +3149,279 @@ export default function AdminPage() {
                 إنشاء مهمة جديدة:
               </div>
 
-              <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                <input
-                  type="text"
-                  placeholder="يوزرنيم القناة بدون @..."
-                  value={taskForm.channelUsername}
-                  onChange={(e) =>
-                    setTaskForm({
-                      ...taskForm,
-                      channelUsername: e.target.value,
-                    })
-                  }
-                  style={{
-                    flex: 1,
-                    background: "#080b10",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 8,
-                    padding: 8,
-                    color: "#fff",
-                    fontSize: 11,
-                  }}
-                />
-                <button
-                  onClick={() => {
-                    if (taskForm.channelUsername) {
-                      setTaskForm({
-                        ...taskForm,
-                        title: `انضم لقناة @${taskForm.channelUsername}`,
-                        url: `https://t.me/${taskForm.channelUsername}`,
-                      });
-                      showToast("تم جلب البيانات تلقائياً ⚡");
-                    }
-                  }}
-                  style={{
-                    background: "rgba(17, 171, 236, 0.2)",
-                    border: "1px solid #11ABEC",
-                    borderRadius: 8,
-                    padding: "0 10px",
-                    color: "#11ABEC",
-                    fontSize: 10,
-                    fontWeight: 800,
-                    cursor: "pointer",
-                  }}
-                >
-                  ⚡ جلب
-                </button>
-              </div>
-
-              <input
-                type="text"
-                placeholder="عنوان المهمة..."
-                value={taskForm.title}
-                onChange={(e) =>
-                  setTaskForm({ ...taskForm, title: e.target.value })
-                }
-                style={{
-                  width: "100%",
-                  background: "#080b10",
-                  border: "1px solid rgba(255,255,255,0.08)",
-                  borderRadius: 8,
-                  padding: 8,
-                  color: "#fff",
-                  fontSize: 11,
-                  marginBottom: 8,
-                  boxSizing: "border-box",
-                }}
-              />
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 8,
-                  marginBottom: 8,
-                }}
-              >
-                <input
-                  type="number"
-                  step="0.1"
-                  placeholder="المكافأة..."
-                  value={taskForm.rewardAmount}
-                  onChange={(e) =>
-                    setTaskForm({ ...taskForm, rewardAmount: e.target.value })
-                  }
-                  style={{
-                    background: "#080b10",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 8,
-                    padding: 8,
-                    color: "#fff",
-                    fontSize: 11,
-                  }}
-                />
-                <input
-                  type="text"
-                  placeholder="الرابط..."
-                  value={taskForm.url}
-                  onChange={(e) =>
-                    setTaskForm({ ...taskForm, url: e.target.value })
-                  }
-                  style={{
-                    background: "#080b10",
-                    border: "1px solid rgba(255,255,255,0.08)",
-                    borderRadius: 8,
-                    padding: 8,
-                    color: "#fff",
-                    fontSize: 11,
-                  }}
-                />
-              </div>
-
-              {/* Seats limit chips */}
-              <div style={{ fontSize: 10, color: "#8A8F98", marginBottom: 4 }}>
-                عدد المقاعد:
-              </div>
-              <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-                {["50", "100", "500", "1000"].map((s) => (
+              {/* Task Type Selector */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 12 }}>
+                {[
+                  { id: "channel", label: "📢 Channel" },
+                  { id: "bot", label: "🤖 Bot" },
+                  { id: "normal", label: "📋 Normal" },
+                  { id: "referral", label: "👥 Referral" },
+                  { id: "daily", label: "📅 Daily" },
+                  { id: "ads", label: "📺 Ads" },
+                ].map((c) => (
                   <button
-                    key={s}
-                    onClick={() => setTaskForm({ ...taskForm, seatsLimit: s })}
+                    key={c.id}
+                    onClick={() => setTaskForm({ ...taskForm, category: c.id })}
                     style={{
-                      flex: 1,
-                      background:
-                        taskForm.seatsLimit === s
-                          ? "rgba(17, 171, 236, 0.2)"
-                          : "rgba(255,255,255,0.04)",
-                      border:
-                        taskForm.seatsLimit === s
-                          ? "1px solid #11ABEC"
-                          : "1px solid rgba(255,255,255,0.06)",
+                      background: taskForm.category === c.id ? "rgba(17, 171, 236, 0.2)" : "rgba(255,255,255,0.04)",
+                      border: taskForm.category === c.id ? "1px solid #11ABEC" : "1px solid rgba(255,255,255,0.06)",
                       borderRadius: 8,
-                      padding: "4px 0",
-                      color: taskForm.seatsLimit === s ? "#11ABEC" : "#8A8F98",
-                      fontSize: 10,
-                      fontWeight: 800,
+                      padding: "6px",
+                      color: taskForm.category === c.id ? "#11ABEC" : "#fff",
+                      fontSize: 11,
                       cursor: "pointer",
                     }}
                   >
-                    {s}
+                    {c.label}
                   </button>
                 ))}
               </div>
+
+              {taskForm.category !== "daily" && (
+                <>
+                  {taskForm.category === "channel" && (
+                    <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                      <input
+                        type="text"
+                        placeholder="يوزرنيم القناة بدون @..."
+                        value={taskForm.channelUsername}
+                        onChange={(e) =>
+                          setTaskForm({
+                            ...taskForm,
+                            channelUsername: e.target.value,
+                          })
+                        }
+                        style={{
+                          flex: 1,
+                          background: "#080b10",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          borderRadius: 8,
+                          padding: 8,
+                          color: "#fff",
+                          fontSize: 11,
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {taskForm.category === "bot" && (
+                    <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                      <input
+                        type="text"
+                        placeholder="يوزر البوت..."
+                        value={taskForm.botUsername}
+                        onChange={(e) =>
+                          setTaskForm({ ...taskForm, botUsername: e.target.value })
+                        }
+                        style={{
+                          flex: 1,
+                          background: "#080b10",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          borderRadius: 8,
+                          padding: 8,
+                          color: "#fff",
+                          fontSize: 11,
+                        }}
+                      />
+                      <input
+                        type="text"
+                        placeholder="رابط البوت..."
+                        value={taskForm.botLink}
+                        onChange={(e) =>
+                          setTaskForm({ ...taskForm, botLink: e.target.value })
+                        }
+                        style={{
+                          flex: 1,
+                          background: "#080b10",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          borderRadius: 8,
+                          padding: 8,
+                          color: "#fff",
+                          fontSize: 11,
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  <input
+                    type="text"
+                    placeholder="عنوان المهمة..."
+                    value={taskForm.title}
+                    onChange={(e) =>
+                      setTaskForm({ ...taskForm, title: e.target.value })
+                    }
+                    style={{
+                      width: "100%",
+                      background: "#080b10",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: 8,
+                      padding: 8,
+                      color: "#fff",
+                      fontSize: 11,
+                      marginBottom: 8,
+                      boxSizing: "border-box",
+                    }}
+                  />
+
+                  {taskForm.category !== "referral" && (
+                     <input
+                       type="text"
+                       placeholder="وصف المهمة (اختياري)..."
+                       value={taskForm.description}
+                       onChange={(e) =>
+                         setTaskForm({ ...taskForm, description: e.target.value })
+                       }
+                       style={{
+                         width: "100%",
+                         background: "#080b10",
+                         border: "1px solid rgba(255,255,255,0.08)",
+                         borderRadius: 8,
+                         padding: 8,
+                         color: "#fff",
+                         fontSize: 11,
+                         marginBottom: 8,
+                         boxSizing: "border-box",
+                       }}
+                     />
+                  )}
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 8,
+                      marginBottom: 8,
+                    }}
+                  >
+                    <input
+                      type="number"
+                      step="0.1"
+                      placeholder="المكافأة..."
+                      value={taskForm.rewardAmount}
+                      onChange={(e) =>
+                        setTaskForm({ ...taskForm, rewardAmount: e.target.value })
+                      }
+                      style={{
+                        background: "#080b10",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        borderRadius: 8,
+                        padding: 8,
+                        color: "#fff",
+                        fontSize: 11,
+                      }}
+                    />
+
+                    {taskForm.category === "referral" ? (
+                      <input
+                        type="number"
+                        placeholder="عدد الإحالات المطلوبة..."
+                        value={taskForm.requiredReferrals}
+                        onChange={(e) =>
+                          setTaskForm({ ...taskForm, requiredReferrals: e.target.value })
+                        }
+                        style={{
+                          background: "#080b10",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          borderRadius: 8,
+                          padding: 8,
+                          color: "#fff",
+                          fontSize: 11,
+                        }}
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        placeholder="الرابط (اختياري)..."
+                        value={taskForm.url}
+                        onChange={(e) =>
+                          setTaskForm({ ...taskForm, url: e.target.value })
+                        }
+                        style={{
+                          background: "#080b10",
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          borderRadius: 8,
+                          padding: 8,
+                          color: "#fff",
+                          fontSize: 11,
+                        }}
+                      />
+                    )}
+                  </div>
+
+                  {/* Seats limit chips */}
+                  <div style={{ fontSize: 10, color: "#8A8F98", marginBottom: 4 }}>
+                    عدد المقاعد:
+                  </div>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+                    {["50", "100", "500", "1000"].map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => setTaskForm({ ...taskForm, seatsLimit: s })}
+                        style={{
+                          flex: 1,
+                          background:
+                            taskForm.seatsLimit === s
+                              ? "rgba(17, 171, 236, 0.2)"
+                              : "rgba(255,255,255,0.04)",
+                          border:
+                            taskForm.seatsLimit === s
+                              ? "1px solid #11ABEC"
+                              : "1px solid rgba(255,255,255,0.06)",
+                          borderRadius: 8,
+                          padding: "4px 0",
+                          color: taskForm.seatsLimit === s ? "#11ABEC" : "#8A8F98",
+                          fontSize: 10,
+                          fontWeight: 800,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {taskForm.category === "daily" && (
+                <div style={{ marginBottom: 12 }}>
+                   <div style={{ fontSize: 10, color: "#8A8F98", marginBottom: 8 }}>
+                     مكافآت تسجيل الدخول اليومي المتتالية:
+                   </div>
+                   <div
+                     style={{
+                       display: "grid",
+                       gridTemplateColumns: "1fr 1fr",
+                       gap: 8,
+                     }}
+                   >
+                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((day) => (
+                       <div key={day} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                         <div style={{ fontSize: 10, color: "#fff", width: 40 }}>يوم {day}:</div>
+                         <input
+                           type="number"
+                           value={checkinRewards[day] || 2}
+                           onChange={(e) =>
+                             setCheckinRewards({
+                               ...checkinRewards,
+                               [day]: parseFloat(e.target.value) || 0,
+                             })
+                           }
+                           style={{
+                             flex: 1,
+                             background: "#080b10",
+                             border: "1px solid rgba(255,255,255,0.08)",
+                             borderRadius: 8,
+                             padding: "4px 8px",
+                             color: "#fff",
+                             fontSize: 10,
+                           }}
+                         />
+                         <div style={{ fontSize: 10, color: "#8A8F98" }}>GO</div>
+                       </div>
+                     ))}
+                   </div>
+                </div>
+              )}
 
               <button
                 onClick={handleCreateTask}
@@ -3552,80 +3707,7 @@ export default function AdminPage() {
             </div>
           </AdminAccordionSection>
 
-          {/* Section 4: التسجيل اليومي */}
-          <AdminAccordionSection
-            id="tasks_checkin"
-            title="4. مكافآت التسجيل اليومي (Daily Check-in)"
-            icon={CheckCircle}
-            isOpen={openSections.tasks_checkin}
-            onToggle={() => toggleSection("tasks_checkin")}
-          >
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4, 1fr)",
-                gap: 6,
-                marginBottom: 12,
-              }}
-            >
-              {[1, 2, 3, 4, 5, 6, 7].map((day) => (
-                <div
-                  key={day}
-                  style={{
-                    background: "rgba(0,0,0,0.3)",
-                    padding: 6,
-                    borderRadius: 8,
-                    textAlign: "center",
-                  }}
-                >
-                  <div
-                    style={{ fontSize: 10, color: "#8A8F98", marginBottom: 3 }}
-                  >
-                    اليوم {day}
-                  </div>
-                  <input
-                    type="number"
-                    value={checkinRewards[day] || day + 1}
-                    onChange={(e) =>
-                      setCheckinRewards({
-                        ...checkinRewards,
-                        [day]: parseInt(e.target.value) || 0,
-                      })
-                    }
-                    style={{
-                      width: "100%",
-                      background: "#080b10",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      borderRadius: 6,
-                      padding: 4,
-                      color: "#fff",
-                      fontSize: 11,
-                      textAlign: "center",
-                      fontWeight: 900,
-                      boxSizing: "border-box",
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
 
-            <button
-              onClick={handleSaveCheckinSettings}
-              style={{
-                width: "100%",
-                height: 42,
-                background: "linear-gradient(135deg, #0FA0D6, #11ABEC)",
-                border: "none",
-                borderRadius: 12,
-                color: "#fff",
-                fontWeight: 900,
-                fontSize: 12,
-                cursor: "pointer",
-              }}
-            >
-              حفظ مكافآت التسجيل اليومي
-            </button>
-          </AdminAccordionSection>
 
           {/* Section 5: أكواد الخصم */}
           <AdminAccordionSection
