@@ -833,6 +833,58 @@ export default function ProfilePage() {
               </div>
               <ChevronRight size={18} color="rgba(255, 255, 255, 0.35)" />
             </div>
+
+            {/* 4. Support Card */}
+            <div
+              onClick={() => setCurrentView("support")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "16px",
+                borderRadius: 20,
+                background: "rgba(18, 16, 32, 0.85)",
+                border: "1px solid rgba(139, 92, 246, 0.16)",
+                boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div
+                  style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 14,
+                    background: "rgba(139, 92, 246, 0.14)",
+                    border: "1px solid rgba(139, 92, 246, 0.3)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#c084fc",
+                  }}
+                >
+                  <Headphones size={20} />
+                </div>
+                <div>
+                  <div
+                    style={{ fontSize: 16, fontWeight: 900, color: "#ffffff" }}
+                  >
+                    {language === "ar" ? "الدعم والمعلومات" : "Support & Info"}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "rgba(255, 255, 255, 0.45)",
+                      marginTop: 2,
+                    }}
+                  >
+                    {language === "ar" ? "الأسئلة الشائعة والشكاوى" : "FAQ & Complaints"}
+                  </div>
+                </div>
+              </div>
+              <ChevronRight size={18} color="rgba(255, 255, 255, 0.35)" />
+            </div>
           </div>
         </div>
       )}
@@ -2133,40 +2185,7 @@ export default function ProfilePage() {
             </button>
           </div>
 
-          {/* Support Info */}
-          <button
-            onClick={() => setCurrentView("support")}
-            style={{
-              background: "rgba(18, 16, 32, 0.9)",
-              border: "1px solid rgba(139, 92, 246, 0.16)",
-              borderRadius: 20,
-              padding: "16px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              cursor: "pointer",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 12,
-                  background: "rgba(139, 92, 246, 0.14)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Headphones size={18} color="#c084fc" />
-              </div>
-              <span style={{ fontSize: 15, fontWeight: 800, color: "#ffffff" }}>
-                Support & Info
-              </span>
-            </div>
-            <ChevronRight size={20} color="rgba(255, 255, 255, 0.4)" />
-          </button>
+
         </div>
       )}
 
