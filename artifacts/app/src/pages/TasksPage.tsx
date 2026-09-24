@@ -173,6 +173,7 @@ export default function TasksPage() {
 
   const activeTasks = filteredTasks.filter((t) => !completed.includes(t.id));
   const doneTasks = filteredTasks.filter((t) => completed.includes(t.id));
+  const displayTasks = [...activeTasks, ...doneTasks];
 
   return (
     <div
@@ -524,7 +525,7 @@ export default function TasksPage() {
         )}
 
         {/* ── Section title ── */}
-        {!loading && activeTasks.length > 0 && (
+        {!loading && displayTasks.length > 0 && (
           <div
             style={{
               display: "flex",
@@ -542,7 +543,7 @@ export default function TasksPage() {
                 letterSpacing: 0.3,
               }}
             >
-              Available Tasks
+              Tasks
             </span>
             <span
               style={{
@@ -551,7 +552,7 @@ export default function TasksPage() {
                 fontWeight: 600,
               }}
             >
-              {activeTasks.length} available
+              {displayTasks.length} tasks
             </span>
           </div>
         )}
@@ -625,7 +626,7 @@ export default function TasksPage() {
               🔄 Retry Connection
             </button>
           </div>
-        ) : activeTasks.length === 0 ? (
+        ) : displayTasks.length === 0 ? (
           <div
             style={{
               textAlign: "center",
@@ -637,7 +638,7 @@ export default function TasksPage() {
             }}
           >
             <div style={{ fontSize: 38, marginBottom: 10, opacity: 0.5 }}>
-              {tasks.length === 0 ? "📋" : "✅"}
+              📋
             </div>
             <p
               style={{
@@ -647,9 +648,7 @@ export default function TasksPage() {
                 margin: 0,
               }}
             >
-              {tasks.length === 0
-                ? "No tasks available"
-                : "All tasks completed!"}
+              No tasks available
             </p>
             <p
               style={{
@@ -658,14 +657,12 @@ export default function TasksPage() {
                 marginTop: 5,
               }}
             >
-              {tasks.length === 0
-                ? "Check back soon for new rewards"
-                : "You've completed all available tasks"}
+              Check back soon for new rewards
             </p>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {activeTasks.map((task) => {
+            {displayTasks.map((task) => {
               const isDone = completed.includes(task.id);
               const isExpiring =
                 task.expiresAt &&
