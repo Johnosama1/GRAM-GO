@@ -1,3 +1,4 @@
+import { resolveMiniAppUrl } from "../lib/envUrls";
 import TelegramBot from "node-telegram-bot-api";
 import { db } from "@workspace/db";
 import { usersTable, botSettingsTable } from "@workspace/db/schema";
@@ -289,11 +290,7 @@ export async function handleSubRecheckCallback(
         if (rows[0]?.firstName) firstName = rows[0].firstName;
       } catch { /* ignore */ }
 
-      const vercelDomain = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
-      const MINI_APP_URL =
-        process.env.MINI_APP_URL ||
-        (vercelDomain ? `https://${vercelDomain}/` : "") ||
-        "https://gram-go-ivory.vercel.app/";
+      const MINI_APP_URL = resolveMiniAppUrl();
 
       const customWelcome = await (async () => {
         try {

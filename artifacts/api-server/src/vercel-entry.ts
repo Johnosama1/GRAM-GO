@@ -1,3 +1,4 @@
+import { resolveWebhookUrl } from "./lib/envUrls";
 /**
  * Vercel Serverless Entry Point
  *
@@ -149,14 +150,7 @@ runStartupMigrations();
 //   1. BOT_WEBHOOK_URL  — explicit override (most reliable, set this in Vercel env)
 //   2. VERCEL_PROJECT_PRODUCTION_URL — stable production alias (Vercel auto-set)
 //   3. VERCEL_URL       — per-deployment URL (Vercel auto-set)
-const webhookUrl =
-  process.env.BOT_WEBHOOK_URL ||
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}/api/webhook`
-    : null) ||
-  (process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}/api/webhook`
-    : null);
+const webhookUrl = resolveWebhookUrl();
 
 if (webhookUrl) {
   initBotWebhook(webhookUrl);
