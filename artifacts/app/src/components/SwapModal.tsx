@@ -202,7 +202,7 @@ export default function SwapModal({ isOpen, onClose, onSuccess }: SwapModalProps
             </span>
           </div>
           <span style={{ color: "#00f2fe", fontSize: 12, fontWeight: 900, fontFamily: "monospace" }}>
-            1 GRAM = {rate} GO
+            {rate} GO = 1 Gram
           </span>
         </div>
 

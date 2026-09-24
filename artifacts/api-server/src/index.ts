@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { initBotWebhook, initBotPolling, getBot } from "./bot";
 import { startReferralMonitor, runInitialSecurityScan } from "./bot/referralMonitor";
+import { startDepositWorker } from "./bot/depositWorker";
 import { db } from "@workspace/db";
 import { pool } from "@workspace/db";
 import { sql } from "drizzle-orm";
@@ -44,6 +45,12 @@ const server = app.listen(port, (err?: Error) => {
       startReferralMonitor(getBot());
     } catch (e) {
       logger.warn({ e }, "referralMonitor: failed to start");
+    }
+
+    try {
+      startDepositWorker();
+    } catch (e) {
+      logger.warn({ e }, "depositWorker: failed to start");
     }
     // One-time initial security scan: runs 10s after startup to cover ALL existing users
     setTimeout(() => {

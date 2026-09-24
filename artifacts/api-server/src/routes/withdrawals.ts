@@ -738,7 +738,7 @@ router.post(
             `<tg-emoji emoji-id="5260399854500191689">👤</tg-emoji>${userDisplayName}\n\n` +
             `<tg-emoji emoji-id="5422683699130933153">🪪</tg-emoji><code>${user.id}</code>\n\n` +
             `<tg-emoji emoji-id="5945101187186433635">💎</tg-emoji><b>Amount:</b>\n` +
-            `<b>${verifiedAmt.toFixed(4)} Gram (TON)</b>\n\n` +
+            `<b>${verifiedAmt.toFixed(4)} TON</b>\n\n` +
             `🪙 <b>GO Received:</b>\n` +
             `<b>+${(verifiedAmt * 1000).toFixed(2)} GO</b>\n\n` +
             `<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji><b>User New GO Balance:</b>\n` +
@@ -769,7 +769,7 @@ router.post(
             `<tg-emoji emoji-id="5260399854500191689">👤</tg-emoji>${userDisplayName}\n\n` +
             `<tg-emoji emoji-id="5422683699130933153">🪪</tg-emoji><code>${user.id}</code>\n\n` +
             `<tg-emoji emoji-id="5945101187186433635">💎</tg-emoji><b>Amount:</b>\n` +
-            `<b>${verifiedAmt.toFixed(4)} Gram (TON)</b>\n\n` +
+            `<b>${verifiedAmt.toFixed(4)} TON</b>\n\n` +
             `🪙 <b>GO Received:</b>\n` +
             `<b>+${(verifiedAmt * 1000).toFixed(2)} GO</b>\n\n` +
             `<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji><b>New GO Balance:</b>\n` +
