@@ -46,7 +46,10 @@ function formatTxTime(dStr: string | null | undefined) {
     const d = new Date(dStr);
     const now = new Date();
     const isToday = d.toDateString() === now.toDateString();
-    const timeStr = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+    const timeStr = d.toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+    });
     if (isToday) return `Today, ${timeStr}`;
     return `${d.toLocaleDateString([], { month: "short", day: "numeric" })}, ${timeStr}`;
   } catch {
@@ -60,11 +63,18 @@ export default function ProfilePage() {
   const [, setLocation] = useLocation();
 
   // Current view inside Profile: "menu" | "wallet" | "settings" | "support" | "faq"
-  const [currentView, setCurrentView] = useState<"menu" | "wallet" | "settings" | "support" | "faq">(() => {
+  const [currentView, setCurrentView] = useState<
+    "menu" | "wallet" | "settings" | "support" | "faq"
+  >(() => {
     try {
       const params = new URLSearchParams(window.location.search);
       const tabParam = params.get("tab");
-      if (tabParam === "wallet" || tabParam === "settings" || tabParam === "support" || tabParam === "faq") {
+      if (
+        tabParam === "wallet" ||
+        tabParam === "settings" ||
+        tabParam === "support" ||
+        tabParam === "faq"
+      ) {
         return tabParam;
       }
     } catch {
@@ -77,10 +87,14 @@ export default function ProfilePage() {
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
 
   // Wallet mode: "deposit" | "withdraw"
-  const [walletMode, setWalletMode] = useState<"deposit" | "withdraw">("deposit");
+  const [walletMode, setWalletMode] = useState<"deposit" | "withdraw">(
+    "deposit",
+  );
 
   // History tab: "deposits" | "withdrawals"
-  const [historyTab, setHistoryTab] = useState<"deposits" | "withdrawals">("deposits");
+  const [historyTab, setHistoryTab] = useState<"deposits" | "withdrawals">(
+    "deposits",
+  );
 
   // TonConnect UI hook
   const [tonConnectUI] = useTonConnectUI();
@@ -155,9 +169,15 @@ export default function ProfilePage() {
     const prev = prevAddressRef.current;
     prevAddressRef.current = connectedAddress;
     if (connectedAddress && connectedAddress !== user.savedWalletAddress) {
-      api.saveWallet(user.id, connectedAddress).then(() => refresh()).catch(() => {});
+      api
+        .saveWallet(user.id, connectedAddress)
+        .then(() => refresh())
+        .catch(() => {});
     } else if (!connectedAddress && prev && user.savedWalletAddress) {
-      api.saveWallet(user.id, null).then(() => refresh()).catch(() => {});
+      api
+        .saveWallet(user.id, null)
+        .then(() => refresh())
+        .catch(() => {});
     }
   }, [connectedAddress, user?.id]);
 
@@ -170,11 +190,14 @@ export default function ProfilePage() {
       })
       .catch(() => {});
 
-    api.getConfig()
+    api
+      .getConfig()
       .then((cfg) => {
-        if (cfg.depositWalletAddress) setDepositWallet(cfg.depositWalletAddress);
+        if (cfg.depositWalletAddress)
+          setDepositWallet(cfg.depositWalletAddress);
         if (cfg.minDeposit) setMinDeposit(cfg.minDeposit);
-        if (cfg.minWithdrawal && cfg.minWithdrawal > 0) setMinWithdrawal(cfg.minWithdrawal);
+        if (cfg.minWithdrawal && cfg.minWithdrawal > 0)
+          setMinWithdrawal(cfg.minWithdrawal);
         if (cfg.gramToGoRate) setGramRate(cfg.gramToGoRate);
       })
       .catch(() => {});
@@ -202,7 +225,9 @@ export default function ProfilePage() {
   const goBalance = parseFloat(user?.goBalance || user?.balance || "0");
   const tonBalance = parseFloat(user?.tonBalance || "0");
   const savedWallet = user?.savedWalletAddress || connectedAddress || null;
-  const isWalletConnected = Boolean(connectedAddress || user?.savedWalletAddress);
+  const isWalletConnected = Boolean(
+    connectedAddress || user?.savedWalletAddress,
+  );
 
   const copyUserId = () => {
     if (!user) return;
@@ -225,7 +250,9 @@ export default function ProfilePage() {
     setWithdrawSuccess(false);
 
     if (!savedWallet) {
-      setWithdrawError(t.connectWalletPrompt || "Please connect your TON wallet first");
+      setWithdrawError(
+        t.connectWalletPrompt || "Please connect your TON wallet first",
+      );
       return;
     }
 
@@ -235,8 +262,8 @@ export default function ProfilePage() {
         language === "ar"
           ? `الحد الأدنى للسحب: ${minWithdrawal} Gram`
           : language === "ru"
-          ? `Мин. вывод: ${minWithdrawal} Gram`
-          : `Minimum withdrawal is ${minWithdrawal} Gram`
+            ? `Мин. вывод: ${minWithdrawal} Gram`
+            : `Minimum withdrawal is ${minWithdrawal} Gram`,
       );
       return;
     }
@@ -245,8 +272,8 @@ export default function ProfilePage() {
         language === "ar"
           ? `رصيد Gram غير كافٍ (المتاح: ${gramBalance.toFixed(4)} Gram)`
           : language === "ru"
-          ? `Недостаточно Gram на балансе (Доступно: ${gramBalance.toFixed(4)} Gram)`
-          : `Insufficient Gram balance (Available: ${gramBalance.toFixed(4)} Gram)`
+            ? `Недостаточно Gram на балансе (Доступно: ${gramBalance.toFixed(4)} Gram)`
+            : `Insufficient Gram balance (Available: ${gramBalance.toFixed(4)} Gram)`,
       );
       return;
     }
@@ -306,7 +333,9 @@ export default function ProfilePage() {
     }
 
     if (!targetWallet || targetWallet.length < 40) {
-      setDepositError("⚠️ عنوان محفظة الإيداع غير مهيأ بعد في لوحة تحكم الإدارة (Deposit wallet is not configured in Admin panel)");
+      setDepositError(
+        "⚠️ عنوان محفظة الإيداع غير مهيأ بعد في لوحة تحكم الإدارة (Deposit wallet is not configured in Admin panel)",
+      );
       return;
     }
 
@@ -324,7 +353,9 @@ export default function ProfilePage() {
       });
 
       if (!result || !result.boc) {
-        throw new Error("فشلت المعاملة: لم يتم استلام استجابة صحيحة من المحفظة (No BOC returned)");
+        throw new Error(
+          "فشلت المعاملة: لم يتم استلام استجابة صحيحة من المحفظة (No BOC returned)",
+        );
       }
 
       const res = await recordDeposit({
@@ -338,9 +369,13 @@ export default function ProfilePage() {
         setDepositSuccess(true);
         setDepositAmount("0.00");
       } else if (res.pending) {
-        setDepositError("⏳ المعاملة قيد التأكيد على شبكة TON. سيتم إضافة الرصيد فور تأكيدها.");
+        setDepositError(
+          "⏳ سيتم إضافة عملات GO بعد تأكيد المعاملة على شبكة TON.",
+        );
       } else {
-        setDepositError(res.error || "فشل التحقق من معاملة الإيداع على شبكة TON");
+        setDepositError(
+          res.error || "فشل التحقق من معاملة الإيداع على شبكة TON",
+        );
       }
 
       invalidateUserCaches(user.id);
@@ -356,8 +391,13 @@ export default function ProfilePage() {
         msg.toLowerCase().includes("declined")
       ) {
         setDepositError("⚠️ تم إلغاء المعاملة من قبل المستخدم");
-      } else if (msg.includes("Wrong 'address' format") || msg.includes("address format")) {
-        setDepositError("⚠️ عنوان محفظة الإيداع غير صحيح. يرجى ضبط عنوان محفظة الإيداع من لوحة الإدارة.");
+      } else if (
+        msg.includes("Wrong 'address' format") ||
+        msg.includes("address format")
+      ) {
+        setDepositError(
+          "⚠️ عنوان محفظة الإيداع غير صحيح. يرجى ضبط عنوان محفظة الإيداع من لوحة الإدارة.",
+        );
       } else {
         setDepositError(msg || t.depositFailed);
       }
@@ -366,13 +406,20 @@ export default function ProfilePage() {
     }
   };
 
-
   // Display name & avatar initial (fully dynamic for each user)
   const fullName =
     [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
-    (user?.username ? `@${user.username}` : (user?.id ? `User #${user.id}` : "User"));
+    (user?.username
+      ? `@${user.username}`
+      : user?.id
+        ? `User #${user.id}`
+        : "User");
   const usernameDisplay = user?.username ? `@${user.username}` : null;
-  const avatarInitial = (([user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.username || "U")[0] || "U").toUpperCase();
+  const avatarInitial = (
+    ([user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+      user?.username ||
+      "U")[0] || "U"
+  ).toUpperCase();
 
   return (
     <div
@@ -422,7 +469,8 @@ export default function ProfilePage() {
                 height: 86,
                 borderRadius: "50%",
                 padding: 3,
-                background: "linear-gradient(135deg, #7c3aed 0%, #3b82f6 50%, #f59e0b 100%)",
+                background:
+                  "linear-gradient(135deg, #7c3aed 0%, #3b82f6 50%, #f59e0b 100%)",
                 boxShadow: "0 0 24px rgba(124, 58, 237, 0.45)",
                 display: "flex",
                 alignItems: "center",
@@ -463,8 +511,22 @@ export default function ProfilePage() {
           </div>
 
           {/* User Full Name with Emoji */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 2 }}>
-            <span style={{ fontSize: 24, fontWeight: 900, color: "#ffffff", letterSpacing: -0.3 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              marginBottom: 2,
+            }}
+          >
+            <span
+              style={{
+                fontSize: 24,
+                fontWeight: 900,
+                color: "#ffffff",
+                letterSpacing: -0.3,
+              }}
+            >
               {fullName}
             </span>
             <span style={{ fontSize: 20 }}>🧢</span>
@@ -472,7 +534,14 @@ export default function ProfilePage() {
 
           {/* @Username in Purple (Only if user has a username) */}
           {usernameDisplay && (
-            <div style={{ color: "#818cf8", fontSize: 14, fontWeight: 700, marginBottom: 4 }}>
+            <div
+              style={{
+                color: "#818cf8",
+                fontSize: 14,
+                fontWeight: 700,
+                marginBottom: 4,
+              }}
+            >
               {usernameDisplay}
             </div>
           )}
@@ -510,7 +579,16 @@ export default function ProfilePage() {
           )}
 
           {/* Wallet Connection Status & Actions */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 28, flexWrap: "wrap", justifyContent: "center" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              marginBottom: 28,
+              flexWrap: "wrap",
+              justifyContent: "center",
+            }}
+          >
             {isWalletConnected ? (
               <>
                 <button
@@ -530,7 +608,8 @@ export default function ProfilePage() {
                     cursor: "pointer",
                   }}
                 >
-                  <span style={{ fontSize: 9 }}>🟢</span> {maskWallet(savedWallet || "")}
+                  <span style={{ fontSize: 9 }}>🟢</span>{" "}
+                  {maskWallet(savedWallet || "")}
                 </button>
                 <button
                   type="button"
@@ -552,7 +631,10 @@ export default function ProfilePage() {
                   }}
                 >
                   {disconnecting ? (
-                    <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} />
+                    <Loader2
+                      size={12}
+                      style={{ animation: "spin 1s linear infinite" }}
+                    />
                   ) : (
                     <X size={12} strokeWidth={2.5} />
                   )}
@@ -570,7 +652,8 @@ export default function ProfilePage() {
                   padding: "8px 20px",
                   borderRadius: 24,
                   border: "none",
-                  background: "linear-gradient(135deg, #0098EA 0%, #0077c2 100%)",
+                  background:
+                    "linear-gradient(135deg, #0098EA 0%, #0077c2 100%)",
                   color: "#ffffff",
                   fontSize: 13,
                   fontWeight: 900,
@@ -586,7 +669,15 @@ export default function ProfilePage() {
           {/* ══════════════════════════════════════════════════════════════
               VERTICAL MENU CARDS LIST (Screenshot 1)
           ══════════════════════════════════════════════════════════════ */}
-          <div style={{ width: "100%", maxWidth: 440, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div
+            style={{
+              width: "100%",
+              maxWidth: 440,
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
+          >
             {/* 1. Wallet Card */}
             <div
               onClick={() => setCurrentView("wallet")}
@@ -620,8 +711,18 @@ export default function ProfilePage() {
                   <Wallet size={20} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: "#ffffff" }}>Wallet</div>
-                  <div style={{ fontSize: 12, color: "rgba(255, 255, 255, 0.45)", marginTop: 2 }}>
+                  <div
+                    style={{ fontSize: 16, fontWeight: 900, color: "#ffffff" }}
+                  >
+                    Wallet
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "rgba(255, 255, 255, 0.45)",
+                      marginTop: 2,
+                    }}
+                  >
                     Manage connected wallets
                   </div>
                 </div>
@@ -662,8 +763,18 @@ export default function ProfilePage() {
                   <ArrowDownUp size={20} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: "#ffffff" }}>Swap Gram → GO</div>
-                  <div style={{ fontSize: 12, color: "rgba(255, 255, 255, 0.45)", marginTop: 2 }}>
+                  <div
+                    style={{ fontSize: 16, fontWeight: 900, color: "#ffffff" }}
+                  >
+                    Swap Gram → GO
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "rgba(255, 255, 255, 0.45)",
+                      marginTop: 2,
+                    }}
+                  >
                     1 Gram = {gramRate} GO (Boost Power)
                   </div>
                 </div>
@@ -704,8 +815,18 @@ export default function ProfilePage() {
                   <SettingsIcon size={20} />
                 </div>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: "#ffffff" }}>Settings</div>
-                  <div style={{ fontSize: 12, color: "rgba(255, 255, 255, 0.45)", marginTop: 2 }}>
+                  <div
+                    style={{ fontSize: 16, fontWeight: 900, color: "#ffffff" }}
+                  >
+                    Settings
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: "rgba(255, 255, 255, 0.45)",
+                      marginTop: 2,
+                    }}
+                  >
                     App preferences
                   </div>
                 </div>
@@ -734,7 +855,14 @@ export default function ProfilePage() {
           }}
         >
           {/* Header with Back Button */}
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 4 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              marginBottom: 4,
+            }}
+          >
             <button
               onClick={() => setCurrentView("menu")}
               style={{
@@ -752,7 +880,9 @@ export default function ProfilePage() {
             >
               <ChevronLeft size={20} />
             </button>
-            <div style={{ fontSize: 20, fontWeight: 900, color: "#ffffff" }}>Wallet</div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: "#ffffff" }}>
+              Wallet
+            </div>
           </div>
 
           {/* Switcher Pills (Deposit vs Withdraw) */}
@@ -784,8 +914,14 @@ export default function ProfilePage() {
                   walletMode === "deposit"
                     ? "linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)"
                     : "transparent",
-                color: walletMode === "deposit" ? "#ffffff" : "rgba(255, 255, 255, 0.45)",
-                boxShadow: walletMode === "deposit" ? "0 4px 16px rgba(168, 85, 247, 0.4)" : "none",
+                color:
+                  walletMode === "deposit"
+                    ? "#ffffff"
+                    : "rgba(255, 255, 255, 0.45)",
+                boxShadow:
+                  walletMode === "deposit"
+                    ? "0 4px 16px rgba(168, 85, 247, 0.4)"
+                    : "none",
                 transition: "all 0.2s ease",
               }}
             >
@@ -810,8 +946,14 @@ export default function ProfilePage() {
                   walletMode === "withdraw"
                     ? "linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)"
                     : "transparent",
-                color: walletMode === "withdraw" ? "#ffffff" : "rgba(255, 255, 255, 0.45)",
-                boxShadow: walletMode === "withdraw" ? "0 4px 16px rgba(59, 130, 246, 0.4)" : "none",
+                color:
+                  walletMode === "withdraw"
+                    ? "#ffffff"
+                    : "rgba(255, 255, 255, 0.45)",
+                boxShadow:
+                  walletMode === "withdraw"
+                    ? "0 4px 16px rgba(59, 130, 246, 0.4)"
+                    : "none",
                 transition: "all 0.2s ease",
               }}
             >
@@ -835,7 +977,13 @@ export default function ProfilePage() {
                   gap: 6,
                 }}
               >
-                <div style={{ color: "rgba(134, 239, 172, 0.7)", fontSize: 12, fontWeight: 700 }}>
+                <div
+                  style={{
+                    color: "rgba(134, 239, 172, 0.7)",
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}
+                >
                   Wallet Address
                 </div>
                 <div
@@ -845,10 +993,21 @@ export default function ProfilePage() {
                     justifyContent: "space-between",
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: 6 }}
+                  >
                     <span style={{ fontSize: 9 }}>🟢</span>
-                    <span style={{ color: "#4ade80", fontSize: 14, fontWeight: 800, fontFamily: "monospace" }}>
-                      {isWalletConnected ? maskWallet(savedWallet || "") : "Not Connected"}
+                    <span
+                      style={{
+                        color: "#4ade80",
+                        fontSize: 14,
+                        fontWeight: 800,
+                        fontFamily: "monospace",
+                      }}
+                    >
+                      {isWalletConnected
+                        ? maskWallet(savedWallet || "")
+                        : "Not Connected"}
                     </span>
                   </div>
                   {isWalletConnected ? (
@@ -934,32 +1093,145 @@ export default function ProfilePage() {
                     marginBottom: 6,
                   }}
                 />
-                <div style={{ color: "#a78bfa", fontSize: 12, fontWeight: 700 }}>
+                <div
+                  style={{ color: "#a78bfa", fontSize: 12, fontWeight: 700 }}
+                >
                   Min 0.1 TON
                 </div>
               </div>
 
-              {/* Presets */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                {["0.5", "1.0", "2.0", "5.0"].map((v) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setDepositAmount(v)}
+              {/* Deposit Information / Calculator */}
+              <div
+                style={{
+                  background: "rgba(168, 85, 247, 0.1)",
+                  border: "1px solid rgba(168, 85, 247, 0.3)",
+                  borderRadius: 12,
+                  padding: "16px",
+                  marginTop: "12px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "8px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    marginBottom: "4px",
+                  }}
+                >
+                  <Sparkles size={16} color="#c084fc" />
+                  <span
                     style={{
-                      padding: "10px 0",
-                      borderRadius: 12,
-                      border: "1px solid rgba(139, 92, 246, 0.2)",
-                      background: depositAmount === v ? "rgba(168, 85, 247, 0.25)" : "rgba(18, 16, 32, 0.8)",
-                      color: depositAmount === v ? "#c084fc" : "rgba(255, 255, 255, 0.6)",
-                      fontSize: 12,
-                      fontWeight: 800,
-                      cursor: "pointer",
+                      color: "#e9d5ff",
+                      fontWeight: 600,
+                      fontSize: "14px",
                     }}
                   >
-                    +{v}
-                  </button>
-                ))}
+                    💎 Deposit System
+                  </span>
+                </div>
+                <div
+                  style={{
+                    color: "#a78bfa",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                    marginBottom: "8px",
+                  }}
+                >
+                  1000 GO = 1 Gram (TON)
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    borderBottom: "1px solid rgba(255,255,255,0.05)",
+                    paddingBottom: "6px",
+                  }}
+                >
+                  <span style={{ color: "#9ca3af", fontSize: "13px" }}>
+                    Deposit:
+                  </span>
+                  <span
+                    style={{ color: "#fff", fontWeight: 600, fontSize: "14px" }}
+                  >
+                    {depositAmount || "0"} Gram
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    borderBottom: "1px solid rgba(255,255,255,0.05)",
+                    paddingBottom: "6px",
+                  }}
+                >
+                  <span style={{ color: "#9ca3af", fontSize: "13px" }}>
+                    You receive:
+                  </span>
+                  <span
+                    style={{
+                      color: "#34d399",
+                      fontWeight: 700,
+                      fontSize: "14px",
+                    }}
+                  >
+                    {(parseFloat(depositAmount) * 1000 || 0).toLocaleString()}{" "}
+                    GO
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    borderBottom: "1px solid rgba(255,255,255,0.05)",
+                    paddingBottom: "6px",
+                  }}
+                >
+                  <span style={{ color: "#9ca3af", fontSize: "13px" }}>
+                    Mining rate:
+                  </span>
+                  <span
+                    style={{
+                      color: "#60a5fa",
+                      fontWeight: 600,
+                      fontSize: "14px",
+                    }}
+                  >
+                    3%
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <span style={{ color: "#9ca3af", fontSize: "13px" }}>
+                    24H Mining:
+                  </span>
+                  <span
+                    style={{
+                      color: "#c084fc",
+                      fontWeight: 700,
+                      fontSize: "14px",
+                    }}
+                  >
+                    {(
+                      (parseFloat(depositAmount) * 1000 * 0.03) / 1000 || 0
+                    ).toFixed(6)}{" "}
+                    Gram
+                  </span>
+                </div>
               </div>
 
               {depositSuccess && (
@@ -970,11 +1242,11 @@ export default function ProfilePage() {
                     background: "rgba(34, 197, 94, 0.15)",
                     border: "1px solid rgba(34, 197, 94, 0.4)",
                     color: "#4ade80",
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: 700,
                   }}
                 >
-                  ✅ Deposit confirmed & added to GO Balance successfully!
+                  ✅ تم تأكيد الإيداع وإضافة عملات GO إلى رصيدك.
                 </div>
               )}
 
@@ -1004,7 +1276,8 @@ export default function ProfilePage() {
                   padding: "18px",
                   borderRadius: 18,
                   border: "none",
-                  background: "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)",
+                  background:
+                    "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)",
                   color: "#ffffff",
                   fontSize: 16,
                   fontWeight: 900,
@@ -1018,7 +1291,11 @@ export default function ProfilePage() {
               >
                 {depositing ? (
                   <>
-                    <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> Processing...
+                    <Loader2
+                      size={18}
+                      style={{ animation: "spin 1s linear infinite" }}
+                    />{" "}
+                    Processing...
                   </>
                 ) : (
                   "Deposit"
@@ -1029,7 +1306,10 @@ export default function ProfilePage() {
 
           {/* ── WITHDRAW MODE CONTENT ──────────────────────────────── */}
           {walletMode === "withdraw" && (
-            <form onSubmit={handleWithdraw} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <form
+              onSubmit={handleWithdraw}
+              style={{ display: "flex", flexDirection: "column", gap: 14 }}
+            >
               {/* Destination Card */}
               <div
                 style={{
@@ -1043,11 +1323,27 @@ export default function ProfilePage() {
                 }}
               >
                 <div>
-                  <div style={{ color: "rgba(255, 255, 255, 0.45)", fontSize: 11, fontWeight: 700 }}>
+                  <div
+                    style={{
+                      color: "rgba(255, 255, 255, 0.45)",
+                      fontSize: 11,
+                      fontWeight: 700,
+                    }}
+                  >
                     Destination Wallet
                   </div>
-                  <div style={{ color: "#ffffff", fontSize: 13, fontWeight: 800, fontFamily: "monospace", marginTop: 2 }}>
-                    {isWalletConnected ? maskWallet(savedWallet || "") : "Connect wallet first"}
+                  <div
+                    style={{
+                      color: "#ffffff",
+                      fontSize: 13,
+                      fontWeight: 800,
+                      fontFamily: "monospace",
+                      marginTop: 2,
+                    }}
+                  >
+                    {isWalletConnected
+                      ? maskWallet(savedWallet || "")
+                      : "Connect wallet first"}
                   </div>
                 </div>
                 {isWalletConnected ? (
@@ -1100,11 +1396,26 @@ export default function ProfilePage() {
                   border: "1px solid rgba(139, 92, 246, 0.16)",
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                  <span style={{ color: "rgba(255, 255, 255, 0.45)", fontSize: 11, fontWeight: 800, textTransform: "uppercase" }}>
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    marginBottom: 8,
+                  }}
+                >
+                  <span
+                    style={{
+                      color: "rgba(255, 255, 255, 0.45)",
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                    }}
+                  >
                     AMOUNT
                   </span>
-                  <span style={{ color: "#00f2fe", fontSize: 11, fontWeight: 800 }}>
+                  <span
+                    style={{ color: "#00f2fe", fontSize: 11, fontWeight: 800 }}
+                  >
                     Available: {gramBalance.toFixed(4)} Gram
                   </span>
                 </div>
@@ -1127,13 +1438,21 @@ export default function ProfilePage() {
                     marginBottom: 6,
                   }}
                 />
-                <div style={{ color: "#a78bfa", fontSize: 12, fontWeight: 700 }}>
+                <div
+                  style={{ color: "#a78bfa", fontSize: 12, fontWeight: 700 }}
+                >
                   Min {minWithdrawal} Gram
                 </div>
               </div>
 
               {/* Presets */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(4, 1fr)",
+                  gap: 8,
+                }}
+              >
                 {[minWithdrawal, 0.5, 1.0, gramBalance].map((p, i) => {
                   const isMax = i === 3;
                   return (
@@ -1143,11 +1462,12 @@ export default function ProfilePage() {
                       disabled={withdrawing}
                       onClick={() => {
                         if (isMax) {
-                          const maxVal = gramBalance > 0
-                            ? (Number.isInteger(gramBalance)
+                          const maxVal =
+                            gramBalance > 0
+                              ? Number.isInteger(gramBalance)
                                 ? gramBalance.toString()
-                                : parseFloat(gramBalance.toFixed(6)).toString())
-                            : `${minWithdrawal}`;
+                                : parseFloat(gramBalance.toFixed(6)).toString()
+                              : `${minWithdrawal}`;
                           setWithdrawAmount(maxVal);
                         } else {
                           setWithdrawAmount(p.toFixed(1));
@@ -1230,7 +1550,11 @@ export default function ProfilePage() {
               >
                 {withdrawing ? (
                   <>
-                    <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> Submitting...
+                    <Loader2
+                      size={18}
+                      style={{ animation: "spin 1s linear infinite" }}
+                    />{" "}
+                    Submitting...
                   </>
                 ) : (
                   "Withdraw Gram"
@@ -1242,7 +1566,14 @@ export default function ProfilePage() {
           {/* ══════════════════════════════════════════════════════════════
               TRANSACTION HISTORY SECTION WITH SUB-TABS
           ══════════════════════════════════════════════════════════════ */}
-          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div
+            style={{
+              marginTop: 8,
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+            }}
+          >
             {/* Sub-tabs [ Deposits ] [ Withdrawals ] */}
             <div
               style={{
@@ -1272,8 +1603,12 @@ export default function ProfilePage() {
                     historyTab === "deposits"
                       ? "linear-gradient(135deg, rgba(168, 85, 247, 0.35), rgba(126, 34, 206, 0.35))"
                       : "transparent",
-                  color: historyTab === "deposits" ? "#c084fc" : "rgba(255, 255, 255, 0.45)",
-                  borderBottom: historyTab === "deposits" ? "2px solid #a855f7" : "none",
+                  color:
+                    historyTab === "deposits"
+                      ? "#c084fc"
+                      : "rgba(255, 255, 255, 0.45)",
+                  borderBottom:
+                    historyTab === "deposits" ? "2px solid #a855f7" : "none",
                   transition: "all 0.2s ease",
                 }}
               >
@@ -1298,8 +1633,12 @@ export default function ProfilePage() {
                     historyTab === "withdrawals"
                       ? "linear-gradient(135deg, rgba(59, 130, 246, 0.35), rgba(29, 78, 216, 0.35))"
                       : "transparent",
-                  color: historyTab === "withdrawals" ? "#60a5fa" : "rgba(255, 255, 255, 0.45)",
-                  borderBottom: historyTab === "withdrawals" ? "2px solid #3b82f6" : "none",
+                  color:
+                    historyTab === "withdrawals"
+                      ? "#60a5fa"
+                      : "rgba(255, 255, 255, 0.45)",
+                  borderBottom:
+                    historyTab === "withdrawals" ? "2px solid #3b82f6" : "none",
                   transition: "all 0.2s ease",
                 }}
               >
@@ -1321,7 +1660,10 @@ export default function ProfilePage() {
                   fontSize: 13,
                 }}
               >
-                <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
+                <Loader2
+                  size={16}
+                  style={{ animation: "spin 1s linear infinite" }}
+                />
                 Loading history...
               </div>
             ) : historyTab === "deposits" ? (
@@ -1335,29 +1677,50 @@ export default function ProfilePage() {
                     border: "1px solid rgba(139, 92, 246, 0.12)",
                   }}
                 >
-                  <Download size={28} color="rgba(255, 255, 255, 0.2)" style={{ margin: "0 auto 8px" }} />
-                  <div style={{ color: "rgba(255, 255, 255, 0.45)", fontSize: 13, fontWeight: 700 }}>
+                  <Download
+                    size={28}
+                    color="rgba(255, 255, 255, 0.2)"
+                    style={{ margin: "0 auto 8px" }}
+                  />
+                  <div
+                    style={{
+                      color: "rgba(255, 255, 255, 0.45)",
+                      fontSize: 13,
+                      fontWeight: 700,
+                    }}
+                  >
                     No deposits yet
                   </div>
                 </div>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 9 }}
+                >
                   {deposits.map((dep) => {
                     const st = dep.status?.toLowerCase();
                     const isConfirmed = st === "confirmed";
-                    const isFailed = st === "failed" || st === "cancelled" || st === "expired";
-                    const statusText = isConfirmed ? "🟢 Confirmed" : isFailed ? "🔴 Failed" : "🟡 Pending";
+                    const isFailed =
+                      st === "failed" || st === "cancelled" || st === "expired";
+                    const statusText = isConfirmed
+                      ? "🟢 Confirmed"
+                      : isFailed
+                        ? "🔴 Failed"
+                        : "🟡 Pending";
                     const badgeBg = isConfirmed
                       ? "rgba(34, 197, 94, 0.15)"
                       : isFailed
-                      ? "rgba(239, 68, 68, 0.15)"
-                      : "rgba(234, 179, 8, 0.15)";
+                        ? "rgba(239, 68, 68, 0.15)"
+                        : "rgba(234, 179, 8, 0.15)";
                     const badgeBorder = isConfirmed
                       ? "rgba(34, 197, 94, 0.35)"
                       : isFailed
-                      ? "rgba(239, 68, 68, 0.35)"
-                      : "rgba(234, 179, 8, 0.35)";
-                    const badgeColor = isConfirmed ? "#4ade80" : isFailed ? "#f87171" : "#facc15";
+                        ? "rgba(239, 68, 68, 0.35)"
+                        : "rgba(234, 179, 8, 0.35)";
+                    const badgeColor = isConfirmed
+                      ? "#4ade80"
+                      : isFailed
+                        ? "#f87171"
+                        : "#facc15";
 
                     return (
                       <div
@@ -1372,13 +1735,38 @@ export default function ProfilePage() {
                           gap: 6,
                         }}
                       >
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                            <span style={{ color: "#4ade80", fontWeight: 900, fontSize: 15 }}>
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 2,
+                            }}
+                          >
+                            <span
+                              style={{
+                                color: "#4ade80",
+                                fontWeight: 900,
+                                fontSize: 15,
+                              }}
+                            >
                               +{parseFloat(dep.amount).toFixed(2)} TON
                             </span>
-                            <span style={{ color: "#fbbf24", fontWeight: 800, fontSize: 13 }}>
-                              🪙 +{(parseFloat(dep.amount) * 1000).toFixed(2)} GO
+                            <span
+                              style={{
+                                color: "#fbbf24",
+                                fontWeight: 800,
+                                fontSize: 13,
+                              }}
+                            >
+                              🪙 +{(parseFloat(dep.amount) * 1000).toFixed(2)}{" "}
+                              GO
                             </span>
                           </div>
                           <span
@@ -1407,10 +1795,18 @@ export default function ProfilePage() {
                           <span style={{ fontFamily: "monospace" }}>
                             TX: {dep.txHash ? maskWallet(dep.txHash) : "—"}
                           </span>
-                          <span>{formatTxTime(dep.confirmedAt || dep.createdAt)}</span>
+                          <span>
+                            {formatTxTime(dep.confirmedAt || dep.createdAt)}
+                          </span>
                         </div>
                         {isFailed && dep.reason && (
-                          <div style={{ color: "#f87171", fontSize: 10, marginTop: 2 }}>
+                          <div
+                            style={{
+                              color: "#f87171",
+                              fontSize: 10,
+                              marginTop: 2,
+                            }}
+                          >
                             {dep.reason}
                           </div>
                         )}
@@ -1419,104 +1815,137 @@ export default function ProfilePage() {
                   })}
                 </div>
               )
-            ) : (
-              withdrawals.length === 0 ? (
+            ) : withdrawals.length === 0 ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "32px 16px",
+                  background: "rgba(18, 16, 32, 0.6)",
+                  borderRadius: 18,
+                  border: "1px solid rgba(139, 92, 246, 0.12)",
+                }}
+              >
+                <Send
+                  size={28}
+                  color="rgba(255, 255, 255, 0.2)"
+                  style={{ margin: "0 auto 8px" }}
+                />
                 <div
                   style={{
-                    textAlign: "center",
-                    padding: "32px 16px",
-                    background: "rgba(18, 16, 32, 0.6)",
-                    borderRadius: 18,
-                    border: "1px solid rgba(139, 92, 246, 0.12)",
+                    color: "rgba(255, 255, 255, 0.45)",
+                    fontSize: 13,
+                    fontWeight: 700,
                   }}
                 >
-                  <Send size={28} color="rgba(255, 255, 255, 0.2)" style={{ margin: "0 auto 8px" }} />
-                  <div style={{ color: "rgba(255, 255, 255, 0.45)", fontSize: 13, fontWeight: 700 }}>
-                    No withdrawals yet
-                  </div>
+                  No withdrawals yet
                 </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
-                  {withdrawals.map((w) => {
-                    const st = w.status?.toLowerCase();
-                    const isApproved = st === "approved" || st === "completed";
-                    const isRejected = st === "rejected" || st === "failed";
-                    const statusText = isApproved ? "🟢 Completed" : isRejected ? "🔴 Rejected" : "🟡 Pending";
-                    const badgeBg = isApproved
-                      ? "rgba(34, 197, 94, 0.15)"
-                      : isRejected
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+                {withdrawals.map((w) => {
+                  const st = w.status?.toLowerCase();
+                  const isApproved = st === "approved" || st === "completed";
+                  const isRejected = st === "rejected" || st === "failed";
+                  const statusText = isApproved
+                    ? "🟢 Completed"
+                    : isRejected
+                      ? "🔴 Rejected"
+                      : "🟡 Pending";
+                  const badgeBg = isApproved
+                    ? "rgba(34, 197, 94, 0.15)"
+                    : isRejected
                       ? "rgba(239, 68, 68, 0.15)"
                       : "rgba(234, 179, 8, 0.15)";
-                    const badgeBorder = isApproved
-                      ? "rgba(34, 197, 94, 0.35)"
-                      : isRejected
+                  const badgeBorder = isApproved
+                    ? "rgba(34, 197, 94, 0.35)"
+                    : isRejected
                       ? "rgba(239, 68, 68, 0.35)"
                       : "rgba(234, 179, 8, 0.35)";
-                    const badgeColor = isApproved ? "#4ade80" : isRejected ? "#f87171" : "#facc15";
+                  const badgeColor = isApproved
+                    ? "#4ade80"
+                    : isRejected
+                      ? "#f87171"
+                      : "#facc15";
 
-                    const errorMsg = (w as any).errorMsg || (w as any).reason;
+                  const errorMsg = (w as any).errorMsg || (w as any).reason;
 
-                    return (
+                  return (
+                    <div
+                      key={w.id}
+                      style={{
+                        borderRadius: 16,
+                        padding: "13px 15px",
+                        background: "rgba(18, 16, 32, 0.85)",
+                        border: "1px solid rgba(139, 92, 246, 0.14)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 6,
+                      }}
+                    >
                       <div
-                        key={w.id}
                         style={{
-                          borderRadius: 16,
-                          padding: "13px 15px",
-                          background: "rgba(18, 16, 32, 0.85)",
-                          border: "1px solid rgba(139, 92, 246, 0.14)",
                           display: "flex",
-                          flexDirection: "column",
-                          gap: 6,
+                          alignItems: "center",
+                          justifyContent: "space-between",
                         }}
                       >
-                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                          <span style={{ color: "#ffffff", fontWeight: 900, fontSize: 15 }}>
-                            -{parseFloat(w.amount).toFixed(4)} {w.currency || "Gram"}
-                          </span>
-                          <span
-                            style={{
-                              fontSize: 11,
-                              fontWeight: 800,
-                              padding: "3px 8px",
-                              borderRadius: 8,
-                              background: badgeBg,
-                              border: `1px solid ${badgeBorder}`,
-                              color: badgeColor,
-                            }}
-                          >
-                            {statusText}
-                          </span>
-                        </div>
-                        <div
+                        <span
                           style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            color: "rgba(255, 255, 255, 0.4)",
-                            fontSize: 11,
+                            color: "#ffffff",
+                            fontWeight: 900,
+                            fontSize: 15,
                           }}
                         >
-                          <span style={{ fontFamily: "monospace" }}>
-                            Wallet: {maskWallet(w.walletAddress)}
-                          </span>
-                          <span>{formatTxTime(w.createdAt)}</span>
-                        </div>
-                        {isRejected && errorMsg && (
-                          <div style={{ color: "#f87171", fontSize: 10, marginTop: 2 }}>
-                            السبب: {errorMsg}
-                          </div>
-                        )}
+                          -{parseFloat(w.amount).toFixed(4)}{" "}
+                          {w.currency || "Gram"}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 800,
+                            padding: "3px 8px",
+                            borderRadius: 8,
+                            background: badgeBg,
+                            border: `1px solid ${badgeBorder}`,
+                            color: badgeColor,
+                          }}
+                        >
+                          {statusText}
+                        </span>
                       </div>
-                    );
-                  })}
-                </div>
-              )
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          color: "rgba(255, 255, 255, 0.4)",
+                          fontSize: 11,
+                        }}
+                      >
+                        <span style={{ fontFamily: "monospace" }}>
+                          Wallet: {maskWallet(w.walletAddress)}
+                        </span>
+                        <span>{formatTxTime(w.createdAt)}</span>
+                      </div>
+                      {isRejected && errorMsg && (
+                        <div
+                          style={{
+                            color: "#f87171",
+                            fontSize: 10,
+                            marginTop: 2,
+                          }}
+                        >
+                          السبب: {errorMsg}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
       )}
-
-
 
       {/* ══════════════════════════════════════════════════════════════════
           VIEW 4: SETTINGS SUBPAGE
@@ -1536,7 +1965,14 @@ export default function ProfilePage() {
           }}
         >
           {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              marginBottom: 6,
+            }}
+          >
             <button
               onClick={() => setCurrentView("menu")}
               style={{
@@ -1554,7 +1990,9 @@ export default function ProfilePage() {
             >
               <ChevronLeft size={20} />
             </button>
-            <div style={{ fontSize: 20, fontWeight: 900, color: "#ffffff" }}>Settings</div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: "#ffffff" }}>
+              Settings
+            </div>
           </div>
 
           {/* Languages Section */}
@@ -1569,7 +2007,14 @@ export default function ProfilePage() {
               gap: 10,
             }}
           >
-            <div style={{ fontSize: 14, fontWeight: 800, color: "#ffffff", marginBottom: 4 }}>
+            <div
+              style={{
+                fontSize: 14,
+                fontWeight: 800,
+                color: "#ffffff",
+                marginBottom: 4,
+              }}
+            >
               Bot Language
             </div>
 
@@ -1579,8 +2024,14 @@ export default function ProfilePage() {
               style={{
                 padding: "14px 16px",
                 borderRadius: 14,
-                border: language === "en" ? "1.5px solid #8b5cf6" : "1px solid rgba(255, 255, 255, 0.08)",
-                background: language === "en" ? "rgba(139, 92, 246, 0.18)" : "rgba(255, 255, 255, 0.03)",
+                border:
+                  language === "en"
+                    ? "1.5px solid #8b5cf6"
+                    : "1px solid rgba(255, 255, 255, 0.08)",
+                background:
+                  language === "en"
+                    ? "rgba(139, 92, 246, 0.18)"
+                    : "rgba(255, 255, 255, 0.03)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -1590,11 +2041,19 @@ export default function ProfilePage() {
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 20 }}>🇬🇧</span>
                 <div style={{ textAlign: "left" }}>
-                  <div style={{ color: "#fff", fontSize: 14, fontWeight: 800 }}>English</div>
-                  <div style={{ color: "#a78bfa", fontSize: 10, fontWeight: 700 }}>Default Primary</div>
+                  <div style={{ color: "#fff", fontSize: 14, fontWeight: 800 }}>
+                    English
+                  </div>
+                  <div
+                    style={{ color: "#a78bfa", fontSize: 10, fontWeight: 700 }}
+                  >
+                    Default Primary
+                  </div>
                 </div>
               </div>
-              {language === "en" && <Check size={16} color="#c084fc" strokeWidth={3} />}
+              {language === "en" && (
+                <Check size={16} color="#c084fc" strokeWidth={3} />
+              )}
             </button>
 
             {/* 2. Arabic */}
@@ -1603,8 +2062,14 @@ export default function ProfilePage() {
               style={{
                 padding: "14px 16px",
                 borderRadius: 14,
-                border: language === "ar" ? "1.5px solid #8b5cf6" : "1px solid rgba(255, 255, 255, 0.08)",
-                background: language === "ar" ? "rgba(139, 92, 246, 0.18)" : "rgba(255, 255, 255, 0.03)",
+                border:
+                  language === "ar"
+                    ? "1.5px solid #8b5cf6"
+                    : "1px solid rgba(255, 255, 255, 0.08)",
+                background:
+                  language === "ar"
+                    ? "rgba(139, 92, 246, 0.18)"
+                    : "rgba(255, 255, 255, 0.03)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -1614,11 +2079,19 @@ export default function ProfilePage() {
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 20 }}>🇸🇦</span>
                 <div style={{ textAlign: "left" }}>
-                  <div style={{ color: "#fff", fontSize: 14, fontWeight: 800 }}>العربية (Arabic)</div>
-                  <div style={{ color: "rgba(255, 255, 255, 0.4)", fontSize: 10 }}>اللغة العربية</div>
+                  <div style={{ color: "#fff", fontSize: 14, fontWeight: 800 }}>
+                    العربية (Arabic)
+                  </div>
+                  <div
+                    style={{ color: "rgba(255, 255, 255, 0.4)", fontSize: 10 }}
+                  >
+                    اللغة العربية
+                  </div>
                 </div>
               </div>
-              {language === "ar" && <Check size={16} color="#c084fc" strokeWidth={3} />}
+              {language === "ar" && (
+                <Check size={16} color="#c084fc" strokeWidth={3} />
+              )}
             </button>
 
             {/* 3. Russian */}
@@ -1627,8 +2100,14 @@ export default function ProfilePage() {
               style={{
                 padding: "14px 16px",
                 borderRadius: 14,
-                border: language === "ru" ? "1.5px solid #8b5cf6" : "1px solid rgba(255, 255, 255, 0.08)",
-                background: language === "ru" ? "rgba(139, 92, 246, 0.18)" : "rgba(255, 255, 255, 0.03)",
+                border:
+                  language === "ru"
+                    ? "1.5px solid #8b5cf6"
+                    : "1px solid rgba(255, 255, 255, 0.08)",
+                background:
+                  language === "ru"
+                    ? "rgba(139, 92, 246, 0.18)"
+                    : "rgba(255, 255, 255, 0.03)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
@@ -1638,11 +2117,19 @@ export default function ProfilePage() {
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 20 }}>🇷🇺</span>
                 <div style={{ textAlign: "left" }}>
-                  <div style={{ color: "#fff", fontSize: 14, fontWeight: 800 }}>Русский (Russian)</div>
-                  <div style={{ color: "rgba(255, 255, 255, 0.4)", fontSize: 10 }}>Русский язык</div>
+                  <div style={{ color: "#fff", fontSize: 14, fontWeight: 800 }}>
+                    Русский (Russian)
+                  </div>
+                  <div
+                    style={{ color: "rgba(255, 255, 255, 0.4)", fontSize: 10 }}
+                  >
+                    Русский язык
+                  </div>
                 </div>
               </div>
-              {language === "ru" && <Check size={16} color="#c084fc" strokeWidth={3} />}
+              {language === "ru" && (
+                <Check size={16} color="#c084fc" strokeWidth={3} />
+              )}
             </button>
           </div>
 
@@ -1674,15 +2161,14 @@ export default function ProfilePage() {
               >
                 <Headphones size={18} color="#c084fc" />
               </div>
-              <span style={{ fontSize: 15, fontWeight: 800, color: "#ffffff" }}>Support & Info</span>
+              <span style={{ fontSize: 15, fontWeight: 800, color: "#ffffff" }}>
+                Support & Info
+              </span>
             </div>
             <ChevronRight size={20} color="rgba(255, 255, 255, 0.4)" />
           </button>
         </div>
       )}
-
-
-
 
       {/* ══════════════════════════════════════════════════════════════════
           VIEW 5: SUPPORT SUBPAGE
@@ -1702,7 +2188,14 @@ export default function ProfilePage() {
           }}
         >
           {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              marginBottom: 6,
+            }}
+          >
             <button
               onClick={() => setCurrentView("settings")}
               style={{
@@ -1816,7 +2309,6 @@ export default function ProfilePage() {
         </div>
       )}
 
-
       {/* ══════════════════════════════════════════════════════════════════
           VIEW 6: FAQ SUBPAGE
       ══════════════════════════════════════════════════════════════════ */}
@@ -1835,7 +2327,14 @@ export default function ProfilePage() {
           }}
         >
           {/* Header */}
-          <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 6 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              marginBottom: 6,
+            }}
+          >
             <button
               onClick={() => setCurrentView("support")}
               style={{
@@ -1872,7 +2371,9 @@ export default function ProfilePage() {
                   key={index}
                   style={{
                     background: "rgba(18, 16, 32, 0.9)",
-                    border: isExpanded ? "1px solid rgba(139, 92, 246, 0.4)" : "1px solid rgba(139, 92, 246, 0.16)",
+                    border: isExpanded
+                      ? "1px solid rgba(139, 92, 246, 0.4)"
+                      : "1px solid rgba(139, 92, 246, 0.16)",
                     borderRadius: 16,
                     overflow: "hidden",
                     transition: "all 0.2s ease-in-out",
@@ -1893,12 +2394,24 @@ export default function ProfilePage() {
                       direction: isRtl ? "rtl" : "ltr",
                     }}
                   >
-                    <span style={{ color: "#ffffff", fontSize: 14, fontWeight: 800, lineHeight: 1.4, flex: 1, paddingRight: isRtl ? 0 : 12, paddingLeft: isRtl ? 12 : 0 }}>
+                    <span
+                      style={{
+                        color: "#ffffff",
+                        fontSize: 14,
+                        fontWeight: 800,
+                        lineHeight: 1.4,
+                        flex: 1,
+                        paddingRight: isRtl ? 0 : 12,
+                        paddingLeft: isRtl ? 12 : 0,
+                      }}
+                    >
                       {faq.question}
                     </span>
                     <div
                       style={{
-                        transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                        transform: isExpanded
+                          ? "rotate(180deg)"
+                          : "rotate(0deg)",
                         transition: "transform 0.2s ease",
                         display: "flex",
                         alignItems: "center",
@@ -1906,7 +2419,12 @@ export default function ProfilePage() {
                         minWidth: 24,
                       }}
                     >
-                      <ChevronDown size={20} color={isExpanded ? "#c084fc" : "rgba(255, 255, 255, 0.4)"} />
+                      <ChevronDown
+                        size={20}
+                        color={
+                          isExpanded ? "#c084fc" : "rgba(255, 255, 255, 0.4)"
+                        }
+                      />
                     </div>
                   </button>
 
@@ -1921,7 +2439,13 @@ export default function ProfilePage() {
                         direction: isRtl ? "rtl" : "ltr",
                       }}
                     >
-                      <div style={{ height: 1, background: "rgba(139, 92, 246, 0.1)", marginBottom: 12 }}></div>
+                      <div
+                        style={{
+                          height: 1,
+                          background: "rgba(139, 92, 246, 0.1)",
+                          marginBottom: 12,
+                        }}
+                      ></div>
                       {faq.answer}
                     </div>
                   )}
@@ -1931,7 +2455,6 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
-
 
       {/* ── Swap Modal ──────────────────────────────────────────────── */}
       <SwapModal

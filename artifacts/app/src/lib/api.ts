@@ -209,6 +209,7 @@ export const api = {
     }>("/mining/stats"),
 
   getTasks: () => apiCall<Task[]>("/tasks"),
+  redeemPromoCode: (code: string) => apiCall<{ success: boolean; message: string; amount: number; currency: string; error?: string }>(`/tasks/promo/redeem`, { method: "POST", body: JSON.stringify({ code }) }),
   getUserCompletedTasks: (userId: number) => apiCall<number[]>(`/tasks/${userId}/completed`),
   completeTask: (taskId: number, userId: number) =>
     apiCall<{ success: boolean; user: User; rewardedGo?: number }>(`/tasks/${taskId}/complete`, { method: "POST", body: JSON.stringify({ userId }) }),
@@ -506,6 +507,7 @@ export interface Task {
   description: string | null;
   url: string | null;
   icon: string | null;
+  category?: string;
   channelPhotoUrl: string | null;
   rewardAmount?: string;
   rewardCurrency?: string;

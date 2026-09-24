@@ -2,7 +2,8 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { tasksTable, userTasksTable, usersTable } from "@workspace/db/schema";
 import { addGoBalanceAndClaim } from "../lib/miningUtils";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, ilike } from "drizzle-orm";
+import { promoCodesTable, userPromoCodesTable } from "@workspace/db/schema";
 import { getBot } from "../bot";
 import { checkChannelMembership } from "../bot/admin";
 import { recordChannelReward } from "../bot/subscription";
@@ -142,6 +143,109 @@ router.get("/:userId/completed", async (req, res) => {
     .from(userTasksTable)
     .where(eq(userTasksTable.userId, userId));
   res.json(completed.map((c) => c.taskId));
+});
+
+
+
+// ── POST /api/tasks/promo/redeem ───────────────────────────
+router.post("/promo/redeem", requireSession, verifyAccessMiddleware, async (req, res) => {
+  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
+  const userId = sessionReq.sessionUserId;
+  if (!userId) {
+    res.status(401).json({ error: "Session required" });
+    return;
+  }
+
+  const { code } = req.body;
+  if (!code || typeof code !== "string" || code.trim() === "") {
+    res.status(400).json({ error: "الرجاء إدخال كود صحيح" });
+    return;
+  }
+
+  const cleanCode = code.trim();
+
+  try {
+    const result = await db.transaction(async (tx) => {
+      // 1. Find the promo code
+      const [promo] = await tx
+        .select()
+        .from(promoCodesTable)
+        .where(ilike(promoCodesTable.code, cleanCode))
+        .limit(1);
+
+      if (!promo) {
+        throw new Error("الكود غير صحيح أو غير موجود");
+      }
+
+      if (promo.isActive !== "true") {
+        throw new Error("هذا الكود غير نشط حالياً");
+      }
+
+      if (promo.expiresAt && new Date(promo.expiresAt) < new Date()) {
+        throw new Error("هذا الكود منتهي الصلاحية");
+      }
+
+      const max = parseInt(promo.maxUses || "0");
+      const current = parseInt(promo.currentUses || "0");
+      if (max > 0 && current >= max) {
+        throw new Error("تم الوصول للحد الأقصى لاستخدام هذا الكود");
+      }
+
+      // 2. Check if user already claimed
+      const [alreadyClaimed] = await tx
+        .select()
+        .from(userPromoCodesTable)
+        .where(
+          and(
+            eq(userPromoCodesTable.userId, userId),
+            eq(userPromoCodesTable.promoCodeId, promo.id)
+          )
+        )
+        .limit(1);
+
+      if (alreadyClaimed) {
+        throw new Error("لقد قمت باستخدام هذا الكود مسبقاً");
+      }
+
+      // 3. Claim the code
+      await tx.insert(userPromoCodesTable).values({
+        userId,
+        promoCodeId: promo.id,
+      });
+
+      // 4. Update usage count
+      await tx
+        .update(promoCodesTable)
+        .set({ currentUses: String(current + 1) })
+        .where(eq(promoCodesTable.id, promo.id));
+
+      // 5. Grant Reward
+      const amount = parseFloat(promo.rewardAmount || "0");
+      let message = "";
+      if (promo.rewardType === "GO") {
+        await addGoBalanceAndClaim(tx, userId, amount);
+        message = `تم تفعيل الكود بنجاح وحصلت على ${amount} GO`;
+      } else {
+        // Gram or TON
+        const [user] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+        if (user) {
+          const unclaimed = 0; // We can accrue mining here but we'll just use addGoBalanceAndClaim with 0 GO for safety to claim pending
+          await addGoBalanceAndClaim(tx, userId, 0);
+          await tx
+            .update(usersTable)
+            .set({ gramBalance: sql`COALESCE(gram_balance, 0) + ${amount}` })
+            .where(eq(usersTable.id, userId));
+        }
+        message = `تم تفعيل الكود بنجاح وحصلت على ${amount} Gram`;
+      }
+
+      return { success: true, message, amount, currency: promo.rewardType };
+    });
+
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || "حدث خطأ أثناء تفعيل الكود" });
+  }
 });
 
 export default router;

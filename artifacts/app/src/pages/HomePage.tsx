@@ -75,7 +75,13 @@ function GramCoinIcon({ size = 44 }: { size?: number }) {
 }
 
 // ── Multi-Ring Circular Animated Mining Reactor ──────────────────────
-function MiningReactor({ isActive = true, isCompleted = false }: { isActive?: boolean; isCompleted?: boolean }) {
+function MiningReactor({
+  isActive = true,
+  isCompleted = false,
+}: {
+  isActive?: boolean;
+  isCompleted?: boolean;
+}) {
   return (
     <div
       style={{
@@ -97,18 +103,18 @@ function MiningReactor({ isActive = true, isCompleted = false }: { isActive?: bo
           border: isCompleted
             ? "2.5px dashed rgba(251, 191, 36, 0.85)"
             : isActive
-            ? "2px dashed rgba(168, 85, 247, 0.75)"
-            : "2px dashed rgba(148, 163, 184, 0.3)",
+              ? "2px dashed rgba(168, 85, 247, 0.75)"
+              : "2px dashed rgba(148, 163, 184, 0.3)",
           boxShadow: isCompleted
             ? "0 0 20px rgba(251, 191, 36, 0.45)"
             : isActive
-            ? "0 0 16px rgba(168, 85, 247, 0.35)"
-            : "none",
+              ? "0 0 16px rgba(168, 85, 247, 0.35)"
+              : "none",
           animation: isCompleted
             ? "readyPulseRing 2.2s ease-in-out infinite"
             : isActive
-            ? "spinClockwise 12s linear infinite"
-            : "none",
+              ? "spinClockwise 12s linear infinite"
+              : "none",
         }}
       />
 
@@ -119,18 +125,26 @@ function MiningReactor({ isActive = true, isCompleted = false }: { isActive?: bo
           inset: 6,
           borderRadius: "50%",
           border: "1.5px solid transparent",
-          borderTopColor: isCompleted ? "#fbbf24" : isActive ? "#a855f7" : "rgba(148, 163, 184, 0.2)",
-          borderBottomColor: isCompleted ? "#f59e0b" : isActive ? "#c084fc" : "rgba(148, 163, 184, 0.2)",
+          borderTopColor: isCompleted
+            ? "#fbbf24"
+            : isActive
+              ? "#a855f7"
+              : "rgba(148, 163, 184, 0.2)",
+          borderBottomColor: isCompleted
+            ? "#f59e0b"
+            : isActive
+              ? "#c084fc"
+              : "rgba(148, 163, 184, 0.2)",
           animation: isCompleted
             ? "readyPulseRing 2.2s ease-in-out infinite"
             : isActive
-            ? "spinCounterClockwise 8s linear infinite"
-            : "none",
+              ? "spinCounterClockwise 8s linear infinite"
+              : "none",
           filter: isCompleted
             ? "drop-shadow(0 0 10px #fbbf24)"
             : isActive
-            ? "drop-shadow(0 0 8px #a855f7)"
-            : "none",
+              ? "drop-shadow(0 0 8px #a855f7)"
+              : "none",
         }}
       />
 
@@ -143,18 +157,18 @@ function MiningReactor({ isActive = true, isCompleted = false }: { isActive?: bo
           border: isCompleted
             ? "2.5px solid #fbbf24"
             : isActive
-            ? "2.5px solid #00f2fe"
-            : "2px solid rgba(148, 163, 184, 0.3)",
+              ? "2.5px solid #00f2fe"
+              : "2px solid rgba(148, 163, 184, 0.3)",
           boxShadow: isCompleted
             ? "0 0 24px rgba(251, 191, 36, 0.6), inset 0 0 15px rgba(0, 242, 254, 0.3)"
             : isActive
-            ? "0 0 20px rgba(0, 242, 254, 0.5), inset 0 0 15px rgba(0, 242, 254, 0.3)"
-            : "none",
+              ? "0 0 20px rgba(0, 242, 254, 0.5), inset 0 0 15px rgba(0, 242, 254, 0.3)"
+              : "none",
           animation: isCompleted
             ? "readyPulseRing 2.2s ease-in-out infinite"
             : isActive
-            ? "pulseGlow 2.5s ease-in-out infinite"
-            : "none",
+              ? "pulseGlow 2.5s ease-in-out infinite"
+              : "none",
         }}
       />
 
@@ -167,13 +181,13 @@ function MiningReactor({ isActive = true, isCompleted = false }: { isActive?: bo
           border: isCompleted
             ? "1.5px dashed rgba(251, 191, 36, 0.6)"
             : isActive
-            ? "1.5px dashed rgba(0, 242, 254, 0.4)"
-            : "1.5px dashed rgba(148, 163, 184, 0.2)",
+              ? "1.5px dashed rgba(0, 242, 254, 0.4)"
+              : "1.5px dashed rgba(148, 163, 184, 0.2)",
           animation: isCompleted
             ? "readyPulseRing 2.2s ease-in-out infinite"
             : isActive
-            ? "spinClockwise 18s linear infinite"
-            : "none",
+              ? "spinClockwise 18s linear infinite"
+              : "none",
         }}
       />
 
@@ -186,12 +200,14 @@ function MiningReactor({ isActive = true, isCompleted = false }: { isActive?: bo
           background: isCompleted
             ? "radial-gradient(circle at 40% 35%, #2a1e06 0%, #080c1e 100%)"
             : "radial-gradient(circle at 40% 35%, #0d1e3d 0%, #050a18 100%)",
-          border: isCompleted ? "2px solid rgba(251, 191, 36, 0.85)" : "2px solid rgba(0, 242, 254, 0.8)",
+          border: isCompleted
+            ? "2px solid rgba(251, 191, 36, 0.85)"
+            : "2px solid rgba(0, 242, 254, 0.8)",
           boxShadow: isCompleted
             ? "0 0 20px rgba(251, 191, 36, 0.7), inset 0 0 12px rgba(251, 191, 36, 0.4)"
             : isActive
-            ? "0 0 18px rgba(0, 242, 254, 0.6), inset 0 0 12px rgba(0, 242, 254, 0.4)"
-            : "none",
+              ? "0 0 18px rgba(0, 242, 254, 0.6), inset 0 0 12px rgba(0, 242, 254, 0.4)"
+              : "none",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -207,18 +223,24 @@ function MiningReactor({ isActive = true, isCompleted = false }: { isActive?: bo
             animation: isCompleted
               ? "boltPulse 1.6s ease-in-out infinite"
               : isActive
-              ? "boltPulse 2s ease-in-out infinite"
-              : "none",
+                ? "boltPulse 2s ease-in-out infinite"
+                : "none",
             filter: isCompleted
               ? "drop-shadow(0 0 12px rgba(251, 191, 36, 0.95))"
               : isActive
-              ? "drop-shadow(0 0 10px rgba(0, 242, 254, 0.9))"
-              : "none",
+                ? "drop-shadow(0 0 10px rgba(0, 242, 254, 0.9))"
+                : "none",
           }}
         >
           <path
             d="M13 2L3 14H12L11 22L21 10H12L13 2Z"
-            fill={isCompleted ? "#fbbf24" : isActive ? "#00f2fe" : "rgba(148, 163, 184, 0.5)"}
+            fill={
+              isCompleted
+                ? "#fbbf24"
+                : isActive
+                  ? "#00f2fe"
+                  : "rgba(148, 163, 184, 0.5)"
+            }
             stroke="#ffffff"
             strokeWidth="1.2"
           />
@@ -261,7 +283,8 @@ export default function HomePage() {
   useEffect(() => {
     if (!user) return;
     if (connectedAddress && connectedAddress !== user.savedWalletAddress) {
-      api.saveWallet(user.id, connectedAddress)
+      api
+        .saveWallet(user.id, connectedAddress)
         .then(() => refresh())
         .catch(() => {});
     }
@@ -275,12 +298,15 @@ export default function HomePage() {
       const base = parseFloat(res.unclaimedGram || res.unclaimedGo || "0");
       const perSec = parseFloat(res.perSecondYield || "0");
       const maxYield = parseFloat(res.dailyYield || "0");
-      
+
       let remSec = 86400;
       if (typeof res.remainingSeconds === "number") {
         remSec = Math.max(0, res.remainingSeconds);
       } else if (res.lastMiningAt) {
-        const elapsed = Math.max(0, (Date.now() - new Date(res.lastMiningAt).getTime()) / 1000);
+        const elapsed = Math.max(
+          0,
+          (Date.now() - new Date(res.lastMiningAt).getTime()) / 1000,
+        );
         remSec = Math.max(0, Math.floor(86400 - elapsed));
       }
 
@@ -299,7 +325,9 @@ export default function HomePage() {
         const rate = 0.03; // 3% daily Gram yield per GO
         const daily = (go * rate) / 1000;
         const perSec = daily / 86400;
-        const lastAt = user.lastMiningAt ? new Date(user.lastMiningAt).getTime() : Date.now();
+        const lastAt = user.lastMiningAt
+          ? new Date(user.lastMiningAt).getTime()
+          : Date.now();
 
         // This is a fallback calculation if the server API fails.
         const elapsed = Math.max(0, (Date.now() - lastAt) / 1000);
@@ -397,8 +425,14 @@ export default function HomePage() {
         };
         if (res.user) {
           updateUser(res.user);
-        } else if (res.gramBalance !== undefined && res.goBalance !== undefined) {
-          updateUser({ gramBalance: res.gramBalance, goBalance: res.goBalance });
+        } else if (
+          res.gramBalance !== undefined &&
+          res.goBalance !== undefined
+        ) {
+          updateUser({
+            gramBalance: res.gramBalance,
+            goBalance: res.goBalance,
+          });
         }
         await fetchMining();
         // Fire refresh in background to keep data fully in sync without blocking
@@ -433,8 +467,15 @@ export default function HomePage() {
     ? `${activeWallet.slice(0, 4)}...${activeWallet.slice(-4)}`
     : "Connect Wallet";
 
-  const fullName = [user?.firstName, user?.lastName].filter(Boolean).join(" ") || user?.username || "Telegram User";
-  const usernameDisplay = user?.username ? `@${user.username}` : (user?.id ? `ID: ${user.id}` : "");
+  const fullName =
+    [user?.firstName, user?.lastName].filter(Boolean).join(" ") ||
+    user?.username ||
+    "Telegram User";
+  const usernameDisplay = user?.username
+    ? `@${user.username}`
+    : user?.id
+      ? `ID: ${user.id}`
+      : "";
   const avatarInitial = (fullName.trim()[0] || "U").toUpperCase();
 
   return (
@@ -450,7 +491,8 @@ export default function HomePage() {
         paddingLeft: 14,
         paddingRight: 14,
         paddingTop: "calc(max(env(safe-area-inset-top, 0px), 12px) + 54px)",
-        paddingBottom: "calc(max(env(safe-area-inset-bottom, 0px), 8px) + 70px)",
+        paddingBottom:
+          "calc(max(env(safe-area-inset-bottom, 0px), 8px) + 70px)",
         gap: 12,
         direction: "ltr",
         userSelect: "none",
@@ -524,7 +566,13 @@ export default function HomePage() {
         {/* Left: Avatar + Names */}
         <div
           onClick={() => setLocation("/profile")}
-          style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, cursor: "pointer" }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            minWidth: 0,
+            cursor: "pointer",
+          }}
         >
           {/* Avatar with double glowing ring */}
           <div style={{ position: "relative", flexShrink: 0 }}>
@@ -547,7 +595,8 @@ export default function HomePage() {
                   width: 46,
                   height: 46,
                   borderRadius: "50%",
-                  background: "linear-gradient(135deg, #00f2fe 0%, #7f00ff 100%)",
+                  background:
+                    "linear-gradient(135deg, #00f2fe 0%, #7f00ff 100%)",
                   border: "2px solid #00f2fe",
                   boxShadow: "0 0 14px rgba(0, 242, 254, 0.5)",
                   display: "flex",
@@ -564,7 +613,14 @@ export default function HomePage() {
           </div>
 
           {/* User Name + Telegram Handle */}
-          <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+          <div
+            style={{
+              minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: 2,
+            }}
+          >
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span
                 style={{
@@ -579,7 +635,11 @@ export default function HomePage() {
               >
                 {fullName}
               </span>
-              <AnimatedSticker animationData={premiumStarData} size={16} loop={true} />
+              <AnimatedSticker
+                animationData={premiumStarData}
+                size={16}
+                loop={true}
+              />
             </div>
             <div
               style={{
@@ -617,7 +677,14 @@ export default function HomePage() {
           }}
         >
           <Wallet size={14} color="#00f2fe" />
-          <span style={{ fontFamily: activeWallet ? "monospace" : "inherit", letterSpacing: 0.5 }}>{walletDisplay}</span>
+          <span
+            style={{
+              fontFamily: activeWallet ? "monospace" : "inherit",
+              letterSpacing: 0.5,
+            }}
+          >
+            {walletDisplay}
+          </span>
           <ChevronDown size={13} color="#00f2fe" />
         </button>
       </div>
@@ -625,11 +692,19 @@ export default function HomePage() {
       {/* ══════════════════════════════════════════════════════════════════
           2. DUAL BALANCES GRID (GO Balance & Gram Balance Separated)
       ══════════════════════════════════════════════════════════════════ */}
-      <div style={{ width: "100%", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+      <div
+        style={{
+          width: "100%",
+          display: "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap: 10,
+        }}
+      >
         {/* CARD 1: GO Balance (Mining Power) */}
         <div
           style={{
-            background: "linear-gradient(145deg, rgba(20, 16, 8, 0.85) 0%, rgba(10, 12, 24, 0.92) 100%)",
+            background:
+              "linear-gradient(145deg, rgba(20, 16, 8, 0.85) 0%, rgba(10, 12, 24, 0.92) 100%)",
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
             border: "1.5px solid rgba(234, 179, 8, 0.35)",
@@ -638,15 +713,30 @@ export default function HomePage() {
             display: "flex",
             flexDirection: "column",
             gap: 8,
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45), 0 0 16px rgba(234, 179, 8, 0.12)",
+            boxShadow:
+              "0 8px 24px rgba(0, 0, 0, 0.45), 0 0 16px rgba(234, 179, 8, 0.12)",
             position: "relative",
             overflow: "hidden",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <GOCoinIcon size={28} />
-              <span style={{ color: "rgba(255, 255, 255, 0.6)", fontSize: 10.5, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>
+              <span
+                style={{
+                  color: "rgba(255, 255, 255, 0.6)",
+                  fontSize: 10.5,
+                  fontWeight: 800,
+                  letterSpacing: 1,
+                  textTransform: "uppercase",
+                }}
+              >
                 GO BALANCE
               </span>
             </div>
@@ -678,14 +768,36 @@ export default function HomePage() {
               textOverflow: "ellipsis",
             }}
           >
-            {goBalanceNum.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+            {goBalanceNum.toLocaleString("en-US", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 4,
+            })}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: -2 }}>
-            <span style={{ color: "rgba(255, 255, 255, 0.4)", fontSize: 10, fontWeight: 700 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginTop: -2,
+            }}
+          >
+            <span
+              style={{
+                color: "rgba(255, 255, 255, 0.4)",
+                fontSize: 10,
+                fontWeight: 700,
+              }}
+            >
               Games & Power
             </span>
-            <span style={{ color: "rgba(251, 191, 36, 0.7)", fontSize: 10, fontWeight: 800 }}>
+            <span
+              style={{
+                color: "rgba(251, 191, 36, 0.7)",
+                fontSize: 10,
+                fontWeight: 800,
+              }}
+            >
               Mining Multiplier
             </span>
           </div>
@@ -695,7 +807,8 @@ export default function HomePage() {
         <div
           onClick={openSwap}
           style={{
-            background: "linear-gradient(145deg, rgba(8, 20, 40, 0.85) 0%, rgba(6, 10, 24, 0.92) 100%)",
+            background:
+              "linear-gradient(145deg, rgba(8, 20, 40, 0.85) 0%, rgba(6, 10, 24, 0.92) 100%)",
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
             border: "1.5px solid rgba(0, 242, 254, 0.35)",
@@ -704,17 +817,32 @@ export default function HomePage() {
             display: "flex",
             flexDirection: "column",
             gap: 8,
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45), 0 0 16px rgba(0, 242, 254, 0.12)",
+            boxShadow:
+              "0 8px 24px rgba(0, 0, 0, 0.45), 0 0 16px rgba(0, 242, 254, 0.12)",
             cursor: "pointer",
             position: "relative",
             overflow: "hidden",
             transition: "transform 0.15s ease",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <GramCoinIcon size={28} />
-              <span style={{ color: "rgba(255, 255, 255, 0.6)", fontSize: 10.5, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" }}>
+              <span
+                style={{
+                  color: "rgba(255, 255, 255, 0.6)",
+                  fontSize: 10.5,
+                  fontWeight: 800,
+                  letterSpacing: 1,
+                  textTransform: "uppercase",
+                }}
+              >
                 GRAM BALANCE
               </span>
             </div>
@@ -749,11 +877,33 @@ export default function HomePage() {
             {gramBalanceNum.toFixed(6)}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: -2 }}>
-            <span style={{ color: "rgba(255, 255, 255, 0.4)", fontSize: 10, fontWeight: 700 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginTop: -2,
+            }}
+          >
+            <span
+              style={{
+                color: "rgba(255, 255, 255, 0.4)",
+                fontSize: 10,
+                fontWeight: 700,
+              }}
+            >
               Mined Gram
             </span>
-            <span style={{ color: "#00f2fe", fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", gap: 3 }}>
+            <span
+              style={{
+                color: "#00f2fe",
+                fontSize: 10,
+                fontWeight: 800,
+                display: "flex",
+                alignItems: "center",
+                gap: 3,
+              }}
+            >
               Swap to GO ⚡
             </span>
           </div>
@@ -779,8 +929,19 @@ export default function HomePage() {
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Clock size={16} color="#00f2fe" style={{ filter: "drop-shadow(0 0 6px rgba(0,242,254,0.6))" }} />
-          <span style={{ color: "rgba(255, 255, 255, 0.8)", fontSize: 12, fontWeight: 800, letterSpacing: 1 }}>
+          <Clock
+            size={16}
+            color="#00f2fe"
+            style={{ filter: "drop-shadow(0 0 6px rgba(0,242,254,0.6))" }}
+          />
+          <span
+            style={{
+              color: "rgba(255, 255, 255, 0.8)",
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: 1,
+            }}
+          >
             24H ESTIMATED YIELD
           </span>
         </div>
@@ -804,92 +965,148 @@ export default function HomePage() {
       <div
         style={{
           width: "100%",
-          background: "linear-gradient(165deg, rgba(10, 16, 38, 0.85) 0%, rgba(4, 7, 18, 0.95) 100%)",
+          background:
+            "linear-gradient(165deg, rgba(10, 16, 38, 0.85) 0%, rgba(4, 7, 18, 0.95) 100%)",
           backdropFilter: "blur(24px)",
           WebkitBackdropFilter: "blur(24px)",
-          border: isCycleFinished && hasPower ? "1px solid rgba(251, 191, 36, 0.35)" : "1px solid rgba(0, 242, 254, 0.20)",
+          border:
+            isCycleFinished && hasPower
+              ? "1px solid rgba(251, 191, 36, 0.35)"
+              : "1px solid rgba(0, 242, 254, 0.20)",
           borderRadius: 26,
           padding: "20px 18px",
           display: "flex",
           flexDirection: "column",
           gap: 18,
-          boxShadow: isCycleFinished && hasPower
-            ? "0 16px 48px rgba(0, 0, 0, 0.6), 0 0 24px rgba(251, 191, 36, 0.15)"
-            : "0 16px 48px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(0, 242, 254, 0.1)",
+          boxShadow:
+            isCycleFinished && hasPower
+              ? "0 16px 48px rgba(0, 0, 0, 0.6), 0 0 24px rgba(251, 191, 36, 0.15)"
+              : "0 16px 48px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(0, 242, 254, 0.1)",
         }}
       >
         {/* Top Split: Left Reactor & Right Metrics */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          {/* LEFT: Animated Mining Reactor */}
-          <MiningReactor isActive={isMiningActive} isCompleted={isCycleFinished && hasPower} />
-
-          {/* RIGHT: Mining Stats & Live Unclaimed Gram Ticker */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 0 }}>
-            {/* Status indicator */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Status Section */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              background: "rgba(0,0,0,0.3)",
+              padding: "16px",
+              borderRadius: 16,
+              border: "1px solid rgba(255,255,255,0.05)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div
                 style={{
-                  width: 7,
-                  height: 7,
+                  width: 10,
+                  height: 10,
                   borderRadius: "50%",
-                  background: !hasPower ? "#94a3b8" : isCycleFinished ? "#fbbf24" : "#00f2fe",
-                  boxShadow: !hasPower ? "none" : isCycleFinished ? "0 0 10px #fbbf24" : "0 0 8px #00f2fe",
+                  background: hasPower ? "#10b981" : "#6b7280",
+                  boxShadow: hasPower ? "0 0 10px #10b981" : "none",
                 }}
               />
-              <span
-                style={{
-                  color: !hasPower ? "#94a3b8" : isCycleFinished ? "#fbbf24" : "#c084fc",
-                  fontSize: 11,
-                  fontWeight: 900,
-                  letterSpacing: 1.2,
-                  textTransform: "uppercase",
-                }}
-              >
-                {!hasPower
-                  ? "NO MINING POWER"
-                  : isCycleFinished
-                  ? "MINING STOPPED • CLAIM READY"
-                  : "MINING GRAM ACTIVE"}
+              <span style={{ color: "#fff", fontWeight: 800, fontSize: 16 }}>
+                {hasPower ? "⚡ MINING ACTIVE" : "OFFLINE"}
               </span>
             </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <GOCoinIcon size={24} />
+              <span style={{ color: "#fff", fontWeight: 800, fontSize: 16 }}>
+                {parseFloat(
+                  String(user?.goBalance || user?.balance || "0"),
+                ).toLocaleString()}{" "}
+                GO
+              </span>
+            </div>
+          </div>
 
-            {/* Large Timer */}
+          {/* Stats Grid */}
+          <div
+            style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}
+          >
             <div
               style={{
-                color: isCycleFinished && hasPower ? "#fbbf24" : "#ffffff",
-                fontSize: 28,
-                fontWeight: 900,
-                letterSpacing: -0.5,
-                fontFamily: "monospace",
-                lineHeight: 1.1,
+                background: "rgba(168, 85, 247, 0.1)",
+                border: "1px solid rgba(168, 85, 247, 0.2)",
+                borderRadius: 14,
+                padding: "14px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
               }}
             >
-              {formatTimer(timerSeconds)}
+              <span style={{ color: "#c084fc", fontSize: 12, fontWeight: 700 }}>
+                Mining Rate
+              </span>
+              <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>
+                {(parseFloat(String(user?.miningRate || "0.03")) * 100).toFixed(
+                  2,
+                )}
+                % / 24H
+              </span>
             </div>
+            <div
+              style={{
+                background: "rgba(16, 185, 129, 0.1)",
+                border: "1px solid rgba(16, 185, 129, 0.2)",
+                borderRadius: 14,
+                padding: "14px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+              }}
+            >
+              <span style={{ color: "#34d399", fontSize: 12, fontWeight: 700 }}>
+                Daily Mining
+              </span>
+              <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>
+                {parseFloat(String(miningStatus?.dailyYield || "0")).toFixed(6)}{" "}
+                Gram
+              </span>
+            </div>
+          </div>
 
-            {/* Subtitle */}
-            <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: 11, fontWeight: 700 }}>
-              {!hasPower
-                ? "Get GO Power to activate cloud mining"
-                : isCycleFinished
-                ? "24h cycle completed! Claim reward to start next 24h cycle"
-                : "24/7 Cloud Mining (Active Offline)"}
+          {/* Live Accrued Reward Box */}
+          <div
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(17, 171, 236, 0.1) 0%, rgba(0, 242, 254, 0.1) 100%)",
+              border: "1px solid rgba(17, 171, 236, 0.3)",
+              borderRadius: 16,
+              padding: "24px 16px",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span
+              style={{
+                color: "rgba(255,255,255,0.7)",
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              Current Accrued Reward
             </span>
-
-            {/* Live Ticking Unclaimed Gram Amount */}
-            <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 4 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
               <span
                 style={{
-                  color: isCycleFinished && hasPower ? "#fbbf24" : "#ffffff",
-                  fontSize: 20,
+                  color: "#fff",
+                  fontSize: 32,
                   fontWeight: 900,
-                  letterSpacing: -0.2,
                   fontFamily: "monospace",
+                  letterSpacing: -1,
                 }}
               >
                 {liveUnclaimed.toFixed(8)}
               </span>
-              <span style={{ color: isCycleFinished && hasPower ? "#fbbf24" : "#00f2fe", fontSize: 13, fontWeight: 800 }}>Gram</span>
+              <span style={{ color: "#00f2fe", fontSize: 15, fontWeight: 800 }}>
+                Gram
+              </span>
             </div>
           </div>
         </div>
@@ -902,12 +1119,10 @@ export default function HomePage() {
             width: "100%",
             padding: "16px",
             borderRadius: 18,
-            border: isCycleFinished && liveUnclaimed > 0 ? "1.5px solid rgba(251, 191, 36, 0.6)" : "none",
+            border: "none",
             background:
               liveUnclaimed > 0
-                ? isCycleFinished
-                  ? "linear-gradient(90deg, #00c6ff 0%, #7f00ff 40%, #eab308 100%)"
-                  : "linear-gradient(90deg, #00c6ff 0%, #0072ff 35%, #7f00ff 70%, #a855f7 100%)"
+                ? "linear-gradient(90deg, #00c6ff 0%, #0072ff 35%, #7f00ff 70%, #a855f7 100%)"
                 : "rgba(255, 255, 255, 0.07)",
             color: liveUnclaimed > 0 ? "#ffffff" : "rgba(255, 255, 255, 0.3)",
             fontSize: 15,
@@ -917,27 +1132,28 @@ export default function HomePage() {
             cursor: liveUnclaimed > 0 ? "pointer" : "not-allowed",
             boxShadow:
               liveUnclaimed > 0
-                ? isCycleFinished
-                  ? "0 0 30px rgba(234, 179, 8, 0.45), 0 0 40px rgba(0, 242, 254, 0.3)"
-                  : "0 0 25px rgba(0, 242, 254, 0.4), 0 0 35px rgba(127, 0, 255, 0.25)"
+                ? "0 0 25px rgba(0, 242, 254, 0.4), 0 0 35px rgba(127, 0, 255, 0.25)"
                 : "none",
-            animation: isCycleFinished && liveUnclaimed > 0 ? "pulseClaimBtn 2s ease-in-out infinite" : "none",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             gap: 8,
             transition: "all 0.15s ease",
+            marginTop: 8,
           }}
         >
           {claiming ? (
             <>
-              <Loader2 size={18} style={{ animation: "spinSlow 1s linear infinite" }} />
+              <Loader2
+                size={18}
+                style={{ animation: "spinSlow 1s linear infinite" }}
+              />
               Claiming Gram Reward...
             </>
           ) : (
             <>
               <span style={{ fontSize: 17 }}>⚡</span>
-              {"CLAIM GRAM REWARD"}
+              CLAIM GRAM REWARD
             </>
           )}
         </button>

@@ -75,24 +75,34 @@ async function runWithdrawalSecurityCheck(opts: {
   if (channels.length === 0) return false;
 
   // Check 1: is the requesting user still subscribed?
-  const userMissing = await getMissingChannels(bot, userId).catch(() => [] as typeof channels);
+  const userMissing = await getMissingChannels(bot, userId).catch(
+    () => [] as typeof channels,
+  );
 
   // Check 2: active referrals subscription status
   const activeRefs = await db
     .select({ id: referralsTable.id, referredId: referralsTable.referredId })
     .from(referralsTable)
-    .where(and(eq(referralsTable.referrerId, userId), eq(referralsTable.status, "active")));
+    .where(
+      and(
+        eq(referralsTable.referrerId, userId),
+        eq(referralsTable.status, "active"),
+      ),
+    );
 
   let validRefs = 0,
     leftRefs = 0;
   for (const ref of activeRefs) {
-    const missing = await getMissingChannels(bot, ref.referredId).catch(() => [""]);
+    const missing = await getMissingChannels(bot, ref.referredId).catch(() => [
+      "",
+    ]);
     if (missing.length === 0) validRefs++;
     else leftRefs++;
   }
 
   const totalRefs = activeRefs.length;
-  const validPct = totalRefs > 0 ? Math.round((validRefs / totalRefs) * 100) : 100;
+  const validPct =
+    totalRefs > 0 ? Math.round((validRefs / totalRefs) * 100) : 100;
 
   const isSuspicious = userMissing.length > 0 || leftRefs > 0;
   if (!isSuspicious) return false;
@@ -102,9 +112,12 @@ async function runWithdrawalSecurityCheck(opts: {
     userStatusLines = `✅ منضم في جميع القنوات (${channels.length}/${channels.length})`;
   } else {
     const joinedCount = channels.length - userMissing.length;
-    const leftNames = userMissing.map((c) => esc(c.title || c.username)).join("، ");
+    const leftNames = userMissing
+      .map((c) => esc(c.title || c.username))
+      .join("، ");
     userStatusLines =
-      `✅ منضم في ${joinedCount} من ${channels.length} قناة\n` + `❌ خرج من: ${leftNames}`;
+      `✅ منضم في ${joinedCount} من ${channels.length} قناة\n` +
+      `❌ خرج من: ${leftNames}`;
   }
 
   const refStatusLines =
@@ -125,16 +138,28 @@ async function runWithdrawalSecurityCheck(opts: {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "✅ موافقة رغم ذلك", callback_data: `withdraw_approve_${withdrawalId}` },
-              { text: "❌ رفض السحب", callback_data: `withdraw_reject_${withdrawalId}` },
-              { text: "🚫 حظر المستخدم", callback_data: `withdraw_ban_${withdrawalId}` },
+              {
+                text: "✅ موافقة رغم ذلك",
+                callback_data: `withdraw_approve_${withdrawalId}`,
+              },
+              {
+                text: "❌ رفض السحب",
+                callback_data: `withdraw_reject_${withdrawalId}`,
+              },
+              {
+                text: "🚫 حظر المستخدم",
+                callback_data: `withdraw_ban_${withdrawalId}`,
+              },
             ],
           ],
         },
-      }
+      },
     );
   } catch (err) {
-    logger.error({ err }, "withdrawalSecurityCheck: failed to send admin alert");
+    logger.error(
+      { err },
+      "withdrawalSecurityCheck: failed to send admin alert",
+    );
   }
 
   // Notify the user that their withdrawal is under review
@@ -146,250 +171,293 @@ async function runWithdrawalSecurityCheck(opts: {
 }
 
 // ── WITHDRAWAL ENDPOINT ───────────────────────────────────────────────────────
-router.post("/", withdrawLimiter, requireSession, verifyAccessMiddleware, async (req, res) => {
-  const { userId, amount, walletAddress } = req.body;
+router.post(
+  "/",
+  withdrawLimiter,
+  requireSession,
+  verifyAccessMiddleware,
+  async (req, res) => {
+    const { userId, amount, walletAddress } = req.body;
 
-  if (!userId || !amount || !walletAddress) {
-    res.status(400).json({ error: "جميع الحقول مطلوبة" });
-    return;
-  }
-
-  const numUserId = parseInt(String(userId));
-  if (isNaN(numUserId) || numUserId <= 0) {
-    res.status(400).json({ error: "معرّف مستخدم غير صحيح" });
-    return;
-  }
-
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  if (sessionReq.sessionUserId !== undefined && sessionReq.sessionUserId !== numUserId) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
-
-  const cleanAddress = String(walletAddress).trim();
-  if (!TON_ADDRESS_RE.test(cleanAddress)) {
-    res.status(400).json({
-      error: "عنوان محفظة TON غير صحيح. يجب أن يبدأ بـ EQ أو UQ ويتكون من 48 حرفاً.",
-    });
-    return;
-  }
-
-  const [rawMin, rawMax, rawDailyLimit] = await Promise.all([
-    getSetting("min_withdrawal").catch(() => null),
-    getSetting("max_withdrawal").catch(() => null),
-    getSetting("daily_withdrawal_limit").catch(() => null),
-  ]);
-
-  // Read dynamic settings configured by admin
-  const MIN_WITHDRAWAL = Math.max(0.001, parseFloat(rawMin ?? "0.1") || 0.1);
-  const MAX_WITHDRAWAL_LIMIT = Math.max(MIN_WITHDRAWAL, parseFloat(rawMax ?? "10000") || 10000);
-  const DAILY_LIMIT = rawDailyLimit ? parseFloat(rawDailyLimit) : null;
-
-  const amt = parseFloat(String(amount));
-  if (isNaN(amt) || amt < MIN_WITHDRAWAL || amt > MAX_WITHDRAWAL_LIMIT) {
-    res.status(400).json({
-      error: `المبلغ يجب أن يكون بين ${MIN_WITHDRAWAL} و ${MAX_WITHDRAWAL_LIMIT} TON`,
-    });
-    return;
-  }
-
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, numUserId)).limit(1);
-  if (!user) {
-    res.status(404).json({ error: "المستخدم غير موجود" });
-    return;
-  }
-  if (user.isVisible === false) {
-    res.status(403).json({ error: "الحساب محظور" });
-    return;
-  }
-  if (user.isWithdrawalBanned === true) {
-    res.status(403).json({ error: "تم حظر عمليات السحب لهذا الحساب من قبل الإدارة" });
-    return;
-  }
-
-  // Subscription check
-  if (user.isBlockedForLeaving === true) {
-    res.status(403).json({
-      error: "لا يمكن السحب — يجب إعادة الانضمام للقنوات المطلوبة أولاً",
-    });
-    return;
-  }
-
-  // Daily limit check
-  if (DAILY_LIMIT && DAILY_LIMIT > 0) {
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    const [todaySumRes] = await db
-      .select({ total: sql<string>`coalesce(sum(amount), 0)` })
-      .from(withdrawalsTable)
-      .where(and(eq(withdrawalsTable.userId, numUserId), sql`created_at >= ${today}`));
-    const todayTotal = parseFloat(todaySumRes?.total || "0");
-    if (todayTotal + amt > DAILY_LIMIT) {
-      res.status(400).json({ error: `تجاوزت حد السحب اليومي المسموح به (${DAILY_LIMIT} TON)` });
+    if (!userId || !amount || !walletAddress) {
+      res.status(400).json({ error: "جميع الحقول مطلوبة" });
       return;
     }
-  }
 
-  // Insufficient balance check on Gram
-  const currentGramBalance = parseFloat(String(user.gramBalance ?? "0"));
-  if (currentGramBalance < amt) {
-    res.status(400).json({
-      error: `رصيد Gram غير كافٍ. رصيدك الحالي: ${currentGramBalance.toFixed(4)} Gram`,
-    });
-    return;
-  }
+    const numUserId = parseInt(String(userId));
+    if (isNaN(numUserId) || numUserId <= 0) {
+      res.status(400).json({ error: "معرّف مستخدم غير صحيح" });
+      return;
+    }
 
-  // Prevent duplicate spam requests within last 30 seconds with identical amount
-  const thirtySecsAgo = new Date(Date.now() - 30_000);
-  const recentPending = await db
-    .select({ id: withdrawalsTable.id })
-    .from(withdrawalsTable)
-    .where(
-      and(
-        eq(withdrawalsTable.userId, numUserId),
-        eq(withdrawalsTable.status, "pending"),
-        sql`created_at >= ${thirtySecsAgo}`
-      )
-    )
-    .limit(1);
+    const sessionReq =
+      req as import("../middlewares/requireSession").SessionRequest;
+    if (
+      sessionReq.sessionUserId !== undefined &&
+      sessionReq.sessionUserId !== numUserId
+    ) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
 
-  if (recentPending.length > 0) {
-    res.status(400).json({ error: "لديك طلب سحب قيد المعالجة، يرجى الانتظار قليلاً" });
-    return;
-  }
+    const cleanAddress = String(walletAddress).trim();
+    if (!TON_ADDRESS_RE.test(cleanAddress)) {
+      res.status(400).json({
+        error:
+          "عنوان محفظة TON غير صحيح. يجب أن يبدأ بـ EQ أو UQ ويتكون من 48 حرفاً.",
+      });
+      return;
+    }
 
-  // Atomic database transaction: deduct gram_balance, insert withdrawal, insert transaction log
-  let wdRecord: typeof withdrawalsTable.$inferSelect;
-  let updatedUserRecord: typeof usersTable.$inferSelect | undefined;
-  try {
-    const result = await db.transaction(async (tx) => {
-      // Re-verify balance inside transaction lock
-      const [lockedUser] = await tx
-        .select()
-        .from(usersTable)
-        .where(eq(usersTable.id, numUserId))
-        .limit(1);
+    const [rawMin, rawMax, rawDailyLimit] = await Promise.all([
+      getSetting("min_withdrawal").catch(() => null),
+      getSetting("max_withdrawal").catch(() => null),
+      getSetting("daily_withdrawal_limit").catch(() => null),
+    ]);
 
-      if (!lockedUser || parseFloat(String(lockedUser.gramBalance ?? "0")) < amt) {
-        throw new Error("رصيد Gram غير كافٍ");
+    // Read dynamic settings configured by admin
+    const MIN_WITHDRAWAL = Math.max(0.001, parseFloat(rawMin ?? "0.1") || 0.1);
+    const MAX_WITHDRAWAL_LIMIT = Math.max(
+      MIN_WITHDRAWAL,
+      parseFloat(rawMax ?? "10000") || 10000,
+    );
+    const DAILY_LIMIT = rawDailyLimit ? parseFloat(rawDailyLimit) : null;
+
+    const amt = parseFloat(String(amount));
+    if (isNaN(amt) || amt < MIN_WITHDRAWAL || amt > MAX_WITHDRAWAL_LIMIT) {
+      res.status(400).json({
+        error: `المبلغ يجب أن يكون بين ${MIN_WITHDRAWAL} و ${MAX_WITHDRAWAL_LIMIT} TON`,
+      });
+      return;
+    }
+
+    const [user] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, numUserId))
+      .limit(1);
+    if (!user) {
+      res.status(404).json({ error: "المستخدم غير موجود" });
+      return;
+    }
+    if (user.isVisible === false) {
+      res.status(403).json({ error: "الحساب محظور" });
+      return;
+    }
+    if (user.isWithdrawalBanned === true) {
+      res
+        .status(403)
+        .json({ error: "تم حظر عمليات السحب لهذا الحساب من قبل الإدارة" });
+      return;
+    }
+
+    // Subscription check
+    if (user.isBlockedForLeaving === true) {
+      res.status(403).json({
+        error: "لا يمكن السحب — يجب إعادة الانضمام للقنوات المطلوبة أولاً",
+      });
+      return;
+    }
+
+    // Daily limit check
+    if (DAILY_LIMIT && DAILY_LIMIT > 0) {
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+      const [todaySumRes] = await db
+        .select({ total: sql<string>`coalesce(sum(amount), 0)` })
+        .from(withdrawalsTable)
+        .where(
+          and(
+            eq(withdrawalsTable.userId, numUserId),
+            sql`created_at >= ${today}`,
+          ),
+        );
+      const todayTotal = parseFloat(todaySumRes?.total || "0");
+      if (todayTotal + amt > DAILY_LIMIT) {
+        res
+          .status(400)
+          .json({
+            error: `تجاوزت حد السحب اليومي المسموح به (${DAILY_LIMIT} TON)`,
+          });
+        return;
       }
+    }
 
-      await tx
-        .update(usersTable)
-        .set({ gramBalance: sql`GREATEST(gram_balance - ${amt}, 0)` })
-        .where(eq(usersTable.id, numUserId));
+    // Insufficient balance check on Gram
+    const currentGramBalance = parseFloat(String(user.gramBalance ?? "0"));
+    if (currentGramBalance < amt) {
+      res.status(400).json({
+        error: `رصيد Gram غير كافٍ. رصيدك الحالي: ${currentGramBalance.toFixed(4)} Gram`,
+      });
+      return;
+    }
 
-      const [newWd] = await tx
-        .insert(withdrawalsTable)
-        .values({
+    // Prevent duplicate spam requests within last 30 seconds with identical amount
+    const thirtySecsAgo = new Date(Date.now() - 30_000);
+    const recentPending = await db
+      .select({ id: withdrawalsTable.id })
+      .from(withdrawalsTable)
+      .where(
+        and(
+          eq(withdrawalsTable.userId, numUserId),
+          eq(withdrawalsTable.status, "pending"),
+          sql`created_at >= ${thirtySecsAgo}`,
+        ),
+      )
+      .limit(1);
+
+    if (recentPending.length > 0) {
+      res
+        .status(400)
+        .json({ error: "لديك طلب سحب قيد المعالجة، يرجى الانتظار قليلاً" });
+      return;
+    }
+
+    // Atomic database transaction: deduct gram_balance, insert withdrawal, insert transaction log
+    let wdRecord: typeof withdrawalsTable.$inferSelect;
+    let updatedUserRecord: typeof usersTable.$inferSelect | undefined;
+    try {
+      const result = await db.transaction(async (tx) => {
+        // Re-verify balance inside transaction lock
+        const [lockedUser] = await tx
+          .select()
+          .from(usersTable)
+          .where(eq(usersTable.id, numUserId))
+          .limit(1);
+
+        if (
+          !lockedUser ||
+          parseFloat(String(lockedUser.gramBalance ?? "0")) < amt
+        ) {
+          throw new Error("رصيد Gram غير كافٍ");
+        }
+
+        await tx
+          .update(usersTable)
+          .set({ gramBalance: sql`GREATEST(gram_balance - ${amt}, 0)` })
+          .where(eq(usersTable.id, numUserId));
+
+        const [newWd] = await tx
+          .insert(withdrawalsTable)
+          .values({
+            userId: numUserId,
+            amount: String(amt),
+            currency: "Gram",
+            walletAddress: cleanAddress,
+            status: "pending",
+          })
+          .returning();
+
+        await tx.insert(transactionsTable).values({
           userId: numUserId,
+          type: "withdrawal_request",
           amount: String(amt),
           currency: "Gram",
-          walletAddress: cleanAddress,
-          status: "pending",
-        })
-        .returning();
+          details: { withdrawalId: newWd.id, walletAddress: cleanAddress },
+        });
 
-      await tx.insert(transactionsTable).values({
-        userId: numUserId,
-        type: "withdrawal_request",
-        amount: String(amt),
-        currency: "Gram",
-        details: { withdrawalId: newWd.id, walletAddress: cleanAddress },
+        const [uRecord] = await tx
+          .select()
+          .from(usersTable)
+          .where(eq(usersTable.id, numUserId))
+          .limit(1);
+
+        return { newWd, uRecord };
       });
 
-      const [uRecord] = await tx
-        .select()
-        .from(usersTable)
-        .where(eq(usersTable.id, numUserId))
-        .limit(1);
-
-      return { newWd, uRecord };
-    });
-
-    wdRecord = result.newWd;
-    updatedUserRecord = result.uRecord;
-  } catch (txErr) {
-    logger.error({ err: txErr }, "Withdrawal transaction failed");
-    res.status(400).json({ error: txErr instanceof Error ? txErr.message : "فشلت عملية السحب" });
-    return;
-  }
-
-  // Respond to the client immediately once the balance/withdrawal record is
-  // safely committed — everything below is best-effort notification side
-  // effects (Telegram API calls, security checks) that used to be awaited
-  // before responding, which could push past the client's fetch timeout and
-  // show a false "network error" even though the withdrawal had succeeded.
-  res.json({ success: true, withdrawal: wdRecord, user: updatedUserRecord });
-
-  const userDisplay = user.username
-    ? `@${esc(user.username)}`
-    : esc(user.firstName || String(numUserId));
-
-  // Fetch owner ID once
-  const ownerIdRow = await db
-    .select()
-    .from(botSettingsTable)
-    .where(eq(botSettingsTable.key, "owner_telegram_id"))
-    .limit(1);
-  const ownerId =
-    (ownerIdRow.length > 0 && ownerIdRow[0].value ? parseInt(ownerIdRow[0].value) : null) || OWNER_TELEGRAM_ID;
-
-  // Real-time security check
-  let securityAlertSent = false;
-  if (ownerId) {
-    try {
-      securityAlertSent = await runWithdrawalSecurityCheck({
-        userId: numUserId,
-        userDisplay,
-        amount: String(amt),
-        withdrawalId: wdRecord.id,
-        ownerId,
-      });
-    } catch (err) {
-      logger.warn({ err }, "withdrawals: security check error (non-critical)");
+      wdRecord = result.newWd;
+      updatedUserRecord = result.uRecord;
+    } catch (txErr) {
+      logger.error({ err: txErr }, "Withdrawal transaction failed");
+      res
+        .status(400)
+        .json({
+          error: txErr instanceof Error ? txErr.message : "فشلت عملية السحب",
+        });
+      return;
     }
-  }
 
-  // Normal admin notification if security check didn't already alert
-  if (!securityAlertSent && ownerId) {
+    // Respond to the client immediately once the balance/withdrawal record is
+    // safely committed — everything below is best-effort notification side
+    // effects (Telegram API calls, security checks) that used to be awaited
+    // before responding, which could push past the client's fetch timeout and
+    // show a false "network error" even though the withdrawal had succeeded.
+    res.json({ success: true, withdrawal: wdRecord, user: updatedUserRecord });
+
+    const userDisplay = user.username
+      ? `@${esc(user.username)}`
+      : esc(user.firstName || String(numUserId));
+
+    // Fetch owner ID once
+    const ownerIdRow = await db
+      .select()
+      .from(botSettingsTable)
+      .where(eq(botSettingsTable.key, "owner_telegram_id"))
+      .limit(1);
+    const ownerId =
+      (ownerIdRow.length > 0 && ownerIdRow[0].value
+        ? parseInt(ownerIdRow[0].value)
+        : null) || OWNER_TELEGRAM_ID;
+
+    // Real-time security check
+    let securityAlertSent = false;
+    if (ownerId) {
+      try {
+        securityAlertSent = await runWithdrawalSecurityCheck({
+          userId: numUserId,
+          userDisplay,
+          amount: String(amt),
+          withdrawalId: wdRecord.id,
+          ownerId,
+        });
+      } catch (err) {
+        logger.warn(
+          { err },
+          "withdrawals: security check error (non-critical)",
+        );
+      }
+    }
+
+    // Normal admin notification if security check didn't already alert
+    if (!securityAlertSent && ownerId) {
+      try {
+        await sendWithdrawalNotification(
+          ownerId,
+          {
+            firstName: user.firstName || "",
+            username: user.username,
+            id: numUserId,
+            ipHash: user.ipHash,
+            ipSuspicious: user.ipSuspicious,
+            createdAt: user.createdAt,
+          },
+          String(amt),
+          cleanAddress,
+          wdRecord.id,
+        );
+      } catch {
+        /* notification failure is non-critical */
+      }
+    }
+
+    // Send message to user that request was received
     try {
-      await sendWithdrawalNotification(
-        ownerId,
-        {
-          firstName: user.firstName || "",
-          username: user.username,
-          id: numUserId,
-          ipHash: user.ipHash,
-          ipSuspicious: user.ipSuspicious,
-          createdAt: user.createdAt,
-        },
-        String(amt),
-        cleanAddress,
-        wdRecord.id
-      );
+      const bot = getBot();
+      if (bot) {
+        await bot.sendMessage(
+          numUserId,
+          `⏳ <b>طلب سحب قيد المراجعة</b>\n\n` +
+            `💰 المبلغ: <b>${amt.toFixed(4)} Gram</b>\n` +
+            `📍 المحفظة: <code>${esc(cleanAddress)}</code>\n\n` +
+            `تم استلام طلب السحب بنجاح وسيتم معالجته قريباً.`,
+          { parse_mode: "HTML" },
+        );
+      }
     } catch {
-      /* notification failure is non-critical */
+      /* ignore */
     }
-  }
-
-  // Send message to user that request was received
-  try {
-    const bot = getBot();
-    if (bot) {
-      await bot.sendMessage(
-        numUserId,
-        `⏳ <b>طلب سحب قيد المراجعة</b>\n\n` +
-          `💰 المبلغ: <b>${amt.toFixed(4)} Gram</b>\n` +
-          `📍 المحفظة: <code>${esc(cleanAddress)}</code>\n\n` +
-          `تم استلام طلب السحب بنجاح وسيتم معالجته قريباً.`,
-        { parse_mode: "HTML" }
-      );
-    }
-  } catch {
-    /* ignore */
-  }
-});
+  },
+);
 
 // ── GET User Withdrawals ──────────────────────────────────────────────────────
 router.get("/:userId", requireSession, async (req, res) => {
@@ -399,8 +467,12 @@ router.get("/:userId", requireSession, async (req, res) => {
     return;
   }
 
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  if (sessionReq.sessionUserId !== undefined && sessionReq.sessionUserId !== userId) {
+  const sessionReq =
+    req as import("../middlewares/requireSession").SessionRequest;
+  if (
+    sessionReq.sessionUserId !== undefined &&
+    sessionReq.sessionUserId !== userId
+  ) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
@@ -429,8 +501,12 @@ router.post(
       return;
     }
 
-    const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-    if (sessionReq.sessionUserId !== undefined && sessionReq.sessionUserId !== numUserId) {
+    const sessionReq =
+      req as import("../middlewares/requireSession").SessionRequest;
+    if (
+      sessionReq.sessionUserId !== undefined &&
+      sessionReq.sessionUserId !== numUserId
+    ) {
       res.status(403).json({ error: "Forbidden" });
       return;
     }
@@ -454,22 +530,27 @@ router.post(
             or(
               eq(depositsTable.txHash, cleanTxHash),
               eq(depositsTable.txHash, cleanTxHash.toLowerCase()),
-              eq(depositsTable.txHash, cleanTxHash.toUpperCase())
+              eq(depositsTable.txHash, cleanTxHash.toUpperCase()),
             ),
-            eq(depositsTable.status, "confirmed")
-          )
+            eq(depositsTable.status, "confirmed"),
+          ),
         )
         .limit(1);
 
       if (existingConfirmed.length > 0) {
         res.status(400).json({
-          error: "❌ Transaction already processed (تمت معالجة هذه المعاملة مسبقاً)",
+          error:
+            "❌ Transaction already processed (تمت معالجة هذه المعاملة مسبقاً)",
         });
         return;
       }
     }
 
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, numUserId)).limit(1);
+    const [user] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, numUserId))
+      .limit(1);
     if (!user) {
       res.status(404).json({ error: "المستخدم غير موجود" });
       return;
@@ -491,7 +572,8 @@ router.post(
 
     if (verification.isDuplicate) {
       res.status(400).json({
-        error: "❌ Transaction already processed (تمت معالجة هذه المعاملة مسبقاً)",
+        error:
+          "❌ Transaction already processed (تمت معالجة هذه المعاملة مسبقاً)",
       });
       return;
     }
@@ -501,8 +583,10 @@ router.post(
     // ── 3. Case A: Transaction Confirmed on TON Blockchain ────────────────────
     if (verification.verified) {
       const verifiedAmt = parseFloat(verification.amount || String(amtNum));
-      const confirmedTxHash = verification.txHash || cleanTxHash || `tx_${Date.now()}`;
-      const senderWallet = verification.senderWallet || cleanWallet || user.savedWalletAddress;
+      const confirmedTxHash =
+        verification.txHash || cleanTxHash || `tx_${Date.now()}`;
+      const senderWallet =
+        verification.senderWallet || cleanWallet || user.savedWalletAddress;
 
       let confirmedDeposit: typeof depositsTable.$inferSelect;
       let newTonBalance = "0";
@@ -516,8 +600,8 @@ router.post(
             .where(
               and(
                 eq(depositsTable.txHash, confirmedTxHash),
-                eq(depositsTable.status, "confirmed")
-              )
+                eq(depositsTable.status, "confirmed"),
+              ),
             )
             .limit(1);
 
@@ -531,8 +615,8 @@ router.post(
             .where(
               and(
                 eq(depositsTable.txHash, confirmedTxHash),
-                eq(depositsTable.status, "pending")
-              )
+                eq(depositsTable.status, "pending"),
+              ),
             )
             .limit(1);
 
@@ -593,7 +677,10 @@ router.post(
         confirmedDeposit = txRes.dep;
         newTonBalance = txRes.updatedUser.goBalance || "0";
       } catch (dbErr) {
-        logger.error({ err: dbErr }, "Database transaction failed during deposit confirmation");
+        logger.error(
+          { err: dbErr },
+          "Database transaction failed during deposit confirmation",
+        );
         res.status(400).json({
           error: dbErr instanceof Error ? dbErr.message : "فشل تسجيل الإيداع",
         });
@@ -607,15 +694,21 @@ router.post(
         .where(eq(botSettingsTable.key, "owner_telegram_id"))
         .limit(1);
       const ownerId =
-        ownerIdRow.length > 0 && ownerIdRow[0].value ? parseInt(ownerIdRow[0].value) : null;
+        ownerIdRow.length > 0 && ownerIdRow[0].value
+          ? parseInt(ownerIdRow[0].value)
+          : null;
 
-      const explorerUrl = confirmedTxHash && !confirmedTxHash.startsWith("tx_")
-        ? `https://tonviewer.com/transaction/${encodeURIComponent(confirmedTxHash)}`
-        : null;
+      const explorerUrl =
+        confirmedTxHash && !confirmedTxHash.startsWith("tx_")
+          ? `https://tonviewer.com/transaction/${encodeURIComponent(confirmedTxHash)}`
+          : null;
 
-      const userFullName = [user.firstName, user.lastName].filter(Boolean).join(" ");
+      const userFullName = [user.firstName, user.lastName]
+        .filter(Boolean)
+        .join(" ");
       const userDisplayName = user.username
-        ? `@${esc(user.username)}` + (userFullName ? ` (${esc(userFullName)})` : "")
+        ? `@${esc(user.username)}` +
+          (userFullName ? ` (${esc(userFullName)})` : "")
         : esc(userFullName || `User #${user.id}`);
 
       const depositReplyMarkup = explorerUrl
@@ -661,7 +754,10 @@ router.post(
             disable_web_page_preview: true,
           });
         } catch (botErr) {
-          logger.warn({ err: botErr }, "Failed to send deposit notification to admin");
+          logger.warn(
+            { err: botErr },
+            "Failed to send deposit notification to admin",
+          );
         }
       }
 
@@ -688,7 +784,10 @@ router.post(
             disable_web_page_preview: true,
           });
         } catch (botErr) {
-          logger.warn({ err: botErr }, "Failed to send deposit confirmation to user");
+          logger.warn(
+            { err: botErr },
+            "Failed to send deposit confirmation to user",
+          );
         }
       }
 
@@ -715,10 +814,10 @@ router.post(
               or(
                 eq(depositsTable.txHash, targetHash),
                 eq(depositsTable.txHash, targetHash.toLowerCase()),
-                eq(depositsTable.txHash, targetHash.toUpperCase())
+                eq(depositsTable.txHash, targetHash.toUpperCase()),
               ),
-              eq(depositsTable.status, "pending")
-            )
+              eq(depositsTable.status, "pending"),
+            ),
           )
           .limit(1);
 
@@ -749,7 +848,7 @@ router.post(
             `⏳ <b>Deposit Pending</b>\n\n` +
               `💎 <b>Amount:</b> ${amtNum.toFixed(4)} TON\n\n` +
               `Your transaction was submitted and is waiting for confirmation on the TON network.`,
-            { parse_mode: "HTML" }
+            { parse_mode: "HTML" },
           );
         } catch {
           /* ignore */
@@ -759,7 +858,7 @@ router.post(
       res.json({
         success: false,
         pending: true,
-        message: "⏳ Deposit Pending: Transaction is propagating on TON network",
+        message: "⏳ سيتم إضافة عملات GO بعد تأكيد المعاملة على شبكة TON.",
         deposit: pendingDep,
       });
       return;
@@ -786,7 +885,7 @@ router.post(
           `❌ <b>Deposit Failed</b>\n\n` +
             `💎 <b>Amount:</b> ${amtNum.toFixed(4)} TON\n` +
             `Reason: ${esc(verification.error || "Verification failed")}`,
-          { parse_mode: "HTML" }
+          { parse_mode: "HTML" },
         );
       } catch {
         /* ignore */
@@ -798,7 +897,7 @@ router.post(
       error: verification.error || "فشل التحقق من معاملة الإيداع على شبكة TON",
       deposit: failedDep,
     });
-  }
+  },
 );
 
 // ── GET User Deposits ─────────────────────────────────────────────────────────
@@ -809,8 +908,12 @@ router.get("/deposits/:userId", requireSession, async (req, res) => {
     return;
   }
 
-  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
-  if (sessionReq.sessionUserId !== undefined && sessionReq.sessionUserId !== userId) {
+  const sessionReq =
+    req as import("../middlewares/requireSession").SessionRequest;
+  if (
+    sessionReq.sessionUserId !== undefined &&
+    sessionReq.sessionUserId !== userId
+  ) {
     res.status(403).json({ error: "Forbidden" });
     return;
   }
