@@ -40,5 +40,8 @@
   "bugs": {
     "url": "https://github.com/Johnosama1/GRAM-GO/issues"
   },
-  "homepage": "https://github.com/Johnosama1/GRAM-GO#readme"
+  "homepage": "https://github.com/Johnosama1/GRAM-GO#readme",
+  "dependencies": {
+    "drizzle-zod": "^0.8.3"
+  }
 }
