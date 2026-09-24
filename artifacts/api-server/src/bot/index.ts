@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import TelegramBot from "node-telegram-bot-api";
 import { db } from "@workspace/db";
 import {
@@ -53,7 +54,7 @@ export function getBot(): TelegramBot {
 // node-telegram-bot-api fires handlers via EventEmitter (fire-and-forget).
 // We collect all handler promises and await them in processUpdateAndWait
 // to ensure DB writes + sendMessage finish before the response is sent.
-const _handlerPromises: Promise<void>[] = [];
+const handlerPromisesStorage = new AsyncLocalStorage<Promise<void>[]>();
 
 function wrapHandler<T extends unknown[]>(
   fn: (...args: T) => Promise<void> | void,
@@ -61,9 +62,11 @@ function wrapHandler<T extends unknown[]>(
   return (...args: T) => {
     const result = fn(...args);
     if (result instanceof Promise) {
-      _handlerPromises.push(
-        result.catch((err) => logger.error({ err }, "Bot handler error")),
-      );
+      const p = result.catch((err) => logger.error({ err }, "Bot handler error"));
+      const promises = handlerPromisesStorage.getStore();
+      if (promises) {
+        promises.push(p);
+      }
     }
   };
 }
@@ -597,24 +600,26 @@ export async function processUpdateAndWait(
   update: TelegramBot.Update,
 ): Promise<void> {
   if (!bot) return;
-  _handlerPromises.length = 0; // Clear previous cycle's promises
-  try {
-    // Trigger all registered handlers synchronously; wrapped handlers push
-    // their Promise into _handlerPromises before returning.
-    (
-      bot as unknown as { processUpdate: (u: TelegramBot.Update) => void }
-    ).processUpdate(update);
-    // Give synchronous code one tick to register promises
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    // Now await every async handler before returning the response
-    if (_handlerPromises.length > 0) {
-      await Promise.allSettled([..._handlerPromises]);
+
+  const promises: Promise<void>[] = [];
+
+  await handlerPromisesStorage.run(promises, async () => {
+    try {
+      // Trigger all registered handlers synchronously; wrapped handlers push
+      // their Promise into the storage array before returning.
+      (
+        bot as unknown as { processUpdate: (u: TelegramBot.Update) => void }
+      ).processUpdate(update);
+      // Give synchronous code one tick to register promises
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      // Now await every async handler before returning the response
+      if (promises.length > 0) {
+        await Promise.allSettled(promises);
+      }
+    } catch (err) {
+      logger.error({ err }, "processUpdateAndWait error");
     }
-  } catch (err) {
-    logger.error({ err }, "processUpdateAndWait error");
-  } finally {
-    _handlerPromises.length = 0;
-  }
+  });
 }
 
 export async function sendWelcomeMessage(
