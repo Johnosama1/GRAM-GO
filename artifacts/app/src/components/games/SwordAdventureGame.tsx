@@ -136,10 +136,10 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
   const enemyDeathImagesRef = useRef<HTMLImageElement | null>(null);
 
   useEffect(() => {
-    const imgWalk = new Image(); imgWalk.src = "/games/Soldier 1 Walking-Sheet.png"; enemyWalkImagesRef.current = imgWalk;
-    const imgRun = new Image(); imgRun.src = "/games/Soldier 1 Running-Sheet.png"; enemyRunImagesRef.current = imgRun;
-    const imgShoot = new Image(); imgShoot.src = "/games/Soldier 1 Shoot-Sheet.png"; enemyShootImagesRef.current = imgShoot;
-    const imgDeath = new Image(); imgDeath.src = "/games/Soldier 1 Death-Sheet.png"; enemyDeathImagesRef.current = imgDeath;
+    const imgWalk = new Image(); imgWalk.src = "/games/Zombie_Default_Walk.png"; enemyWalkImagesRef.current = imgWalk;
+    const imgRun = new Image(); imgRun.src = "/games/Zombie_Default_Walk.png"; enemyRunImagesRef.current = imgRun;
+    const imgShoot = new Image(); imgShoot.src = "/games/Zombie_Default_Attack1.png"; enemyShootImagesRef.current = imgShoot;
+    const imgDeath = new Image(); imgDeath.src = "/games/Zombie_Default_Dead.png"; enemyDeathImagesRef.current = imgDeath;
     // preload weapons
     for (let i = 1; i <= 50; i++) {
       const img = new Image();
@@ -875,7 +875,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
           enemy.animTimer += 1;
           const frameThreshold = enemy.state === "running" ? 5 : 8;
           if (enemy.animTimer > frameThreshold) {
-              enemy.frameIndex = (enemy.frameIndex + 1) % 4; // assume 4 frames loop for walk/run/shoot
+              enemy.frameIndex = (enemy.frameIndex + 1) % 6; // assume 6 frames loop for walk/run/shoot
               enemy.animTimer = 0;
           }
 
@@ -946,12 +946,12 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
         }
 
         let img = null;
-        let framesCount = 4;
+        let framesCount = 6;
 
-        if (enemy.state === "walking") { img = enemyWalkImagesRef.current; framesCount = 4; }
-        else if (enemy.state === "running") { img = enemyRunImagesRef.current; framesCount = 4; }
-        else if (enemy.state === "shooting") { img = enemyShootImagesRef.current; framesCount = 4; }
-        else if (enemy.state === "death") { img = enemyDeathImagesRef.current; framesCount = 4; }
+        if (enemy.state === "walking") { img = enemyWalkImagesRef.current; framesCount = 6; }
+        else if (enemy.state === "running") { img = enemyRunImagesRef.current; framesCount = 6; }
+        else if (enemy.state === "shooting") { img = enemyShootImagesRef.current; framesCount = 6; }
+        else if (enemy.state === "death") { img = enemyDeathImagesRef.current; framesCount = 6; }
 
         if (img && img.complete && img.naturalWidth > 0) {
             let fw = img.width / framesCount;
