@@ -856,7 +856,7 @@ router.post(
       }
 
       res.json({
-        success: false,
+        success: true,
         pending: true,
         message: "⏳ سيتم إضافة عملات GO بعد تأكيد المعاملة على شبكة TON.",
         deposit: pendingDep,

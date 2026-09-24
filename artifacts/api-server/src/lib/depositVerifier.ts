@@ -249,11 +249,13 @@ export async function verifyTonDepositTransaction(
 
       // Case A: Explicit hash match
       const matchesExplicitHash =
-        cleanTxHash &&
-        (hashStr.toLowerCase() === cleanTxHash.toLowerCase() ||
-          ltStr === cleanTxHash ||
-          inMsgHashStr.toLowerCase() === cleanTxHash.toLowerCase() ||
-          (bocHashHex && (hashStr.toLowerCase() === bocHashHex.toLowerCase() || inMsgHashStr.toLowerCase() === bocHashHex.toLowerCase())));
+        (cleanTxHash &&
+          (hashStr.toLowerCase() === cleanTxHash.toLowerCase() ||
+            ltStr === cleanTxHash ||
+            inMsgHashStr.toLowerCase() === cleanTxHash.toLowerCase())) ||
+        (bocHashHex &&
+          (hashStr.toLowerCase() === bocHashHex.toLowerCase() ||
+            inMsgHashStr.toLowerCase() === bocHashHex.toLowerCase()));
 
       // Case B: Sender + Amount match
       const matchesSenderAndAmount =

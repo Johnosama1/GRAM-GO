@@ -124,6 +124,7 @@ export default function ProfilePage() {
   const [depositAmount, setDepositAmount] = useState("0.00");
   const [depositing, setDepositing] = useState(false);
   const [depositSuccess, setDepositSuccess] = useState(false);
+  const [depositPending, setDepositPending] = useState("");
   const [depositError, setDepositError] = useState("");
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
 
@@ -308,6 +309,7 @@ export default function ProfilePage() {
   const handleDepositViaTonConnect = async () => {
     if (!user || depositing) return;
     setDepositError("");
+    setDepositPending("");
     setDepositSuccess(false);
 
     const amt = parseFloat(depositAmount);
@@ -368,10 +370,9 @@ export default function ProfilePage() {
       if (res.success && res.verified) {
         setDepositSuccess(true);
         setDepositAmount("0.00");
-      } else if (res.pending) {
-        setDepositError(
-          "⏳ سيتم إضافة عملات GO بعد تأكيد المعاملة على شبكة TON.",
-        );
+      } else if (res.pending || res.success) { // if pending true or success but not verified
+        setDepositPending("⏳ جاري تأكيد المعاملة على شبكة TON. سيتم إضافة عملات GO قريباً.");
+        setDepositAmount("0.00");
       } else {
         setDepositError(
           res.error || "فشل التحقق من معاملة الإيداع على شبكة TON",
@@ -381,7 +382,10 @@ export default function ProfilePage() {
       invalidateUserCaches(user.id);
       await refresh();
       loadHistory();
-      setTimeout(() => setDepositSuccess(false), 5000);
+      setTimeout(() => {
+        setDepositSuccess(false);
+        setDepositPending("");
+      }, 7000);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err || "");
       if (
@@ -1286,7 +1290,7 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {depositSuccess && (
+              {depositSuccess && !depositPending && (
                 <div
                   style={{
                     borderRadius: 14,
@@ -1299,6 +1303,22 @@ export default function ProfilePage() {
                   }}
                 >
                   ✅ تم تأكيد الإيداع وإضافة عملات GO إلى رصيدك.
+                </div>
+              )}
+
+              {depositPending && (
+                <div
+                  style={{
+                    borderRadius: 14,
+                    padding: "12px 14px",
+                    background: "rgba(251,191,36,0.15)",
+                    border: "1px solid rgba(251,191,36,0.4)",
+                    color: "#fcd34d",
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                >
+                  {depositPending}
                 </div>
               )}
 
