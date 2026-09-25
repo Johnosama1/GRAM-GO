@@ -29,6 +29,8 @@ export const usersTable = pgTable("users", {
   dailyStreak: integer("daily_streak").notNull().default(0),
   lastDailyClaimAt: timestamp("last_daily_claim_at"),
   comboCompletedAt: timestamp("combo_completed_at"),
+  dailyAdsWatched: integer("daily_ads_watched").notNull().default(0),
+  lastAdWatchedAt: timestamp("last_ad_watched_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 
   // ── Subscription enforcement fields ──────────────────────────────

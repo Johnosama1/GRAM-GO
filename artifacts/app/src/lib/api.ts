@@ -309,6 +309,15 @@ export const api = {
   adminDeleteMilestone: (id: number) => apiCall<{ ok: boolean; success: boolean }>(`/admin/milestones/${id}`, { method: "DELETE" }),
   adminGetSecurityEvents: () => apiCall<SecurityEventItem[]>("/admin/security/events"),
   adminGetWalletKeys: () => apiCall<{ tonWalletConfigured: boolean; maskedWalletAddress: string; hasTelegramBotToken: boolean; hasNeonDatabaseUrl: boolean; hasCustomMnemonic?: boolean; hasCustomApiKey?: boolean; securityStatus: string }>("/admin/wallet-keys"),
+
+  // Ads & Promo Admin Settings
+  adminGetAdsSettings: () => apiCall<{ adsDailyLimit: string; adsRewardAmount: string }>("/admin/ads-settings"),
+  adminUpdateAdsSettings: (data: { adsDailyLimit?: string; adsRewardAmount?: string }) =>
+    apiCall<{ success: boolean }>("/admin/ads-settings", { method: "PUT", body: JSON.stringify(data) }),
+
+  // User Ads Tasks
+  getAdsStatus: () => apiCall<{ watchedToday: number; dailyLimit: number; rewardAmount: number }>("/tasks/ads/status"),
+  watchAd: () => apiCall<{ success: boolean; watchedToday: number; dailyLimit: number; rewardAmount: number }>("/tasks/ads/watch", { method: "POST" }),
   adminUpdateWalletKeys: (data: { mnemonic?: string; apiKey?: string; endpoint?: string }) =>
     apiCall<{ ok: boolean; message: string }>("/admin/wallet-keys", { method: "PUT", body: JSON.stringify(data) }),
 

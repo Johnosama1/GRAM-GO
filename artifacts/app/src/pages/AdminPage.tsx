@@ -217,6 +217,7 @@ export default function AdminPage() {
 
     // Tab 5: Ads
     ads_monetag: true,
+    ads_system_settings: true,
 
     // Tab 6: Users & Security
     users_anticheat: true,
@@ -232,6 +233,12 @@ export default function AdminPage() {
   // ── Tab 1: General Data ──
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [settings, setSettings] = useState<Record<string, string>>({});
+
+  // ── Ads Settings ──
+  const [adsSettings, setAdsSettings] = useState<{ adsDailyLimit: string; adsRewardAmount: string }>({
+    adsDailyLimit: "10",
+    adsRewardAmount: "0.5",
+  });
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [channels, setChannels] = useState<
     Array<{
@@ -443,6 +450,7 @@ export default function AdminPage() {
         rf,
         ms,
         se,
+        adsSetts,
       ] = await Promise.all([
         api.adminGetStats().catch(() => null),
         api.adminGetSettings().catch(() => ({}) as Record<string, string>),
@@ -462,9 +470,11 @@ export default function AdminPage() {
         api.adminGetReferralSettings().catch(() => null),
         api.adminGetMilestones().catch(() => []),
         api.adminGetSecurityEvents().catch(() => []),
+        api.adminGetAdsSettings().catch(() => ({ adsDailyLimit: "10", adsRewardAmount: "0.5" })),
       ]);
 
       if (s) setStats(s);
+      if (adsSetts) setAdsSettings(adsSetts);
       if (setts) {
         setSettings(setts);
         if (setts["global_mining_rate"]) {
@@ -845,16 +855,28 @@ export default function AdminPage() {
     }
   };
 
-  const handleSaveAdsSettings = async () => {
+  const handleSaveMonetagSettings = async () => {
     try {
       await Promise.all([
         handleUpdateSetting("monetag_zone_id", monetagZoneId.trim()),
         handleUpdateSetting("ad_reward_rush", adRewardRush.trim()),
         handleUpdateSetting("ad_daily_watch_limit", adDailyWatchLimit.trim()),
       ]);
-      showToast("⚡ تم حفظ جميع إعدادات الإعلانات بنجاح");
+      showToast("⚡ تم حفظ إعدادات Monetag بنجاح");
     } catch {
-      showToast("فشل حفظ إعدادات الإعلانات", "err");
+      showToast("فشل حفظ إعدادات Monetag", "err");
+    }
+  };
+
+  const handleSaveAdsSystemSettings = async () => {
+    try {
+      await api.adminUpdateAdsSettings({
+        adsDailyLimit: adsSettings.adsDailyLimit.trim(),
+        adsRewardAmount: adsSettings.adsRewardAmount.trim()
+      });
+      showToast("⚡ تم حفظ إعدادات نظام الإعلانات بنجاح");
+    } catch {
+      showToast("فشل حفظ إعدادات نظام الإعلانات", "err");
     }
   };
 
@@ -4136,7 +4158,7 @@ export default function AdminPage() {
             </div>
 
             <button
-              onClick={handleSaveAdsSettings}
+              onClick={handleSaveMonetagSettings}
               style={{
                 width: "100%",
                 height: 44,
@@ -4149,7 +4171,90 @@ export default function AdminPage() {
                 cursor: "pointer",
               }}
             >
-              ⚡ حفظ جميع إعدادات الإعلانات
+              ⚡ حفظ جميع إعدادات الإعلانات (Monetag)
+            </button>
+          </AdminAccordionSection>
+
+          <AdminAccordionSection
+            id="ads_system_settings"
+            title="إعدادات نظام مهام الإعلانات (GO)"
+            icon={PlayCircle}
+            isOpen={openSections.ads_system_settings}
+            onToggle={() => toggleSection("ads_system_settings")}
+          >
+            <div style={{ marginBottom: 12 }}>
+              <label
+                style={{
+                  fontSize: 10,
+                  color: "#8A8F98",
+                  display: "block",
+                  marginBottom: 4,
+                }}
+              >
+                الحد اليومي لعدد الإعلانات (Daily Limit)
+              </label>
+              <input
+                type="text"
+                value={adsSettings.adsDailyLimit}
+                onChange={(e) => setAdsSettings(prev => ({ ...prev, adsDailyLimit: e.target.value }))}
+                placeholder="10"
+                style={{
+                  width: "100%",
+                  background: "#080b10",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: 8,
+                  padding: 8,
+                  color: "#fff",
+                  fontSize: 11,
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <label
+                style={{
+                  fontSize: 10,
+                  color: "#8A8F98",
+                  display: "block",
+                  marginBottom: 4,
+                }}
+              >
+                المكافأة لكل إعلان (Reward Amount - GO)
+              </label>
+              <input
+                type="text"
+                value={adsSettings.adsRewardAmount}
+                onChange={(e) => setAdsSettings(prev => ({ ...prev, adsRewardAmount: e.target.value }))}
+                placeholder="0.5"
+                style={{
+                  width: "100%",
+                  background: "#080b10",
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: 8,
+                  padding: 8,
+                  color: "#fff",
+                  fontSize: 11,
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+
+            <button
+              onClick={handleSaveAdsSystemSettings}
+              style={{
+                width: "100%",
+                height: 44,
+                background: "linear-gradient(135deg, #0FA0D6, #11ABEC)",
+                border: "none",
+                borderRadius: 12,
+                color: "#fff",
+                fontWeight: 900,
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              ⚡ حفظ إعدادات نظام الإعلانات
             </button>
           </AdminAccordionSection>
         </div>

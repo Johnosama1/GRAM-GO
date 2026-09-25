@@ -32,6 +32,14 @@ export default function TasksPage() {
   const [promoCode, setPromoCode] = useState("");
   const [redeemingPromo, setRedeemingPromo] = useState(false);
 
+  // Ads Tasks State
+  const [adsStatus, setAdsStatus] = useState<{
+    watchedToday: number;
+    dailyLimit: number;
+    rewardAmount: number;
+  } | null>(null);
+  const [watchingAd, setWatchingAd] = useState(false);
+
   useEffect(() => {
     api
       .getConfig()
@@ -80,6 +88,12 @@ export default function TasksPage() {
       .catch((err) => console.error("Failed to load checkin:", err));
   };
 
+  const loadAdsStatus = () => {
+    api.getAdsStatus()
+      .then(data => setAdsStatus(data))
+      .catch(err => console.error("Failed to load ads status:", err));
+  };
+
   useEffect(() => {
     if (!initialized) return;
     if (!user) {
@@ -87,6 +101,7 @@ export default function TasksPage() {
       return;
     }
     loadCheckin();
+    loadAdsStatus();
     Promise.all([getTasksOnce(), getCompletedTasksOnce(user.id)])
       .then(([t, c]) => {
         setTasks(t);
@@ -95,6 +110,42 @@ export default function TasksPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [user, initialized]);
+
+  const handleWatchAd = async () => {
+    if (!user || watchingAd || !adsStatus) return;
+    if (adsStatus.watchedToday >= adsStatus.dailyLimit) return;
+
+    setWatchingAd(true);
+    // Note: Here you would typically integrate with an ad provider SDK (like GramAds, TonAds, etc.)
+    // For this implementation, we simulate watching an ad:
+    setTimeout(async () => {
+      try {
+        const res = await api.watchAd();
+        if (res.success) {
+          setAdsStatus({
+            watchedToday: res.watchedToday,
+            dailyLimit: res.dailyLimit,
+            rewardAmount: res.rewardAmount,
+          });
+          setMessage({
+            taskId: "ad",
+            text: `✅ إعلان مكتمل! حصلت على +${res.rewardAmount} GO`,
+            type: "success",
+          });
+          refresh();
+        }
+      } catch (e: any) {
+        setMessage({
+          taskId: "ad",
+          text: e.message || "فشل في إكمال الإعلان",
+          type: "error",
+        });
+      } finally {
+        setWatchingAd(false);
+        setTimeout(() => setMessage(null), 4000);
+      }
+    }, 1500); // simulate ad delay
+  };
 
   const handleOpenUrl = (task: Task) => {
     window.open(task.url!, "_blank");
@@ -159,11 +210,11 @@ export default function TasksPage() {
   };
 
   const categories = [
-    { id: "all", label: "📋 All Tasks" },
-    { id: "channel", label: "📢 Channel Tasks" },
+    { id: "all", label: "📋 All" },
+    { id: "channel", label: "📢 Channel" },
     { id: "daily", label: "📅 Daily Check-in" },
     { id: "ads", label: "📺 Ads & Promo" },
-    { id: "bot", label: "🤖 Bot Tasks" }
+    { id: "bot", label: "🤖 Bot" }
   ];
 
   const filteredTasks = tasks.filter((t) => {
@@ -222,7 +273,7 @@ export default function TasksPage() {
       </div>
 
       {/* Promo Code Box */}
-      {selectedCategory === "ads" && (
+      {(selectedCategory === "ads" || selectedCategory === "all") && (
         <div style={{ padding: "0 16px 12px 16px", flexShrink: 0 }}>
           <div
             style={{
@@ -332,9 +383,81 @@ export default function TasksPage() {
         )}
 
         {/* ══════════════════════════════════════════════════════════════════
-          1. DAILY CHECK-IN CARD (التسجيل اليومي)
+          1. ADS TASK CARD (Watch Advertisement)
       ══════════════════════════════════════════════════════════════════ */}
-        {checkin && (
+        {adsStatus && (selectedCategory === "ads" || selectedCategory === "all") && (
+          <div
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%)",
+              border: "1px solid rgba(139, 92, 246, 0.25)",
+              borderRadius: 22,
+              padding: "16px 14px",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+              marginBottom: 12,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 14,
+                  background: "linear-gradient(135deg, rgba(139,92,246,0.2), rgba(56,189,248,0.2))",
+                  border: "1px solid rgba(139,92,246,0.3)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 24,
+                }}
+              >
+                📺
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>
+                  Watch Advertisement
+                </span>
+                <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>
+                  Reward: +{adsStatus.rewardAmount} GO
+                </span>
+                <span style={{ color: "#a855f7", fontSize: 11, fontWeight: 700, marginTop: 2 }}>
+                  Progress: {adsStatus.watchedToday}/{adsStatus.dailyLimit} today
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={handleWatchAd}
+              disabled={watchingAd || adsStatus.watchedToday >= adsStatus.dailyLimit}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 12,
+                fontWeight: 800,
+                fontSize: 12,
+                border: "none",
+                cursor: watchingAd || adsStatus.watchedToday >= adsStatus.dailyLimit ? "not-allowed" : "pointer",
+                background: adsStatus.watchedToday >= adsStatus.dailyLimit
+                  ? "rgba(255,255,255,0.1)"
+                  : "linear-gradient(135deg, #a855f7, #7e22ce)",
+                color: adsStatus.watchedToday >= adsStatus.dailyLimit ? "rgba(255,255,255,0.4)" : "#fff",
+                opacity: watchingAd ? 0.6 : 1,
+              }}
+            >
+              {watchingAd
+                ? "..."
+                : adsStatus.watchedToday >= adsStatus.dailyLimit
+                  ? "Done"
+                  : "Watch Ad"}
+            </button>
+          </div>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════════
+          2. DAILY CHECK-IN CARD (التسجيل اليومي)
+      ══════════════════════════════════════════════════════════════════ */}
+        {checkin && (selectedCategory === "daily" || selectedCategory === "all") && (
           <div
             style={{
               background:
