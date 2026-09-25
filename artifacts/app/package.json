@@ -79,6 +79,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "@adsgram/react": "^1.0.2",
     "@ton/core": "^0.63.1"
   }
 }

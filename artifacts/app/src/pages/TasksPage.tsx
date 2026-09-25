@@ -9,6 +9,7 @@ import {
   invalidateUserCaches,
 } from "../lib/api";
 import { CheckCircle, ExternalLink, Clock, Zap, Calendar } from "lucide-react";
+import { useAdsgram } from "@adsgram/react";
 
 export default function TasksPage() {
   const { user, refresh, initialized, retryInit, setCanClaimCheckin } =
@@ -67,6 +68,44 @@ export default function TasksPage() {
     return () => clearInterval(timer);
   }, [adsStatus?.nextResetTime]);
   const [watchingAd, setWatchingAd] = useState(false);
+
+  const { show: showAd } = useAdsgram({
+    blockId: import.meta.env.VITE_ADSGRAM_BLOCK_ID || "",
+    onReward: () => {
+      api.watchAd().then(res => {
+        if (res.success) {
+          setAdsStatus({
+            watchedToday: res.watchedToday,
+            dailyLimit: res.dailyLimit,
+            rewardAmount: res.rewardAmount,
+            nextResetTime: res.nextResetTime,
+          });
+          setMessage({
+            taskId: "ad",
+            text: `✅ إعلان مكتمل! حصلت على +${res.rewardAmount} GO`,
+            type: "success",
+          });
+          refresh();
+        }
+      }).catch(err => {
+        setMessage({
+          taskId: "ad",
+          text: err.message || "حدث خطأ.",
+          type: "error",
+        });
+      }).finally(() => {
+        setWatchingAd(false);
+      });
+    },
+    onError: () => {
+      setMessage({
+        taskId: "ad",
+        text: "Ad was not completed or unavailable.",
+        type: "error",
+      });
+      setWatchingAd(false);
+    }
+  });
 
   useEffect(() => {
     api
@@ -142,38 +181,28 @@ export default function TasksPage() {
   const handleWatchAd = async () => {
     if (!user || watchingAd || !adsStatus) return;
     if (adsStatus.watchedToday >= adsStatus.dailyLimit) return;
+    if (!import.meta.env.VITE_ADSGRAM_BLOCK_ID) {
+      setMessage({
+        taskId: "ad",
+        text: "AdsGram blockId is missing in environment configuration.",
+        type: "error",
+      });
+      return;
+    }
 
     setWatchingAd(true);
-    // Note: Here you would typically integrate with an ad provider SDK (like GramAds, TonAds, etc.)
-    // For this implementation, we simulate watching an ad:
-    setTimeout(async () => {
-      try {
-        const res = await api.watchAd();
-        if (res.success) {
-          setAdsStatus({
-            watchedToday: res.watchedToday,
-            dailyLimit: res.dailyLimit,
-            rewardAmount: res.rewardAmount,
-            nextResetTime: res.nextResetTime,
-          });
-          setMessage({
-            taskId: "ad",
-            text: `✅ إعلان مكتمل! حصلت على +${res.rewardAmount} GO`,
-            type: "success",
-          });
-          refresh();
-        }
-      } catch (e: any) {
-        setMessage({
-          taskId: "ad",
-          text: e.message || "فشل في إكمال الإعلان",
-          type: "error",
-        });
-      } finally {
-        setWatchingAd(false);
-        setTimeout(() => setMessage(null), 4000);
-      }
-    }, 1500); // simulate ad delay
+    try {
+      await showAd();
+    } catch (e) {
+      // The promise rejects if ad is not completed or error occurs.
+      // This is handled by onError or here.
+      setMessage({
+        taskId: "ad",
+        text: "Ad was not completed. No reward was added.",
+        type: "error",
+      });
+      setWatchingAd(false);
+    }
   };
 
   const handleOpenUrl = (task: Task) => {

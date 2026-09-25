@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import { tasksTable, userTasksTable, usersTable } from "@workspace/db/schema";
 import { addGoBalanceAndClaim } from "../lib/miningUtils";
 import { eq, and, sql, ilike } from "drizzle-orm";
-import { promoCodesTable, userPromoCodesTable, botSettingsTable } from "@workspace/db/schema";
+import { promoCodesTable, userPromoCodesTable, botSettingsTable, adRewardEventsTable } from "@workspace/db/schema";
 import { getBot } from "../bot";
 import { checkChannelMembership } from "../bot/admin";
 import { recordChannelReward } from "../bot/subscription";
@@ -274,6 +274,16 @@ router.post("/ads/watch", requireSession, verifyAccessMiddleware, async (req, re
       }
 
       const newWatched = currentWatched + 1;
+
+      // Ensure idempotency for this exact UTC day explicitly by saving a ledger record
+      const todayStr = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')}`;
+
+      await tx.insert(adRewardEventsTable).values({
+        userId,
+        provider: "adsgram",
+        rewardAmount: String(rewardAmount),
+        adDateUtc: todayStr,
+      });
 
       // Update user
       await tx
