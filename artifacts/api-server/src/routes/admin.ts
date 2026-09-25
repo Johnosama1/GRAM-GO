@@ -1078,4 +1078,54 @@ router.delete("/promo-codes/:id", requireAdminPerm("canManagePromoCodes"), async
   res.json({ ok: true });
 });
 
+// ── Ads Settings ────────────────────────────────────────────────────────
+router.get("/ads-settings", requireAdminPerm("canManageAds"), async (_req: AdminRequest, res: Response) => {
+  const settings = await db
+    .select()
+    .from(botSettingsTable)
+    .where(
+      sql`${botSettingsTable.key} IN ('ads_daily_limit', 'ads_reward_amount')`
+    );
+
+  const result: Record<string, string> = {
+    adsDailyLimit: "10",
+    adsRewardAmount: "0.5",
+  };
+
+  for (const s of settings) {
+    if (s.key === "ads_daily_limit") result.adsDailyLimit = s.value;
+    if (s.key === "ads_reward_amount") result.adsRewardAmount = s.value;
+  }
+
+  res.json(result);
+});
+
+router.put("/ads-settings", requireAdminPerm("canManageAds"), async (req: AdminRequest, res: Response) => {
+  const { adsDailyLimit, adsRewardAmount } = req.body;
+
+  if (adsDailyLimit !== undefined) {
+    await db
+      .insert(botSettingsTable)
+      .values({ key: "ads_daily_limit", value: String(adsDailyLimit) })
+      .onConflictDoUpdate({
+        target: botSettingsTable.key,
+        set: { value: String(adsDailyLimit) },
+      });
+  }
+
+  if (adsRewardAmount !== undefined) {
+    await db
+      .insert(botSettingsTable)
+      .values({ key: "ads_reward_amount", value: String(adsRewardAmount) })
+      .onConflictDoUpdate({
+        target: botSettingsTable.key,
+        set: { value: String(adsRewardAmount) },
+      });
+  }
+
+  await logAdminAudit(req.adminId!, "update_ads_settings", { adsDailyLimit, adsRewardAmount });
+
+  res.json({ success: true });
+});
+
 export default router;

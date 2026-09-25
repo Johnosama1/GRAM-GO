@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import { tasksTable, userTasksTable, usersTable } from "@workspace/db/schema";
 import { addGoBalanceAndClaim } from "../lib/miningUtils";
 import { eq, and, sql, ilike } from "drizzle-orm";
-import { promoCodesTable, userPromoCodesTable } from "@workspace/db/schema";
+import { promoCodesTable, userPromoCodesTable, botSettingsTable } from "@workspace/db/schema";
 import { getBot } from "../bot";
 import { checkChannelMembership } from "../bot/admin";
 import { recordChannelReward } from "../bot/subscription";
@@ -164,6 +164,134 @@ router.get("/:userId/completed", async (req, res) => {
 
 
 // ── POST /api/tasks/promo/redeem ───────────────────────────
+// ── GET /api/tasks/ads/status ───────────────────────────
+router.get("/ads/status", requireSession, async (req, res) => {
+  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
+  const userId = sessionReq.sessionUserId;
+  if (!userId) {
+    res.status(401).json({ error: "Session required" });
+    return;
+  }
+
+  const [user] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.id, userId))
+    .limit(1);
+
+  if (!user) {
+    res.status(404).json({ error: "User not found" });
+    return;
+  }
+
+  // Get config
+  let dailyLimit = 10;
+  const [limitSetting] = await db.select().from(botSettingsTable).where(eq(botSettingsTable.key, "ads_daily_limit")).limit(1);
+  if (limitSetting && !isNaN(parseInt(limitSetting.value))) {
+    dailyLimit = parseInt(limitSetting.value);
+  }
+
+  let rewardAmount = 0.5;
+  const [rewardSetting] = await db.select().from(botSettingsTable).where(eq(botSettingsTable.key, "ads_reward_amount")).limit(1);
+  if (rewardSetting && !isNaN(parseFloat(rewardSetting.value))) {
+    rewardAmount = parseFloat(rewardSetting.value);
+  }
+
+  const now = new Date();
+  let currentWatched = user.dailyAdsWatched || 0;
+  if (user.lastAdWatchedAt) {
+    const lastWatchedDate = new Date(user.lastAdWatchedAt);
+    if (
+      lastWatchedDate.getUTCFullYear() !== now.getUTCFullYear() ||
+      lastWatchedDate.getUTCMonth() !== now.getUTCMonth() ||
+      lastWatchedDate.getUTCDate() !== now.getUTCDate()
+    ) {
+      currentWatched = 0; // reset for a new day
+    }
+  }
+
+  res.json({
+    watchedToday: currentWatched,
+    dailyLimit,
+    rewardAmount,
+  });
+});
+
+// ── POST /api/tasks/ads/watch ───────────────────────────
+router.post("/ads/watch", requireSession, verifyAccessMiddleware, async (req, res) => {
+  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
+  const userId = sessionReq.sessionUserId;
+  if (!userId) {
+    res.status(401).json({ error: "Session required" });
+    return;
+  }
+
+  try {
+    const result = await db.transaction(async (tx) => {
+      const [user] = await tx
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
+
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      // Get config
+      let dailyLimit = 10;
+      const [limitSetting] = await tx.select().from(botSettingsTable).where(eq(botSettingsTable.key, "ads_daily_limit")).limit(1);
+      if (limitSetting && !isNaN(parseInt(limitSetting.value))) {
+        dailyLimit = parseInt(limitSetting.value);
+      }
+
+      let rewardAmount = 0.5;
+      const [rewardSetting] = await tx.select().from(botSettingsTable).where(eq(botSettingsTable.key, "ads_reward_amount")).limit(1);
+      if (rewardSetting && !isNaN(parseFloat(rewardSetting.value))) {
+        rewardAmount = parseFloat(rewardSetting.value);
+      }
+
+      const now = new Date();
+      let currentWatched = user.dailyAdsWatched || 0;
+
+      if (user.lastAdWatchedAt) {
+        const lastWatchedDate = new Date(user.lastAdWatchedAt);
+        if (
+          lastWatchedDate.getUTCFullYear() !== now.getUTCFullYear() ||
+          lastWatchedDate.getUTCMonth() !== now.getUTCMonth() ||
+          lastWatchedDate.getUTCDate() !== now.getUTCDate()
+        ) {
+          currentWatched = 0; // reset for a new day
+        }
+      }
+
+      if (currentWatched >= dailyLimit) {
+        throw new Error("Daily ad limit reached");
+      }
+
+      const newWatched = currentWatched + 1;
+
+      // Update user
+      await tx
+        .update(usersTable)
+        .set({
+          dailyAdsWatched: newWatched,
+          lastAdWatchedAt: now,
+        })
+        .where(eq(usersTable.id, userId));
+
+      // Grant GO reward using atomic claim helper
+      await addGoBalanceAndClaim(tx, userId, rewardAmount);
+
+      return { success: true, watchedToday: newWatched, dailyLimit, rewardAmount };
+    });
+
+    res.json(result);
+  } catch (err: any) {
+    res.status(400).json({ error: err.message || "Failed to process ad completion" });
+  }
+});
+
 router.post("/promo/redeem", requireSession, verifyAccessMiddleware, async (req, res) => {
   const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
   const userId = sessionReq.sessionUserId;
