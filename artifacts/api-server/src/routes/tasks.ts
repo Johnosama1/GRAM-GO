@@ -210,10 +210,14 @@ router.get("/ads/status", requireSession, async (req, res) => {
     }
   }
 
+  const nextReset = new Date();
+  nextReset.setUTCHours(24, 0, 0, 0); // Next UTC midnight
+
   res.json({
     watchedToday: currentWatched,
     dailyLimit,
     rewardAmount,
+    nextResetTime: nextReset.toISOString(),
   });
 });
 
@@ -283,7 +287,9 @@ router.post("/ads/watch", requireSession, verifyAccessMiddleware, async (req, re
       // Grant GO reward using atomic claim helper
       await addGoBalanceAndClaim(tx, userId, rewardAmount);
 
-      return { success: true, watchedToday: newWatched, dailyLimit, rewardAmount };
+      const nextReset = new Date();
+      nextReset.setUTCHours(24, 0, 0, 0); // Next UTC midnight
+      return { success: true, watchedToday: newWatched, dailyLimit, rewardAmount, nextResetTime: nextReset.toISOString() };
     });
 
     res.json(result);

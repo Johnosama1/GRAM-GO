@@ -316,8 +316,8 @@ export const api = {
     apiCall<{ success: boolean }>("/admin/ads-settings", { method: "PUT", body: JSON.stringify(data) }),
 
   // User Ads Tasks
-  getAdsStatus: () => apiCall<{ watchedToday: number; dailyLimit: number; rewardAmount: number }>("/tasks/ads/status"),
-  watchAd: () => apiCall<{ success: boolean; watchedToday: number; dailyLimit: number; rewardAmount: number }>("/tasks/ads/watch", { method: "POST" }),
+  getAdsStatus: () => apiCall<{ watchedToday: number; dailyLimit: number; rewardAmount: number; nextResetTime?: string }>("/tasks/ads/status"),
+  watchAd: () => apiCall<{ success: boolean; watchedToday: number; dailyLimit: number; rewardAmount: number; nextResetTime?: string }>("/tasks/ads/watch", { method: "POST" }),
   adminUpdateWalletKeys: (data: { mnemonic?: string; apiKey?: string; endpoint?: string }) =>
     apiCall<{ ok: boolean; message: string }>("/admin/wallet-keys", { method: "PUT", body: JSON.stringify(data) }),
 

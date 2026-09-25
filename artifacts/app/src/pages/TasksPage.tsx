@@ -37,7 +37,35 @@ export default function TasksPage() {
     watchedToday: number;
     dailyLimit: number;
     rewardAmount: number;
+    nextResetTime?: string;
   } | null>(null);
+  const [adsTimeLeft, setAdsTimeLeft] = useState<{ h: number; m: number; s: number } | null>(null);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (adsStatus?.nextResetTime) {
+      const updateTimer = () => {
+        const now = new Date();
+        const resetTime = new Date(adsStatus.nextResetTime!);
+        const diff = resetTime.getTime() - now.getTime();
+
+        if (diff <= 0) {
+          setAdsTimeLeft(null);
+          // Automatically reset ads counter for the frontend
+          setAdsStatus((prev) => prev ? { ...prev, watchedToday: 0 } : null);
+        } else {
+          const h = Math.floor(diff / (1000 * 60 * 60));
+          const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          const s = Math.floor((diff % (1000 * 60)) / 1000);
+          setAdsTimeLeft({ h, m, s });
+        }
+      };
+
+      updateTimer();
+      timer = setInterval(updateTimer, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [adsStatus?.nextResetTime]);
   const [watchingAd, setWatchingAd] = useState(false);
 
   useEffect(() => {
@@ -126,6 +154,7 @@ export default function TasksPage() {
             watchedToday: res.watchedToday,
             dailyLimit: res.dailyLimit,
             rewardAmount: res.rewardAmount,
+            nextResetTime: res.nextResetTime,
           });
           setMessage({
             taskId: "ad",
@@ -517,61 +546,84 @@ export default function TasksPage() {
               boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
               marginBottom: 12,
               display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
+              flexDirection: "column",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 14,
+                    background: "linear-gradient(135deg, rgba(139,92,246,0.2), rgba(56,189,248,0.2))",
+                    border: "1px solid rgba(139,92,246,0.3)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 24,
+                  }}
+                >
+                  📺
+                </div>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>
+                    Watch Advertisement
+                  </span>
+                  <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>
+                    Reward: +{adsStatus.rewardAmount} GO
+                  </span>
+                  <span style={{ color: "#a855f7", fontSize: 11, fontWeight: 700, marginTop: 2 }}>
+                    Progress: {adsStatus.watchedToday === adsStatus.dailyLimit
+                      ? `All ${adsStatus.dailyLimit} ads completed today`
+                      : `${adsStatus.dailyLimit - adsStatus.watchedToday} ad${(adsStatus.dailyLimit - adsStatus.watchedToday) === 1 ? '' : 's'} remaining`}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={handleWatchAd}
+                disabled={watchingAd || adsStatus.watchedToday >= adsStatus.dailyLimit}
                 style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 14,
-                  background: "linear-gradient(135deg, rgba(139,92,246,0.2), rgba(56,189,248,0.2))",
-                  border: "1px solid rgba(139,92,246,0.3)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 24,
+                  padding: "8px 16px",
+                  borderRadius: 12,
+                  fontWeight: 800,
+                  fontSize: 12,
+                  border: "none",
+                  cursor: watchingAd || adsStatus.watchedToday >= adsStatus.dailyLimit ? "not-allowed" : "pointer",
+                  background: adsStatus.watchedToday >= adsStatus.dailyLimit
+                    ? "rgba(255,255,255,0.1)"
+                    : "linear-gradient(135deg, #a855f7, #7e22ce)",
+                  color: adsStatus.watchedToday >= adsStatus.dailyLimit ? "rgba(255,255,255,0.4)" : "#fff",
+                  opacity: watchingAd ? 0.6 : 1,
                 }}
               >
-                📺
-              </div>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>
-                  Watch Advertisement
-                </span>
-                <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>
-                  Reward: +{adsStatus.rewardAmount} GO
-                </span>
-                <span style={{ color: "#a855f7", fontSize: 11, fontWeight: 700, marginTop: 2 }}>
-                  Progress: {adsStatus.watchedToday}/{adsStatus.dailyLimit} today
-                </span>
-              </div>
+                {watchingAd
+                  ? "..."
+                  : adsStatus.watchedToday >= adsStatus.dailyLimit
+                    ? "Done"
+                    : "Watch Ad"}
+              </button>
             </div>
-            <button
-              onClick={handleWatchAd}
-              disabled={watchingAd || adsStatus.watchedToday >= adsStatus.dailyLimit}
-              style={{
-                padding: "8px 16px",
-                borderRadius: 12,
-                fontWeight: 800,
-                fontSize: 12,
-                border: "none",
-                cursor: watchingAd || adsStatus.watchedToday >= adsStatus.dailyLimit ? "not-allowed" : "pointer",
-                background: adsStatus.watchedToday >= adsStatus.dailyLimit
-                  ? "rgba(255,255,255,0.1)"
-                  : "linear-gradient(135deg, #a855f7, #7e22ce)",
-                color: adsStatus.watchedToday >= adsStatus.dailyLimit ? "rgba(255,255,255,0.4)" : "#fff",
-                opacity: watchingAd ? 0.6 : 1,
-              }}
-            >
-              {watchingAd
-                ? "..."
-                : adsStatus.watchedToday >= adsStatus.dailyLimit
-                  ? "Done"
-                  : "Watch Ad"}
-            </button>
+
+            {adsStatus.watchedToday >= adsStatus.dailyLimit && adsTimeLeft && (
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <span style={{ fontSize: 16 }}>✅</span>
+                  <span style={{ color: "#22c55e", fontSize: 13, fontWeight: 600 }}>
+                    You have watched all {adsStatus.dailyLimit} ads for today.
+                  </span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>⏳</span>
+                  <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 13, fontWeight: 500 }}>
+                    Next {adsStatus.dailyLimit} ads available in:
+                    <strong style={{ color: "#fff", marginLeft: 4 }}>
+                      {adsTimeLeft.h}h {adsTimeLeft.m}m
+                    </strong>
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
