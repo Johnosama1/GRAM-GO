@@ -2236,7 +2236,7 @@ export default function ProfilePage() {
             }}
           >
             <button
-              onClick={() => setCurrentView("settings")}
+              onClick={() => setCurrentView("menu")}
               style={{
                 width: 38,
                 height: 38,
