@@ -272,80 +272,6 @@ export default function TasksPage() {
         ))}
       </div>
 
-      {/* Promo Code Box */}
-      {(selectedCategory === "ads" || selectedCategory === "all") && (
-        <div style={{ padding: "0 16px 12px 16px", flexShrink: 0 }}>
-          <div
-            style={{
-              background: "rgba(168, 85, 247, 0.1)",
-              border: "1px solid rgba(168, 85, 247, 0.3)",
-              borderRadius: 16,
-              padding: "16px",
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 18 }}>🎁</span>
-              <span style={{ color: "#e9d5ff", fontWeight: 700, fontSize: 15 }}>
-                Redeem Promo Code
-              </span>
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input
-                type="text"
-                placeholder="Enter Code"
-                value={promoCode}
-                onChange={(e) => setPromoCode(e.target.value)}
-                style={{
-                  flex: 1,
-                  background: "rgba(0,0,0,0.5)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: 12,
-                  padding: "10px 14px",
-                  color: "#fff",
-                  outline: "none",
-                  fontSize: 14,
-                }}
-              />
-              <button
-                onClick={handleRedeemPromo}
-                disabled={redeemingPromo || !promoCode.trim()}
-                style={{
-                  background:
-                    "linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)",
-                  border: "none",
-                  borderRadius: 12,
-                  padding: "0 16px",
-                  color: "#fff",
-                  fontWeight: 700,
-                  cursor:
-                    redeemingPromo || !promoCode.trim()
-                      ? "not-allowed"
-                      : "pointer",
-                  opacity: redeemingPromo || !promoCode.trim() ? 0.6 : 1,
-                }}
-              >
-                {redeemingPromo ? "⏳" : "Redeem"}
-              </button>
-            </div>
-            {message && message.taskId === "promo" && (
-              <div
-                style={{
-                  color: message.type === "success" ? "#34d399" : "#ef4444",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  marginTop: 4,
-                }}
-              >
-                {message.type === "success" ? "✅" : "❌"} {message.text}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* ── Scrollable tasks content ── */}
       <div
         style={{
@@ -382,80 +308,9 @@ export default function TasksPage() {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════
-          1. ADS TASK CARD (Watch Advertisement)
-      ══════════════════════════════════════════════════════════════════ */}
-        {adsStatus && (selectedCategory === "ads" || selectedCategory === "all") && (
-          <div
-            style={{
-              background:
-                "linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%)",
-              border: "1px solid rgba(139, 92, 246, 0.25)",
-              borderRadius: 22,
-              padding: "16px 14px",
-              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
-              marginBottom: 12,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 14,
-                  background: "linear-gradient(135deg, rgba(139,92,246,0.2), rgba(56,189,248,0.2))",
-                  border: "1px solid rgba(139,92,246,0.3)",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 24,
-                }}
-              >
-                📺
-              </div>
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>
-                  Watch Advertisement
-                </span>
-                <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>
-                  Reward: +{adsStatus.rewardAmount} GO
-                </span>
-                <span style={{ color: "#a855f7", fontSize: 11, fontWeight: 700, marginTop: 2 }}>
-                  Progress: {adsStatus.watchedToday}/{adsStatus.dailyLimit} today
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={handleWatchAd}
-              disabled={watchingAd || adsStatus.watchedToday >= adsStatus.dailyLimit}
-              style={{
-                padding: "8px 16px",
-                borderRadius: 12,
-                fontWeight: 800,
-                fontSize: 12,
-                border: "none",
-                cursor: watchingAd || adsStatus.watchedToday >= adsStatus.dailyLimit ? "not-allowed" : "pointer",
-                background: adsStatus.watchedToday >= adsStatus.dailyLimit
-                  ? "rgba(255,255,255,0.1)"
-                  : "linear-gradient(135deg, #a855f7, #7e22ce)",
-                color: adsStatus.watchedToday >= adsStatus.dailyLimit ? "rgba(255,255,255,0.4)" : "#fff",
-                opacity: watchingAd ? 0.6 : 1,
-              }}
-            >
-              {watchingAd
-                ? "..."
-                : adsStatus.watchedToday >= adsStatus.dailyLimit
-                  ? "Done"
-                  : "Watch Ad"}
-            </button>
-          </div>
-        )}
 
-        {/* ══════════════════════════════════════════════════════════════════
-          2. DAILY CHECK-IN CARD (التسجيل اليومي)
+{/* ══════════════════════════════════════════════════════════════════
+          1. DAILY CHECK-IN CARD (التسجيل اليومي)
       ══════════════════════════════════════════════════════════════════ */}
         {checkin && (selectedCategory === "daily" || selectedCategory === "all") && (
           <div
@@ -466,6 +321,7 @@ export default function TasksPage() {
               borderRadius: 22,
               padding: "16px 14px",
               boxShadow: "0 8px 28px rgba(0, 0, 0, 0.4)",
+              marginBottom: 12,
             }}
           >
             {/* Header */}
@@ -646,6 +502,151 @@ export default function TasksPage() {
             </div>
           </div>
         )}
+
+{/* ══════════════════════════════════════════════════════════════════
+          2. ADS TASK CARD (Watch Advertisement)
+      ══════════════════════════════════════════════════════════════════ */}
+        {adsStatus && (selectedCategory === "ads" || selectedCategory === "all") && (
+          <div
+            style={{
+              background:
+                "linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.85) 100%)",
+              border: "1px solid rgba(139, 92, 246, 0.25)",
+              borderRadius: 22,
+              padding: "16px 14px",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)",
+              marginBottom: 12,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 14,
+                  background: "linear-gradient(135deg, rgba(139,92,246,0.2), rgba(56,189,248,0.2))",
+                  border: "1px solid rgba(139,92,246,0.3)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 24,
+                }}
+              >
+                📺
+              </div>
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>
+                  Watch Advertisement
+                </span>
+                <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 500 }}>
+                  Reward: +{adsStatus.rewardAmount} GO
+                </span>
+                <span style={{ color: "#a855f7", fontSize: 11, fontWeight: 700, marginTop: 2 }}>
+                  Progress: {adsStatus.watchedToday}/{adsStatus.dailyLimit} today
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={handleWatchAd}
+              disabled={watchingAd || adsStatus.watchedToday >= adsStatus.dailyLimit}
+              style={{
+                padding: "8px 16px",
+                borderRadius: 12,
+                fontWeight: 800,
+                fontSize: 12,
+                border: "none",
+                cursor: watchingAd || adsStatus.watchedToday >= adsStatus.dailyLimit ? "not-allowed" : "pointer",
+                background: adsStatus.watchedToday >= adsStatus.dailyLimit
+                  ? "rgba(255,255,255,0.1)"
+                  : "linear-gradient(135deg, #a855f7, #7e22ce)",
+                color: adsStatus.watchedToday >= adsStatus.dailyLimit ? "rgba(255,255,255,0.4)" : "#fff",
+                opacity: watchingAd ? 0.6 : 1,
+              }}
+            >
+              {watchingAd
+                ? "..."
+                : adsStatus.watchedToday >= adsStatus.dailyLimit
+                  ? "Done"
+                  : "Watch Ad"}
+            </button>
+          </div>
+        )}
+
+{/* Promo Code Box */}
+      {(selectedCategory === "ads" || selectedCategory === "all") && (
+          <div
+            style={{
+              background: "rgba(168, 85, 247, 0.1)",
+              border: "1px solid rgba(168, 85, 247, 0.3)",
+              borderRadius: 16,
+              padding: "16px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              marginBottom: 12,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: 18 }}>🎁</span>
+              <span style={{ color: "#e9d5ff", fontWeight: 700, fontSize: 15 }}>
+                Redeem Promo Code
+              </span>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="text"
+                placeholder="Enter Code"
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+                style={{
+                  flex: 1,
+                  background: "rgba(0,0,0,0.5)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: 12,
+                  padding: "10px 14px",
+                  color: "#fff",
+                  outline: "none",
+                  fontSize: 14,
+                }}
+              />
+              <button
+                onClick={handleRedeemPromo}
+                disabled={redeemingPromo || !promoCode.trim()}
+                style={{
+                  background:
+                    "linear-gradient(135deg, #a855f7 0%, #7e22ce 100%)",
+                  border: "none",
+                  borderRadius: 12,
+                  padding: "0 16px",
+                  color: "#fff",
+                  fontWeight: 700,
+                  cursor:
+                    redeemingPromo || !promoCode.trim()
+                      ? "not-allowed"
+                      : "pointer",
+                  opacity: redeemingPromo || !promoCode.trim() ? 0.6 : 1,
+                }}
+              >
+                {redeemingPromo ? "⏳" : "Redeem"}
+              </button>
+            </div>
+            {message && message.taskId === "promo" && (
+              <div
+                style={{
+                  color: message.type === "success" ? "#34d399" : "#ef4444",
+                  fontSize: 13,
+                  fontWeight: 600,
+                  marginTop: 4,
+                }}
+              >
+                {message.type === "success" ? "✅" : "❌"} {message.text}
+              </div>
+            )}
+          </div>
+      )}
 
         {/* ── Section title ── */}
         {!loading && displayTasks.length > 0 && (
