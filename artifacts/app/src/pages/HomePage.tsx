@@ -1042,10 +1042,7 @@ export default function HomePage() {
                 Mining Rate
               </span>
               <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>
-                {(parseFloat(String(user?.miningRate || "0.03")) * 100).toFixed(
-                  2,
-                )}
-                % / 24H
+                24H
               </span>
             </div>
             <div
