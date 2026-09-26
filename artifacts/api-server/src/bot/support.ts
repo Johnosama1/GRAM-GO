@@ -1,6 +1,6 @@
 import TelegramBot from "node-telegram-bot-api";
 import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db/schema";
+import { usersTable, complaintsTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { getAuthorizedAdmins, logAdminAudit } from "../lib/adminSecurity";
 import { setAdminState, clearAdminState } from "./fsm";
@@ -16,6 +16,82 @@ function esc(s: string | null | undefined): string {
 /**
  * Handle incoming feedback/support message from a regular user
  */
+export async function handleComplaintSubmission(
+  bot: TelegramBot,
+  msg: TelegramBot.Message
+): Promise<void> {
+  const userId = msg.from!.id;
+  const username = msg.from?.username ? `@${msg.from.username}` : "بدون يوزر";
+  const firstName = msg.from?.first_name || "";
+  const lastName = msg.from?.last_name || "";
+  const fullName = `${firstName} ${lastName}`.trim() || "مستخدم";
+  const text = msg.text || "(ملف / وسائط)";
+
+  // Save to DB
+  let complaintId = 0;
+  try {
+    const [inserted] = await db
+      .insert(complaintsTable)
+      .values({
+        userId,
+        username: msg.from?.username || null,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        text,
+        status: "pending",
+      })
+      .returning({ id: complaintsTable.id });
+    if (inserted) {
+      complaintId = inserted.id;
+    }
+  } catch (err) {
+    logger.error({ err, userId }, "Failed to save complaint to DB");
+    // Fallback if db insert fails but we still want to forward
+    complaintId = Math.floor(Math.random() * 1000000);
+  }
+
+  // Forward to all authorized admins
+  const { allAdminIds } = await getAuthorizedAdmins();
+
+  const adminNotice =
+    `🚨 <b>شكوى جديدة</b>\n\n` +
+    `👤 المستخدم:\n<b>${esc(fullName)}</b>\n\n` +
+    `🔹 Username:\n${esc(username)}\n\n` +
+    `🆔 User ID:\n<code>${userId}</code>\n\n` +
+    `🎫 Complaint ID:\n#${complaintId}\n\n` +
+    `🕐 الوقت:\n${new Date().toLocaleString('en-GB', { timeZone: 'UTC' })} UTC\n\n` +
+    `━━━━━━━━━━━━━━\n\n` +
+    `💬 رسالة المستخدم:\n\n<i>${esc(text)}</i>\n\n` +
+    `━━━━━━━━━━━━━━\n\n` +
+    `📌 الحالة:\n🟡 قيد المراجعة`;
+
+  for (const adminId of allAdminIds) {
+    try {
+      await bot.sendMessage(adminId, adminNotice, {
+        parse_mode: "HTML",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "↩️ الرد على المستخدم",
+                callback_data: `admin_reply_complaint_${complaintId}`,
+              },
+            ],
+          ],
+        },
+      });
+    } catch (err) {
+      // Admin might have blocked bot or not started it yet
+    }
+  }
+
+  await clearAdminState(userId);
+  await bot.sendMessage(
+    msg.chat.id,
+    "👀 تم استلام شكواك وإرسالها إلى فريق الدعم.\n\nسيتم مراجعة رسالتك والرد عليك في أقرب وقت ممكن.\n\nشكرًا لتواصلك مع فريق GRAM GO 💙"
+  );
+}
+
 export async function handleUserSupportMessage(
   bot: TelegramBot,
   msg: TelegramBot.Message
@@ -64,6 +140,113 @@ export async function handleUserSupportMessage(
 /**
  * Handle Admin clicking "Reply" on a user message
  */
+/**
+ * Handle Admin clicking "Reply" on a complaint
+ */
+export async function handleAdminReplyComplaintClick(
+  bot: TelegramBot,
+  query: TelegramBot.CallbackQuery
+): Promise<void> {
+  const adminId = query.from.id;
+  const data = query.data || "";
+  // format: admin_reply_complaint_<complaintId>
+  const parts = data.split("_");
+  const complaintId = parseInt(parts[3] || "0");
+
+  if (isNaN(complaintId) || complaintId <= 0) {
+    await bot.answerCallbackQuery(query.id, { text: "معرّف الشكوى غير صالح", show_alert: true });
+    return;
+  }
+
+  // Fetch the target user ID from DB
+  let targetUserId = 0;
+  try {
+    const [complaint] = await db
+      .select({ userId: complaintsTable.userId })
+      .from(complaintsTable)
+      .where(eq(complaintsTable.id, complaintId))
+      .limit(1);
+
+    if (complaint) {
+      targetUserId = complaint.userId;
+    }
+  } catch (err) {
+    logger.error({ err, complaintId }, "Failed to fetch complaint from DB");
+  }
+
+  if (!targetUserId) {
+    await bot.answerCallbackQuery(query.id, { text: "تعذر العثور على صاحب الشكوى", show_alert: true });
+    return;
+  }
+
+  // 1. Set admin FSM state
+  await setAdminState(adminId, "admin_reply_complaint", {
+    targetUserId,
+    complaintId,
+  });
+
+  await bot.answerCallbackQuery(query.id, { text: "اكتب رسالتك الآن..." });
+
+  await bot.sendMessage(
+    adminId,
+    `💬 <b>اكتب الآن ردك على المستخدم.</b>\n\n` +
+      `سيتم إرسال الرسالة التي تكتبها مباشرة إلى المستخدم.\n\n` +
+      `🎫 Complaint ID: #${complaintId}\n\n` +
+      `<i>(للإلغاء أرسل /cancel)</i>`,
+    { parse_mode: "HTML" }
+  );
+}
+
+/**
+ * Send admin reply to a specific complaint
+ */
+export async function deliverAdminReplyToComplaint(
+  bot: TelegramBot,
+  adminId: number,
+  targetUserId: number,
+  complaintId: number,
+  replyText: string
+): Promise<boolean> {
+  try {
+    const userMsg =
+      `💬 <b>رد فريق الدعم:</b>\n\n` +
+      `${esc(replyText)}\n\n` +
+      `🎫 رقم الشكوى: #${complaintId}`;
+
+    await bot.sendMessage(targetUserId, userMsg, {
+      parse_mode: "HTML",
+    });
+
+    // Update DB
+    try {
+      await db
+        .update(complaintsTable)
+        .set({
+          status: "replied",
+          adminReply: replyText,
+          repliedAt: new Date(),
+        })
+        .where(eq(complaintsTable.id, complaintId));
+    } catch (err) {
+      logger.error({ err, complaintId }, "Failed to update complaint status in DB");
+    }
+
+    await clearAdminState(adminId);
+    await logAdminAudit(adminId, "reply_to_complaint", { replyPreview: replyText.slice(0, 100), complaintId }, targetUserId);
+
+    await bot.sendMessage(adminId, `✅ تم إرسال الرد إلى المستخدم بنجاح.\n\n🎫 Complaint ID: #${complaintId}`, {
+      parse_mode: "HTML",
+    });
+
+    return true;
+  } catch (err) {
+    logger.error({ err, targetUserId, complaintId }, "Error delivering admin reply to complaint");
+    await bot.sendMessage(adminId, `❌ تعذر إرسال الرسالة إلى المستخدم (قد يكون حظر البوت).`);
+    await clearAdminState(adminId);
+    return false;
+  }
+}
+
 export async function handleAdminReplyClick(
   bot: TelegramBot,
   query: TelegramBot.CallbackQuery

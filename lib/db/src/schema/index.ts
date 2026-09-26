@@ -8,3 +8,4 @@ export * from "./transactions";
 export * from "./security";
 export * from "./combo";
 export * from "./ads";
+export * from "./complaints";
