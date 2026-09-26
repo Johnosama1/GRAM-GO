@@ -1,32 +1,29 @@
-# Plan for Task Image Upload and Admin UI Redesign (Vercel Blob Integration)
+1. **Player Start and Movement:**
+   - Modify `SwordAdventureGame.tsx` to stop automatic scrolling/running by default.
+   - Add a virtual joystick component (left side) for mobile movement (`nipplejs` or a simple custom implementation).
+   - Update `stateRef.current.hero` with `vx` for horizontal movement.
+   - Update game loop so background and enemies only scroll when player moves.
+   - Player controls character manually (walking/idle). Wait, the prompt says "Player must NOT move automatically" and "Player controls the character manually". Currently, the game uses a global scroll speed (`s.gameSpeed`). I will need to stop this global scroll and instead move the character based on joystick input, or scroll the background based on player's intended movement. To keep it simple, I can make the game fixed-screen or let the hero move horizontally. The prompt says "Add proper mobile movement controls similar in concept to PUBG Mobile. Use a virtual joystick on the left side for movement."
 
-1. **Vercel Blob Setup & Backend Integration (`artifacts/api-server/src/routes/admin.ts`)**:
-   - Create an upload endpoint `POST /upload-image` in `artifacts/api-server/src/routes/admin.ts`.
-   - The endpoint must use `put` from `@vercel/blob` to handle image upload, requiring the `BLOB_READ_WRITE_TOKEN` environment variable.
-   - Restrict allowed content types (`image/png`, `image/jpeg`, `image/webp`).
-   - Validate size. Since Express default body limit is `16kb`, we'll need to increase it for this specific endpoint or parse it via multer/busboy. Or wait, Vercel Blob works great with client-side upload or sending base64 to the backend, OR we can accept raw buffer/base64 in the backend.
-   - I'll increase the limit for `/upload-image` specifically, and accept `application/json` with a base64 string, so Vercel Blob backend can upload it directly, returning the `blob.url`.
+2. **Weapon held in the hand:**
+   - Draw the equipped weapon image on the player's hand. Wait, it's currently drawn at `hx + 10, hy + 15` but static. The prompt says "The weapon must follow the character's hand/body position during idle, walking, running, attacking, jumping. Correct the weapon position, rotation, and scale so it looks naturally held."
+   - I'll need to define frame-specific offsets/rotations for the weapon based on the hero's current animation frame (run/attack/idle).
 
-2. **Frontend Admin UI (`artifacts/app/src/pages/AdminPage.tsx`)**:
-   - Update the Create Task form to include the `<input type="file" />`.
-   - When a file is selected:
-     - Client-side validation (max 2MB, png/jpg/webp).
-     - Resize client-side using `<canvas>` to max ~300x300 (since it displays at ~60px, 300px is crisp for Retina).
-     - Send the resized base64 string to `POST /admin/upload-image`.
-     - Update `taskForm.channelPhotoUrl` with the returned Vercel Blob URL.
-   - Refactor mobile UI layout: use stack (`flex-direction: column`) to avoid horizontal overflow.
+3. **Enemy Weapon Drop & 5-Second Pickup Timer:**
+   - When an enemy dies, it drops its weapon on the ground. This is mostly there, but we need to implement a 5-second timer.
+   - The dropped weapon currently has `w.timer = 300` (5 seconds at 60fps). We need to display the countdown: `5`, `4`, `3`, `2`, `1` clearly.
+   - The player currently auto-picks up weapons when running over them. Change this: player must tap the dropped weapon icon.
+   - If player is too far away, weapon is not collected.
+   - If 5 seconds expire, weapon disappears and turn/round ends (player loses).
 
-3. **Frontend API integration (`artifacts/app/src/lib/api.ts`)**:
-   - Add `adminUploadImage` API call.
+4. **Mobile UI - PUBG-style controls:**
+   - Left side: Large virtual joystick for movement.
+   - Right side: Large circular ATTACK button. (JUMP is already there, maybe adjust layout).
+   - Dropped weapon: A clear tappable weapon icon near the dropped weapon. Or just make the drawn weapon tappable? Wait, we can render a HTML button overlay for the dropped weapon, or track canvas clicks. Since canvas handles scaling, a canvas click or an overlay might work. An overlay positioned with `top/left` based on canvas projection is often easier to tap on mobile.
 
-4. **Task Display (`artifacts/app/src/pages/TasksPage.tsx`)**:
-   - Fix the React anti-pattern! Use state or purely CSS-based fallback logic (e.g. `onError` setting `display: none` on the `<img>` and `display: flex` on a sibling `<span className="fallback-icon">`).
-   - Ensure the image uses `object-fit: cover` and `border-radius: 50%`.
+5. **Timeout / Player Loses:**
+   - If weapon timer expires, game over ("Turn Ended", player loses).
 
-5. **Testing & Pre-commit**:
-   - Typecheck, build, and verify mobile Admin UI layout.
-   - Tell the user to set `BLOB_READ_WRITE_TOKEN`.
-   - Complete pre commit steps to ensure proper testing, verification, review, and reflection are done.
-
-6. **Submit**:
-   - Commit and push to GitHub repository.
+6. **Verification & Commit:**
+   - Typecheck, tests, build.
+   - Push to GitHub.

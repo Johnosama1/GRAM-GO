@@ -179,6 +179,9 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
   const [goEarned, setGoEarned] = useState(0);
     const [muted, setMuted] = useState(false);
   const [resultMessage, setResultMessage] = useState<string | null>(null);
+  const [joystickActive, setJoystickActive] = useState(false);
+  const [joystickPos, setJoystickPos] = useState({ x: 0, y: 0 });
+  const [joystickOrigin, setJoystickOrigin] = useState({ x: 0, y: 0 });
 
   // Game Engine State in Ref (for 60fps loop without React re-render overhead)
   const stateRef = useRef({
@@ -192,7 +195,9 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
       y: 400,
       width: 44,
       height: 54,
+      vx: 0,
       vy: 0,
+      facingRight: true,
       isGrounded: true,
       isJumping: false,
       invulnerableTimer: 0,
@@ -464,10 +469,28 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
       } else if (e.code === "KeyX" || e.code === "KeyJ" || e.code === "Enter" || e.code === "KeyF") {
         e.preventDefault();
         handleAttack();
+      } else if (e.code === "ArrowLeft" || e.key === "a" || e.key === "A") {
+        stateRef.current.hero.vx = -4;
+        stateRef.current.hero.facingRight = false;
+      } else if (e.code === "ArrowRight" || e.key === "d" || e.key === "D") {
+        stateRef.current.hero.vx = 4;
+        stateRef.current.hero.facingRight = true;
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (
+        e.code === "ArrowLeft" || e.key === "a" || e.key === "A" ||
+        e.code === "ArrowRight" || e.key === "d" || e.key === "D"
+      ) {
+        stateRef.current.hero.vx = 0;
       }
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
   }, [handleJump, handleAttack]);
 
   // Main Canvas & Game Loop
@@ -584,6 +607,8 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
 
       // ── 2. Scrolling Ground Platform ──────────────────────────────────
       if (s.gameState === "playing") {
+        // No automatic global scroll
+        s.gameSpeed = 0;
         s.bgOffset = (s.bgOffset + s.gameSpeed) % 40;
       }
 
@@ -621,6 +646,9 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
         const hero = s.hero;
 
         // Hero Physics & Gravity
+        hero.x += hero.vx;
+        if (hero.x < 0) hero.x = 0;
+        if (hero.x > width - hero.width) hero.x = width - hero.width;
         hero.y += hero.vy;
         if (!hero.isGrounded) {
           hero.vy += 0.72;
@@ -643,12 +671,16 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
 
         // Advance Sprite Animation Frame (Game Engine Controller)
         if (hero.isGrounded) {
-          hero.animTimer += 1;
-          // Running animation pace: smooth, energetic 10-12 fps (changes frame every 5-6 ticks at 60fps)
-          const ticksPerFrame = Math.max(4, Math.round(5.5 - (s.gameSpeed - 3.5) * 0.3));
-          if (hero.animTimer >= ticksPerFrame) {
+          if (hero.vx === 0) {
+            hero.frameIndex = 0; // Idle
             hero.animTimer = 0;
-            hero.frameIndex = (hero.frameIndex + 1) % 6;
+          } else {
+            hero.animTimer += 1;
+            const ticksPerFrame = 5;
+            if (hero.animTimer >= ticksPerFrame) {
+              hero.animTimer = 0;
+              hero.frameIndex = (hero.frameIndex + 1) % 6;
+            }
           }
         } else {
           // Dynamic jump frame in the air
@@ -714,14 +746,6 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
             w.vy = 0;
           } else {
             w.vy += 0.5;
-          }
-
-          // Player picks up weapon
-          if (hero.x < w.x + 32 && hero.x + hero.width > w.x && hero.y < w.y + 32 && hero.y + hero.height > w.y) {
-            hero.equippedWeaponId = w.weaponId;
-            playSound("coin");
-            s.droppedWeapons.splice(i, 1);
-            continue;
           }
 
           if (w.timer <= 0 || w.x < -60) {
@@ -929,7 +953,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
           }
         }
 
-        s.gameSpeed = Math.min(6.0, 3.5 + s.enemiesDefeated * 0.04);
+        // s.gameSpeed = Math.min(6.0, 3.5 + s.enemiesDefeated * 0.04);
       }
 
 
@@ -1004,6 +1028,14 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
       ctx.ellipse(hx + hero.width / 2, groundY - 2, 22, 6, 0, 0, Math.PI * 2);
       ctx.fill();
 
+      // Flip context if facing left
+      ctx.save();
+      if (!hero.facingRight) {
+        ctx.translate(hx + hero.width / 2, 0);
+        ctx.scale(-1, 1);
+        ctx.translate(-(hx + hero.width / 2), 0);
+      }
+
       let currentImg: HTMLImageElement | undefined;
       currentImg = heroRunImagesRef.current[hero.frameIndex];
 
@@ -1021,12 +1053,62 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
       // Draw Equipped Weapon
       const wImg = weaponImagesRef.current[hero.equippedWeaponId];
       if (wImg && wImg.complete && wImg.naturalWidth > 0) {
+          ctx.save();
+          // The hero origin for drawing is hx, hy. The hand position changes per frame.
+          // These offsets are approximate for the adventurer sprite's hand holding a weapon.
+          let handX = hx + 30;
+          let handY = hy + 25;
+          let rotation = 0;
+
+          if (hero.isGrounded) {
+             if (hero.vx === 0) {
+                // Idle
+                handX = hx + 32;
+                handY = hy + 28;
+                rotation = Math.PI / 8; // Slight angle
+             } else {
+                // Running (6 frames)
+                const runOffsets = [
+                   {x: 32, y: 28, r: 0.2},
+                   {x: 34, y: 26, r: 0.3},
+                   {x: 30, y: 24, r: 0.1},
+                   {x: 28, y: 26, r: 0.0},
+                   {x: 30, y: 28, r: 0.1},
+                   {x: 32, y: 30, r: 0.2},
+                ];
+                const o = runOffsets[hero.frameIndex % 6];
+                handX = hx + o.x;
+                handY = hy + o.y;
+                rotation = o.r;
+             }
+          } else {
+             // Jumping
+             if (hero.vy < 0) {
+                handX = hx + 30;
+                handY = hy + 15;
+                rotation = -Math.PI / 6;
+             } else {
+                handX = hx + 34;
+                handY = hy + 10;
+                rotation = -Math.PI / 4;
+             }
+          }
+
+          ctx.translate(handX, handY);
+          ctx.rotate(rotation);
+
           ctx.imageSmoothingEnabled = false;
-          ctx.drawImage(wImg, hx + 10, hy + 15, 32, 32);
+          // Draw the weapon centered at its handle (assuming handle is bottom-left or center-left)
+          // We draw the weapon offset so its handle is at 0,0
+          ctx.drawImage(wImg, -10, -20, 32, 32);
           ctx.imageSmoothingEnabled = true;
+
+          ctx.restore();
       }
 
-      ctx.restore();
+      ctx.restore(); // for facingRight flip
+
+      ctx.restore(); // for initial save
 
 
       // ── 7.5. Draw Projectiles & Dropped Weapons ─────────────────────────────
@@ -1052,9 +1134,9 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
 
         // Timer Text
         ctx.fillStyle = "#ef4444";
-        ctx.font = "bold 14px 'Cairo', sans-serif";
+        ctx.font = "bold 24px 'Arial', sans-serif";
         const seconds = Math.ceil(w.timer / 60);
-        ctx.fillText(seconds.toString(), w.x + 10, w.y - 10);
+        ctx.fillText(seconds.toString(), w.x + 10, w.y - 20);
       });
 
       // ── 7. Draw Particles ─────────────────────────────────────────────
@@ -1285,10 +1367,79 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            pointerEvents: "auto",
+            pointerEvents: "none",
           }}
         >
-          {/* JUMP Touch Button */}
+          {/* Virtual Joystick for Movement */}
+          <div
+            style={{
+              width: 120,
+              height: 120,
+              borderRadius: "50%",
+              background: "rgba(0, 242, 254, 0.15)",
+              border: "2px solid rgba(0, 242, 254, 0.3)",
+              position: "relative",
+              pointerEvents: "auto",
+              touchAction: "none",
+            }}
+            onTouchStart={(e) => {
+              const touch = e.touches[0];
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              const centerX = rect.left + rect.width / 2;
+              const centerY = rect.top + rect.height / 2;
+              setJoystickActive(true);
+              setJoystickOrigin({ x: centerX, y: centerY });
+
+              const dx = touch.clientX - centerX;
+              if (dx < -10) {
+                stateRef.current.hero.vx = -4;
+                stateRef.current.hero.facingRight = false;
+              } else if (dx > 10) {
+                stateRef.current.hero.vx = 4;
+                stateRef.current.hero.facingRight = true;
+              } else {
+                stateRef.current.hero.vx = 0;
+              }
+            }}
+            onTouchMove={(e) => {
+              if (!joystickActive) return;
+              const touch = e.touches[0];
+              const dx = touch.clientX - joystickOrigin.x;
+
+              if (dx < -10) {
+                stateRef.current.hero.vx = -4;
+                stateRef.current.hero.facingRight = false;
+              } else if (dx > 10) {
+                stateRef.current.hero.vx = 4;
+                stateRef.current.hero.facingRight = true;
+              } else {
+                stateRef.current.hero.vx = 0;
+              }
+            }}
+            onTouchEnd={() => {
+              setJoystickActive(false);
+              stateRef.current.hero.vx = 0;
+            }}
+          >
+            {/* Inner knob */}
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                background: "rgba(0, 242, 254, 0.8)",
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                boxShadow: "0 0 10px rgba(0, 242, 254, 0.5)",
+              }}
+            />
+          </div>
+
+          {/* Action Buttons Container */}
+          <div style={{ display: "flex", gap: 16, pointerEvents: "auto" }}>
+            {/* JUMP Touch Button */}
           <button
             onTouchStart={(e) => {
               e.preventDefault();
@@ -1353,6 +1504,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
               ATTACK
             </span>
           </button>
+          </div>
         </div>
       )}
 
