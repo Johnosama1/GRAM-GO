@@ -1,4 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
+import { put } from "@vercel/blob";
+import express from "express";
 import rateLimit from "express-rate-limit";
 import { db } from "@workspace/db";
 import {
@@ -398,8 +400,50 @@ router.get("/tasks", async (_req: AdminRequest, res: Response) => {
   res.json(tasks);
 });
 
+router.post("/upload-image", express.json({ limit: "5mb" }), requireAdminPerm("canManageTasks"), async (req: AdminRequest, res: Response) => {
+  try {
+    const { base64, filename } = req.body;
+    if (!base64 || !filename) {
+      res.status(400).json({ error: "Missing base64 data or filename" });
+      return;
+    }
+
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      res.status(500).json({ error: "BLOB_READ_WRITE_TOKEN is not configured" });
+      return;
+    }
+
+    // Validate mime type loosely from base64
+    if (!base64.startsWith("data:image/")) {
+      res.status(400).json({ error: "Invalid image format" });
+      return;
+    }
+
+    // Extract buffer from base64
+    const base64Data = base64.replace(/^data:image\/\w+;base64,/, "");
+    const buffer = Buffer.from(base64Data, "base64");
+
+    // Optional: Max 2MB buffer check
+    if (buffer.length > 2 * 1024 * 1024) {
+      res.status(400).json({ error: "Image too large (max 2MB)" });
+      return;
+    }
+
+    // Upload to Vercel Blob
+    const blob = await put(`tasks/${Date.now()}-${filename}`, buffer, {
+      access: "public",
+    });
+
+    await logAdminAudit(req.adminId!, "upload_task_image", { url: blob.url });
+    res.json({ url: blob.url });
+  } catch (error: any) {
+    console.error("[upload-image] Error:", error);
+    res.status(500).json({ error: "Failed to upload image" });
+  }
+});
+
 router.post("/tasks", requireAdminPerm("canManageTasks"), async (req: AdminRequest, res: Response) => {
-  const { category, title, description, url, icon, rewardAmount, rewardCurrency, maxClaims, isActive, channelUsername, botUsername, botLink, requiredReferrals, verificationType } = req.body;
+  const { category, title, description, url, icon, rewardAmount, rewardCurrency, maxClaims, isActive, channelPhotoUrl, channelUsername, botUsername, botLink, requiredReferrals, verificationType } = req.body;
   if (!title) {
     res.status(400).json({ error: "Title is required" });
     return;
@@ -433,6 +477,7 @@ router.post("/tasks", requireAdminPerm("canManageTasks"), async (req: AdminReque
       rewardAmount: String(rewardAmount || "5"),
       rewardCurrency: rewardCurrency || "GO",
       maxClaims: maxClaims ? parseInt(String(maxClaims)) : null,
+      channelPhotoUrl: channelPhotoUrl || null,
       channelUsername: channelUsername || null,
       botUsername: botUsername || null,
       botLink: botLink || null,
@@ -445,6 +490,43 @@ router.post("/tasks", requireAdminPerm("canManageTasks"), async (req: AdminReque
   invalidateTasksCache();
   await logAdminAudit(req.adminId!, "create_task", { taskId: newTask.id, title });
   res.json(newTask);
+});
+
+router.put("/tasks/:id", requireAdminPerm("canManageTasks"), async (req: AdminRequest, res: Response) => {
+  const taskId = parseInt(String(req.params.id));
+  const { category, title, description, url, icon, rewardAmount, rewardCurrency, maxClaims, isActive, channelPhotoUrl, channelUsername, botUsername, botLink, requiredReferrals, verificationType } = req.body;
+  if (!title) {
+    res.status(400).json({ error: "Title is required" });
+    return;
+  }
+
+  const parsedCategory = category || "normal";
+
+  const [updatedTask] = await db
+    .update(tasksTable)
+    .set({
+      category: parsedCategory,
+      title,
+      description,
+      url,
+      icon: icon || "⭐",
+      rewardAmount: String(rewardAmount || "5"),
+      rewardCurrency: rewardCurrency || "GO",
+      maxClaims: maxClaims ? parseInt(String(maxClaims)) : null,
+      channelPhotoUrl: channelPhotoUrl || null,
+      channelUsername: channelUsername || null,
+      botUsername: botUsername || null,
+      botLink: botLink || null,
+      requiredReferrals: requiredReferrals ? parseInt(String(requiredReferrals)) : null,
+      verificationType: verificationType || "manual",
+      isActive: isActive !== false,
+    })
+    .where(eq(tasksTable.id, taskId))
+    .returning();
+
+  invalidateTasksCache();
+  await logAdminAudit(req.adminId!, "update_task", { taskId, title });
+  res.json(updatedTask);
 });
 
 router.delete("/tasks/:id", requireAdminPerm("canManageTasks"), async (req: AdminRequest, res: Response) => {
