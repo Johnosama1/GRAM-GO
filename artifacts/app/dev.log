@@ -1,0 +1,9 @@
+
+> @workspace/app@0.0.0 dev
+> vite --config vite.config.ts --host 0.0.0.0
+
+
+  VITE v7.3.2  ready in 406 ms
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: http://192.168.0.2:3000/
