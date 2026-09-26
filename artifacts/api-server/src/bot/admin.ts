@@ -1,5 +1,6 @@
 import TelegramBot from "node-telegram-bot-api";
 import { db } from "@workspace/db";
+import { setAdminState } from "./fsm";
 import {
   usersTable,
   tasksTable,
@@ -899,8 +900,17 @@ export async function handleAdminCallback(
         await db.delete(tasksTable).where(eq(tasksTable.id, parseInt(p1)));
         await showTasksMenu(bot, chatId, msgId);
       } else if (act === "add") {
-        adminConvState.set(userId, { step: "task_title", data: { chatId, msgId } });
-        await bot.sendMessage(chatId, "📝 أدخل <b>عنوان المهمة</b>:", { parse_mode: "HTML" });
+        await setAdminState(userId, "admin_task_category", { chatId, messageId: msgId });
+        await bot.sendMessage(chatId, "📌 <b>اختر نوع المهمة:</b>", {
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: "🤖 مهمة بوت (Bot)", callback_data: "adm_task_cat:bot" }],
+              [{ text: "📢 مهمة قناة (Channel)", callback_data: "adm_task_cat:channel" }],
+              [{ text: "❌ إلغاء", callback_data: "adm:tasks" }]
+            ]
+          }
+        });
       } else if (act === "dur" && p1) {
         // Task duration selected — complete the task insertion
         const state = adminConvState.get(userId);
