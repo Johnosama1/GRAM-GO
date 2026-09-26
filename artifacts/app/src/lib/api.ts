@@ -273,6 +273,7 @@ export const api = {
   adminResetGoBalances: (confirm: string) => apiCall<{ ok: boolean; success: boolean; affectedUsers: number }>("/admin/reset-go-balances", { method: "POST", body: JSON.stringify({ confirm }) }),
   adminResetGramBalances: (confirm: string) => apiCall<{ ok: boolean; success: boolean; affectedUsers: number }>("/admin/reset-gram-balances", { method: "POST", body: JSON.stringify({ confirm }) }),
   adminGetTasks: () => apiCall<Task[]>("/admin/tasks"),
+  adminUploadImage: (base64: string, filename: string) => apiCall<{ url: string }>("/admin/upload-image", { method: "POST", body: JSON.stringify({ base64, filename }) }),
   adminCreateTask: (data: Partial<Task>) => apiCall<Task>("/admin/tasks", { method: "POST", body: JSON.stringify(data) }),
   adminUpdateTask: (id: number, data: Partial<Task>) => apiCall<Task>(`/admin/tasks/${id}`, { method: "PUT", body: JSON.stringify(data) }),
   adminDeleteTask: (id: number) => apiCall<{ ok: boolean; success: boolean }>(`/admin/tasks/${id}`, { method: "DELETE" }),

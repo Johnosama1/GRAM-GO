@@ -42,6 +42,7 @@
   },
   "homepage": "https://github.com/Johnosama1/GRAM-GO#readme",
   "dependencies": {
+    "@vercel/blob": "^2.8.0",
     "drizzle-zod": "^0.8.3"
   }
 }

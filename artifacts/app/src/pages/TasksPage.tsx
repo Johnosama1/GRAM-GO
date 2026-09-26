@@ -783,20 +783,25 @@ export default function TasksPage() {
                       }}
                     >
                       {task.channelPhotoUrl ? (
-                        <img
-                          src={task.channelPhotoUrl}
-                          alt={task.title}
-                          style={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
-                          onError={(e) => {
-                            (
-                              e.currentTarget as HTMLImageElement
-                            ).style.display = "none";
-                          }}
-                        />
+                        <>
+                          <img
+                            src={task.channelPhotoUrl}
+                            alt={task.title}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).style.display = "none";
+                              const fallback = (e.currentTarget as HTMLImageElement).nextElementSibling as HTMLElement;
+                              if (fallback) fallback.style.display = "flex";
+                            }}
+                          />
+                          <span className="fallback-icon" style={{ display: "none", alignItems: "center", justifyContent: "center", width: "100%", height: "100%" }}>
+                            {task.icon || "⭐"}
+                          </span>
+                        </>
                       ) : (
                         task.icon || "⭐"
                       )}

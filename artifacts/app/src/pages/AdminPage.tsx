@@ -386,7 +386,9 @@ export default function AdminPage() {
     icon: "",
     url: "",
     seatsLimit: "50",
+    channelPhotoUrl: "",
   });
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Channel Form
   const [newChannelUser, setNewChannelUser] = useState("");
@@ -753,6 +755,65 @@ export default function AdminPage() {
     }
   };
 
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      showToast("صيغة الصورة غير مدعومة (فقط PNG, JPG, WEBP)", "err");
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      showToast("حجم الصورة كبير جداً (الحد الأقصى 2MB)", "err");
+      return;
+    }
+
+    setIsUploadingImage(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = async () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 300;
+          const MAX_HEIGHT = 300;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          const dataUrl = canvas.toDataURL('image/webp', 0.9);
+          const res = await api.adminUploadImage(dataUrl, file.name);
+          setTaskForm({ ...taskForm, channelPhotoUrl: res.url });
+          showToast("تم رفع الصورة بنجاح");
+        } catch (error) {
+          showToast("فشل رفع الصورة", "err");
+        } finally {
+          setIsUploadingImage(false);
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleCreateTask = async () => {
     if (taskForm.category === "daily") {
       try {
@@ -776,6 +837,7 @@ export default function AdminPage() {
         rewardCurrency: taskForm.rewardCurrency,
         icon: taskForm.icon.trim() || undefined,
         url: taskForm.url.trim() || undefined,
+        channelPhotoUrl: taskForm.channelPhotoUrl.trim() || undefined,
         channelUsername: taskForm.channelUsername.trim() || undefined,
         botUsername: taskForm.botUsername.trim() || undefined,
         botLink: taskForm.botLink.trim() || undefined,
@@ -799,6 +861,7 @@ export default function AdminPage() {
         icon: "",
         url: "",
         seatsLimit: "50",
+        channelPhotoUrl: "",
       });
       loadAllData();
     } catch (err: unknown) {
@@ -3227,7 +3290,7 @@ export default function AdminPage() {
                   )}
 
                   {taskForm.category === "bot" && (
-                    <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
                       <input
                         type="text"
                         placeholder="يوزر البوت..."
@@ -3264,6 +3327,69 @@ export default function AdminPage() {
                       />
                     </div>
                   )}
+
+
+                  {/* Task Image Upload */}
+                  <div style={{ marginBottom: 12, display: "flex", flexDirection: "column", gap: 8, alignItems: "center", background: "rgba(255,255,255,0.02)", padding: 12, borderRadius: 12, border: "1px solid rgba(255,255,255,0.05)" }}>
+                    <div style={{ fontSize: 11, color: "#8A8F98", width: "100%", textAlign: "left" }}>صورة المهمة (اختياري)</div>
+
+                    {taskForm.channelPhotoUrl ? (
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                        <div style={{
+                          width: 64,
+                          height: 64,
+                          borderRadius: "50%",
+                          background: "#080b10",
+                          border: "1.5px solid #11ABEC",
+                          boxShadow: "0 0 12px rgba(17,171,236,0.3)",
+                          overflow: "hidden",
+                          position: "relative"
+                        }}>
+                          <img src={taskForm.channelPhotoUrl} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          {isUploadingImage && (
+                            <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <div style={{ width: 16, height: 16, border: "2px solid #11ABEC", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <label style={{ fontSize: 10, color: "#11ABEC", cursor: "pointer", background: "rgba(17,171,236,0.1)", padding: "4px 8px", borderRadius: 4, opacity: isUploadingImage ? 0.5 : 1, pointerEvents: isUploadingImage ? "none" : "auto" }}>
+                            {isUploadingImage ? "جاري الرفع..." : "تغيير الصورة"}
+                            <input type="file" accept="image/png, image/jpeg, image/webp" style={{ display: "none" }} onChange={handleImageUpload} disabled={isUploadingImage} />
+                          </label>
+                          <button onClick={() => setTaskForm({ ...taskForm, channelPhotoUrl: "" })} style={{ fontSize: 10, color: "#EF4444", background: "rgba(239,68,68,0.1)", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" }} disabled={isUploadingImage}>
+                            إزالة
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <label style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        width: 64,
+                        height: 64,
+                        borderRadius: "50%",
+                        background: "rgba(255,255,255,0.05)",
+                        border: "1px dashed rgba(255,255,255,0.2)",
+                        cursor: "pointer",
+                        color: "#8A8F98",
+                        fontSize: 10,
+                        opacity: isUploadingImage ? 0.5 : 1,
+                        pointerEvents: isUploadingImage ? "none" : "auto"
+                      }}>
+                        {isUploadingImage ? (
+                          <div style={{ width: 16, height: 16, border: "2px solid #8A8F98", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
+                        ) : (
+                          <>
+                            <span>+ صورة</span>
+                          </>
+                        )}
+                        <input type="file" accept="image/png, image/jpeg, image/webp" style={{ display: "none" }} onChange={handleImageUpload} disabled={isUploadingImage} />
+                      </label>
+                    )}
+                  </div>
 
                   <input
                     type="text"
@@ -3309,8 +3435,8 @@ export default function AdminPage() {
 
                   <div
                     style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
+                      display: "flex",
+                      flexDirection: "column",
                       gap: 8,
                       marginBottom: 8,
                     }}
