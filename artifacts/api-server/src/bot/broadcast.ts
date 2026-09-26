@@ -12,6 +12,8 @@ export interface BroadcastProgress {
   pin?: boolean;
   copyFromChatId?: number;
   copyFromMessageId?: number;
+  mediaType?: string;
+  fileId?: string;
   lastUserId: number;
   totalUsers: number;
   sentCount: number;
@@ -63,7 +65,9 @@ export async function startBroadcast(
   entities?: TelegramBot.MessageEntity[],
   pin = false,
   copyFromChatId?: number,
-  copyFromMessageId?: number
+  copyFromMessageId?: number,
+  mediaType?: string,
+  fileId?: string
 ): Promise<{ success: boolean; totalUsers: number; message: string }> {
   if (isBroadcasting) {
     return { success: false, totalUsers: 0, message: "يوجد بث جماعي قيد التشغيل بالفعل" };
@@ -87,6 +91,8 @@ export async function startBroadcast(
     pin,
     copyFromChatId,
     copyFromMessageId,
+    mediaType,
+    fileId,
     lastUserId: 0,
     totalUsers,
     sentCount: 0,
@@ -175,18 +181,40 @@ async function runBroadcastLoop(
           try {
             let sentMsgId: number | undefined;
 
-            if (progress.copyFromChatId && progress.copyFromMessageId) {
-              const res = await bot.copyMessage(uid, progress.copyFromChatId, progress.copyFromMessageId);
-              sentMsgId = res.message_id;
-            } else {
-              const sendOpts: TelegramBot.SendMessageOptions = { parse_mode: "HTML" };
-              if (progress.entities && progress.entities.length > 0) {
-                delete sendOpts.parse_mode;
+            // Reconstruction logic to preserve custom emojis
+            const sendOpts: any = {};
+            if (progress.entities && progress.entities.length > 0) {
+              if (progress.mediaType) {
+                sendOpts.caption_entities = progress.entities;
+              } else {
                 sendOpts.entities = progress.entities;
               }
-
-              const sentMsg = await bot.sendMessage(uid, progress.message, sendOpts);
+            }
+            if (progress.mediaType && progress.fileId) {
+              sendOpts.caption = progress.message;
+              let sentMsg;
+              if (progress.mediaType === "photo") {
+                sentMsg = await bot.sendPhoto(uid, progress.fileId, sendOpts);
+              } else if (progress.mediaType === "video") {
+                sentMsg = await bot.sendVideo(uid, progress.fileId, sendOpts);
+              } else if (progress.mediaType === "animation") {
+                sentMsg = await bot.sendAnimation(uid, progress.fileId, sendOpts);
+              } else if (progress.mediaType === "document") {
+                sentMsg = await bot.sendDocument(uid, progress.fileId, sendOpts);
+              } else if (progress.mediaType === "audio") {
+                sentMsg = await bot.sendAudio(uid, progress.fileId, sendOpts);
+              } else if (progress.mediaType === "voice") {
+                sentMsg = await bot.sendVoice(uid, progress.fileId, sendOpts);
+              } else if (progress.copyFromChatId && progress.copyFromMessageId) {
+                sentMsg = await bot.copyMessage(uid, progress.copyFromChatId, progress.copyFromMessageId);
+              }
               sentMsgId = sentMsg?.message_id;
+            } else if (progress.message || (progress.entities && progress.entities.length > 0)) {
+              const sentMsg = await bot.sendMessage(uid, progress.message || " ", sendOpts);
+              sentMsgId = sentMsg?.message_id;
+            } else if (progress.copyFromChatId && progress.copyFromMessageId) {
+              const res = await bot.copyMessage(uid, progress.copyFromChatId, progress.copyFromMessageId);
+              sentMsgId = res.message_id;
             }
 
             if (progress.pin && sentMsgId) {
