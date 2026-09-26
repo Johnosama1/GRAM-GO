@@ -35,13 +35,13 @@ export async function processWithdrawalVote(
     .limit(1);
 
   if (!withdrawal) {
-    return { status: "error", message: "طلب السحب غير موجود", currentApprovals: 0, requiredApprovals: 0 };
+    return { status: "error", message: "Withdrawal request not found", currentApprovals: 0, requiredApprovals: 0 };
   }
 
   if (withdrawal.status !== "pending") {
     return {
       status: "already_processed",
-      message: `طلب السحب تمت معالجته مسبقاً بحالة: ${withdrawal.status}`,
+      message: `The withdrawal request has already been processed with status: ${withdrawal.status}`,
       currentApprovals: withdrawal.approvals?.length || 0,
       requiredApprovals: withdrawal.requiredApprovals || 1,
     };
@@ -87,7 +87,7 @@ export async function processWithdrawalVote(
     if (!casResult) {
       return {
         status: "already_processed",
-        message: "تمت معالجة الطلب بالفعل بالتزامن من قبل مسؤول آخر",
+        message: "The request has already been processed concurrently by another administrator",
         currentApprovals: approvalsArray.length,
         requiredApprovals,
       };
@@ -118,9 +118,9 @@ export async function processWithdrawalVote(
         await bot
           .sendMessage(
             withdrawal.userId,
-            `❌ <b>تم رفض طلب السحب الخاص بك #${withdrawalId}</b>\n\n` +
-              `المبلغ المسترجع: <b>${withdrawal.amount} ${withdrawal.currency}</b>\n` +
-              `السبب: ${reason}`,
+            `❌ <b>Your withdrawal request has been rejected #${withdrawalId}</b>\n\n` +
+              `Refund amount: <b>${withdrawal.amount} ${withdrawal.currency}</b>\n` +
+              `Reason: ${reason}`,
             { parse_mode: "HTML" }
           )
           .catch(() => {});
@@ -133,7 +133,7 @@ export async function processWithdrawalVote(
 
     return {
       status: "rejected_and_refunded",
-      message: `❌ تم رفض طلب السحب #${withdrawalId} واسترجاع الرصيد للمستخدم`,
+      message: `❌ The withdrawal request #${withdrawalId} was rejected and the user’s balance was returned`,
       currentApprovals: approvalsArray.length,
       requiredApprovals,
     };
@@ -157,7 +157,7 @@ export async function processWithdrawalVote(
     if (!casResult) {
       return {
         status: "already_processed",
-        message: "تمت معالجة الطلب وتأكيده بالتزامن من قبل مسؤول آخر",
+        message: "The request was processed and confirmed simultaneously by another administrator",
         currentApprovals: approvalsArray.length,
         requiredApprovals,
       };
@@ -172,14 +172,14 @@ export async function processWithdrawalVote(
           const res = await executeAutoWithdrawal(withdrawalId, adminId);
           autoWithdrawSuccess = res.success;
           if (!res.success) {
-            autoWithdrawError = res.error || "خطأ غير معروف في التحويل";
+            autoWithdrawError = res.error || "Unknown conversion error";
           }
         } catch (err) {
           logger.error({ err, withdrawalId }, "Auto withdrawal execution error");
           autoWithdrawError = err instanceof Error ? err.message : String(err);
         }
       } else {
-        autoWithdrawError = "محفظة البوت غير مهيأة (TON_WALLET_MNEMONIC not configured)";
+        autoWithdrawError = "Bot wallet not configured (TON_WALLET_MNEMONIC not configured)";
       }
 
       await logAdminAudit(
@@ -197,14 +197,14 @@ export async function processWithdrawalVote(
       if (autoWithdrawSuccess) {
         return {
           status: "approved_and_executed",
-          message: `✅ تم اكتمال النصاب (${approvalsArray.length}/${requiredApprovals}) وتم تحويل ${withdrawal.amount} TON على البلوكشين بنجاح!`,
+          message: `✅ Quorum (${approvalsArray.length}/${requiredApprovals}) has been achieved and ${withdrawal.amount} TON has been successfully transferred on the blockchain!`,
           currentApprovals: approvalsArray.length,
           requiredApprovals,
         };
       } else {
         return {
           status: "error",
-          message: `⚠️ فشل التحويل على البلوكشين:\n${autoWithdrawError}`,
+          message: `⚠️ Blockchain transfer failed:\n${autoWithdrawError}`,
           currentApprovals: approvalsArray.length,
           requiredApprovals,
         };
@@ -223,7 +223,7 @@ export async function processWithdrawalVote(
 
   return {
     status: "voted",
-    message: `🗳️ تم تسجيل صوتك بنجاح (${approvalsArray.length}/${requiredApprovals} أصوات مطلوبة للموافقة)`,
+    message: `🗳️ Your vote has been successfully registered (${approvalsArray.length}/${requiredApprovals} votes required for approval)`,
     currentApprovals: approvalsArray.length,
     requiredApprovals,
   };

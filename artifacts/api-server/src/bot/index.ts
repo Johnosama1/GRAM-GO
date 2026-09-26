@@ -35,6 +35,8 @@ import {
   handleUserSupportMessage,
   handleAdminReplyClick,
   handleUserReplyClick,
+  handleUserReplyComplaintClick,
+  handleUserReplyToComplaintMessage,
   deliverAdminReplyToUser,
   handleComplaintSubmission,
   handleAdminReplyComplaintClick,
@@ -103,7 +105,7 @@ async function maybeBlocked(
   if (await allowOwnerWhenDisabled(userId, username)) return false;
   await bot.sendMessage(
     chatId,
-    "🚧 <b>البوت تحت الصيانة حالياً</b>\n\nنحن نقوم بتحديث وتحسين التطبيق. عد قريباً! 🔧",
+    "🚧 <b>The bot is currently under maintenance</b>\n\nWe are updating and improving the application. Come back soon! 🔧",
     { parse_mode: "HTML" },
   );
   return true;
@@ -176,7 +178,7 @@ async function handleReferralCallback(
     if (missing.length === 0) {
       try {
         await bot.editMessageText(
-          "✅ المستخدم عاد للاشتراك في القنوات. لا يوجد ما يلزم.",
+          "✅ The user has returned to subscribing to the channels. There is nothing necessary.",
           {
             chat_id: chatId,
             message_id: msgId,
@@ -185,18 +187,18 @@ async function handleReferralCallback(
           },
         );
       } catch {
-        await bot.sendMessage(chatId, "✅ المستخدم عاد للاشتراك في القنوات.", {
+        await bot.sendMessage(chatId, "✅ The user has returned to subscribing to the channels.", {
           parse_mode: "HTML",
         });
       }
       return true;
     }
 
-    const channelNames = missing.map((c) => c.title || c.username).join("، ");
+    const channelNames = missing.map((c) => c.title || c.username).join(",");
     try {
       await bot.sendMessage(
         referredId,
-        `⚠️ لقد غادرت قناة <b>${esc(channelNames)}</b>. يجب العودة للاشتراك للحفاظ على إحالتك. اضغط تحقق بعد الانضمام.`,
+        `⚠️ You have left the <b>${esc(channelNames)}</b> channel. You must re-subscribe to maintain your referral. Click Verify after joining.`,
         {
           parse_mode: "HTML",
           reply_markup: {
@@ -211,7 +213,7 @@ async function handleReferralCallback(
               ]),
               [
                 {
-                  text: "✅ تحققت من الاشتراك",
+                  text: "✅ Verified subscription",
                   callback_data: `ref:check:${callerId}:${referredId}`,
                 },
               ],
@@ -233,7 +235,7 @@ async function handleReferralCallback(
 
       try {
         await bot.editMessageText(
-          `✅ تم إرسال التنبيه للمستخدم. يجب عليه الاشتراك في: <b>${esc(channelNames)}</b>`,
+          `✅ The alert has been sent to the user. Must subscribe to: <b>${esc(channelNames)}</b>`,
           {
             chat_id: chatId,
             message_id: msgId,
@@ -242,14 +244,14 @@ async function handleReferralCallback(
           },
         );
       } catch {
-        await bot.sendMessage(chatId, "✅ تم إرسال التنبيه للمستخدم.", {
+        await bot.sendMessage(chatId, "✅ The alert has been sent to the user.", {
           parse_mode: "HTML",
         });
       }
     } catch {
       await bot.sendMessage(
         chatId,
-        "⚠️ تعذر إرسال التنبيه — المستخدم ربما حظر البوت.",
+        "⚠️ Unable to send alert — user may have blocked the bot.",
         { parse_mode: "HTML" },
       );
     }
@@ -261,7 +263,7 @@ async function handleReferralCallback(
     const referrerId = parseInt(p1);
     const referredId = parseInt(p2);
     if (isNaN(referrerId) || isNaN(referredId) || callerId !== referredId) {
-      await bot.sendMessage(chatId, "⚠️ هذا الزر ليس لك.", {
+      await bot.sendMessage(chatId, "⚠️ This button is not for you.", {
         parse_mode: "HTML",
       });
       return true;
@@ -269,7 +271,7 @@ async function handleReferralCallback(
 
     const missing = await getMissingChannels(bot, referredId).catch(() => null);
     if (missing === null) {
-      await bot.sendMessage(chatId, "⚠️ تعذر التحقق، حاول مرة أخرى.", {
+      await bot.sendMessage(chatId, "⚠️ Unable to verify, try again.", {
         parse_mode: "HTML",
       });
       return true;
@@ -278,7 +280,7 @@ async function handleReferralCallback(
     if (missing.length > 0) {
       await bot.sendMessage(
         chatId,
-        `❌ لم تنضم بعد إلى: <b>${esc(missing.map((c) => c.title || c.username).join("، "))}</b>`,
+        `❌ You haven't joined yet: <b>${esc(missing.map((c) => c.title || c.username).join(","))}</b>`,
         { parse_mode: "HTML" },
       );
       return true;
@@ -291,7 +293,7 @@ async function handleReferralCallback(
 
     try {
       await bot.editMessageText(
-        "✅ شكراً! تم التحقق من اشتراكك. إحالتك محفوظة.",
+        "✅ Thanks! Your subscription has been verified. Your referral is reserved.",
         {
           chat_id: chatId,
           message_id: msgId,
@@ -300,7 +302,7 @@ async function handleReferralCallback(
         },
       );
     } catch {
-      await bot.sendMessage(chatId, "✅ شكراً! تم التحقق من اشتراكك.", {
+      await bot.sendMessage(chatId, "✅ Thanks! Your subscription has been verified.", {
         parse_mode: "HTML",
       });
     }
@@ -319,7 +321,7 @@ async function handleReferralCallback(
         : esc(u?.firstName || String(referredId));
       await bot.sendMessage(
         referrerId,
-        `✅ المستخدم <b>${name}</b> عاد للاشتراك — إحالته محفوظة.`,
+        `✅ User <b>${name}</b> has resubscribed — his referral is saved.`,
         { parse_mode: "HTML" },
       );
     } catch {
@@ -348,13 +350,13 @@ async function handleReferralCallback(
 
     if (!ref) {
       try {
-        await bot.editMessageText("ℹ️ تم خصم هذه الإحالة مسبقاً.", {
+        await bot.editMessageText("ℹ️ This referral has already been discounted.", {
           chat_id: chatId,
           message_id: msgId,
           reply_markup: { inline_keyboard: [] },
         });
       } catch {
-        await bot.sendMessage(chatId, "ℹ️ تم خصم هذه الإحالة مسبقاً.");
+        await bot.sendMessage(chatId, "ℹ️ This referral has already been discounted.");
       }
       return true;
     }
@@ -422,10 +424,10 @@ async function handleReferralCallback(
       .where(eq(usersTable.id, referredId));
 
     const confirmText =
-      `✅ <b>تم الخصم:</b>\n\n` +
-      `• الإحالات: <b>${newCount}</b>\n` +
-      `• الرصيد المخصوم: <b>${deductAmount.toFixed(6)} TON</b>\n` +
-      `• الرصيد الحالي: <b>${newBalance.toFixed(6)} TON</b>`;
+      `✅ <b>Discounted:</b>\n\n` +
+      `• Referrals: <b>${newCount}</b>\n` +
+      `• Deducted balance: <b>${deductAmount.toFixed(6)} TON</b>\n` +
+      `• Current balance: <b>${newBalance.toFixed(6)} TON</b>`;
 
     try {
       await bot.editMessageText(confirmText, {
@@ -527,14 +529,14 @@ export async function sendWithdrawalNotification(
     const withdrawalsTotal = parseFloat(withdrawalsStats?.total || "0");
 
     // ── Account age ────────────────────────────────────────────────────────
-    let accountAgeStr = "غير معروف";
+    let accountAgeStr = "unknown";
     if (user.createdAt) {
       const ageMs = Date.now() - new Date(user.createdAt).getTime();
       const ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
       accountAgeStr =
         ageDays >= 1
-          ? `${ageDays} يوم`
-          : `${Math.max(1, Math.floor(ageMs / (1000 * 60 * 60)))} ساعة`;
+          ? `${ageDays} day`
+          : `${Math.max(1, Math.floor(ageMs / (1000 * 60 * 60)))} hours`;
     }
 
     // ── Risk score ─────────────────────────────────────────────────────────
@@ -553,20 +555,20 @@ export async function sendWithdrawalNotification(
         : walletAddress;
 
     const msgText =
-      `💸 <b>طلب سحب جديد #${withdrawalId}</b>\n` +
+      `💸 <b>New withdrawal request #${withdrawalId}</b>\n` +
       `👤 ${userName} (${user.id})\n` +
-      `💰 المبلغ: <b>${parseFloat(amount).toFixed(4)} Gram</b>\n` +
-      `📍 العنوان: <code>${esc(shortAddr)}</code>\n\n` +
-      `📅 <b>عضو منذ:</b> ${accountAgeStr}\n\n` +
-      `📥 <b>الإيداعات:</b> ${depositsCount} عملية بإجمالي ${depositsTotal.toFixed(4)} TON\n` +
-      `📤 <b>السحوبات السابقة:</b> ${withdrawalsCount} عملية بإجمالي ${withdrawalsTotal.toFixed(4)} Gram\n\n` +
-      `📢 <b>القنوات:</b> مشترك في ${subscribedCount} من ${required.length} قناة\n\n` +
-      `👥 <b>الإحالات (${totalRefs} إجمالي):</b>\n` +
-      `✅ منضمين ومحسوبين: ${activeRefs}\n` +
-      `❌ خرجوا من القنوات: ${removedRefs}\n\n` +
-      `🚨 <b>محاولات التعدد:</b>\n` +
-      `تم اكتشاف ${multiAccCount} حساب تعدد وتم حظرهم\n\n` +
-      `🎯 درجة الخطر: <b>${riskScore}/100</b> ${riskEmoji}`;
+      `💰 Amount: <b>${parseFloat(amount).toFixed(4)} Gram</b>\n` +
+      `📍 Address: <code>${esc(shortAddr)}</code>\n\n` +
+      `📅 <b>Member since:</b> ${accountAgeStr}\n\n` +
+      `📥 <b>Deposits:</b> ${depositsCount} transaction with a total of ${depositsTotal.toFixed(4)} TON\n` +
+      `📤 <b>Previous draws:</b> ${withdrawalsCount} transaction with a total of ${withdrawalsTotal.toFixed(4)} Gram\n\n` +
+      `📢 <b>Channels:</b> Subscribed to ${subscribedCount} from ${required.length} channel\n\n` +
+      `👥 <b>Referrals (${totalRefs}):</b>\n` +
+      `✅ Joined and counted: ${activeRefs}\n` +
+      `❌ Exited from channels: ${removedRefs}\n\n` +
+      `🚨 <b>Attempts at polygamy:</b>\n` +
+      `${multiAccCount} Multiple accounts have been detected and banned\n\n` +
+      `🎯 Risk Score: <b>${riskScore}/100</b> ${riskEmoji}`;
 
     await bot.sendMessage(ownerId, msgText, {
       parse_mode: "HTML",
@@ -574,19 +576,19 @@ export async function sendWithdrawalNotification(
         inline_keyboard: [
           [
             {
-              text: "✅ قبول وتحويل",
+              text: "✅ Accept and transfer",
               callback_data: `withdraw_approve_${withdrawalId}`,
               style: "success",
             } as any,
             {
-              text: "❌ رفض وإرجاع",
+              text: "❌ Reject and return",
               callback_data: `withdraw_reject_${withdrawalId}`,
               style: "danger",
             } as any,
           ],
           [
             {
-              text: "🚫 حظر المستخدم",
+              text: "🚫 Block user",
               callback_data: `withdraw_ban_${user.id}_${withdrawalId}`,
               style: "danger",
             } as any,
@@ -649,7 +651,7 @@ export async function sendWelcomeMessage(
 
   // Replace placeholders
   welcomeText = welcomeText
-    .replace(/\{first_name\}/g, esc(firstName || "صديقي"))
+    .replace(/\{first_name\}/g, esc(firstName || "my friend"))
     .replace(/\{username\}/g, username ? `@${esc(username)}` : "")
     .replace(/\{user_id\}/g, String(userId || ""));
 
@@ -719,7 +721,7 @@ async function handleSecurityCallback(
   const adminInfo = await getAdminInfo(q.from.id, q.from.username);
   if (!adminInfo) {
     await bot
-      .answerCallbackQuery(q.id, { text: "⛔ غير مصرح" })
+      .answerCallbackQuery(q.id, { text: "⛔ Not authorized" })
       .catch(() => {});
     return true;
   }
@@ -740,7 +742,7 @@ async function handleSecurityCallback(
         .set({ isVisible: false })
         .where(eq(usersTable.id, targetId));
       await bot
-        .editMessageText(`🚫 <b>تم حظر المستخدم #${targetId}</b>`, {
+        .editMessageText(`🚫 <b>User #${targetId}</b> has been blocked`, {
           chat_id: chatId,
           message_id: msgId,
           parse_mode: "HTML",
@@ -750,19 +752,19 @@ async function handleSecurityCallback(
       await bot
         .sendMessage(
           targetId,
-          `⚠️ <b>تحذير من الإدارة:</b> تم رصد نشاط مشبوه على حسابك.\nيرجى الالتزام بشروط الاستخدام وإلا سيتم حظرك.`,
+          `⚠️ <b>Administration Warning:</b> Suspicious activity has been detected on your account.\nPlease adhere to the terms of use or you will be banned.`,
           { parse_mode: "HTML" },
         )
         .catch(() => {});
       await bot
-        .editMessageText(`⚠️ تم إرسال تحذير للمستخدم #${targetId}`, {
+        .editMessageText(`⚠️ A warning has been sent to user #${targetId}`, {
           chat_id: chatId,
           message_id: msgId,
         })
         .catch(() => {});
     } else if (action === "ignore") {
       await bot
-        .editMessageText(`👁️ تم وضع المستخدم #${targetId} قيد المراقبة`, {
+        .editMessageText(`👁️ User #${targetId} has been placed on probation`, {
           chat_id: chatId,
           message_id: msgId,
         })
@@ -782,7 +784,7 @@ async function handleSecurityCallback(
           .catch(() => {});
       }
       await bot
-        .editMessageText(`🚫 <b>تم حظر ${ids.length} حساب بتهمة التعدد</b>`, {
+        .editMessageText(`🚫 <b>${ids.length} account banned for bigamy</b>`, {
           chat_id: chatId,
           message_id: msgId,
           parse_mode: "HTML",
@@ -797,14 +799,14 @@ async function handleSecurityCallback(
           .where(eq(usersTable.id, uid));
       }
       await bot
-        .editMessageText(`🚫 تم حظر الحساب الجديد #${uid}`, {
+        .editMessageText(`🚫 New account #${uid} banned`, {
           chat_id: chatId,
           message_id: msgId,
         })
         .catch(() => {});
     } else if (action === "ignore") {
       await bot
-        .editMessageText(`👁️ تم تجاهل تنبيه التعدد`, {
+        .editMessageText(`👁️ Multiplicity alert ignored`, {
           chat_id: chatId,
           message_id: msgId,
         })
@@ -833,7 +835,7 @@ async function handleWithdrawalCallback(
   const adminInfo = await getAdminInfo(q.from.id, q.from.username);
 
   if (!adminInfo) {
-    await bot.answerCallbackQuery(q.id, { text: "⛔ غير مصرح" });
+    await bot.answerCallbackQuery(q.id, { text: "⛔ Not authorized" });
     return true;
   }
 
@@ -848,11 +850,11 @@ async function handleWithdrawalCallback(
       .where(eq(withdrawalsTable.id, wId))
       .limit(1);
     if (!w) {
-      await bot.sendMessage(chatId, "❌ الطلب غير موجود");
+      await bot.sendMessage(chatId, "❌ The request does not exist");
       return true;
     }
     if (w.status !== "pending") {
-      await bot.sendMessage(chatId, `⚠️ الطلب #${wId} بالفعل ${w.status}`);
+      await bot.sendMessage(chatId, `⚠️ The request #${wId} is already ${w.status}`);
       return true;
     }
     // Always execute TON transfer on admin approval
@@ -860,7 +862,7 @@ async function handleWithdrawalCallback(
       try {
         await bot.sendMessage(
           chatId,
-          `⏳ جاري معالجة التحويل لطلب #${wId} وتأكيده على البلوكشين...`,
+          `⏳ The #${wId} request is being processed and confirmed on the blockchain...`,
         );
         const result = await executeAutoWithdrawal(w.id, chatId);
         if (result.success) {
@@ -872,11 +874,11 @@ async function handleWithdrawalCallback(
             : `https://tonviewer.com/${encodeURIComponent(w.walletAddress)}`;
 
           await bot.editMessageText(
-            `✅ <b>تم التحويل والتأكيد على البلوكشين بنجاح</b>\n\n` +
-              `طلب #${wId} — <b>${parseFloat(w.amount).toFixed(4)} TON</b>\n` +
-              `📍 المحفظة: <code>${esc(w.walletAddress)}</code>\n` +
-              (txHashStr ? `🔗 المعاملة: <code>${esc(txHashStr)}</code>\n` : "") +
-              `🌐 <a href="${explorerUrl}">🔍 فتح على مستكشف البلوكشين (TonViewer)</a>`,
+            `✅ <b>The blockchain has been transferred and confirmed successfully</b>\n\n` +
+              `Request #${wId} — <b>${parseFloat(w.amount).toFixed(4)} TON</b>\n` +
+              `📍 Wallet: <code>${esc(w.walletAddress)}</code>\n` +
+              (txHashStr ? `🔗 Transaction: <code>${esc(txHashStr)}</code>\n` : "") +
+              `🌐 <a href="${explorerUrl}">🔍 Open on Blockchain Explorer (TonViewer)</a>`,
             {
               chat_id: chatId,
               message_id: msgId,
@@ -899,23 +901,23 @@ async function handleWithdrawalCallback(
         } else {
           await bot.sendMessage(
             chatId,
-            `❌ فشل التحويل: ${esc(result.error ?? "")}`,
+            `❌ Conversion failed: ${esc(result.error ?? "")}`,
             { parse_mode: "HTML" },
           );
         }
       } catch (err) {
         await bot.sendMessage(
           chatId,
-          `❌ فشل التحويل: ${esc(err instanceof Error ? err.message : String(err))}`,
+          `❌ Conversion failed: ${esc(err instanceof Error ? err.message : String(err))}`,
           { parse_mode: "HTML" },
         );
       }
     } else {
       await bot.sendMessage(
         chatId,
-        `⚠️ <b>محفظة السحب التلقائي للبوت غير مهيأة!</b>\n\n` +
-          `لم يتم ضبط الكلمات السرية أو المفتاح السري للبوت حتى الآن.\n` +
-          `يرجى الدخول إلى لوحة تحكم الأدمن > إعدادات المحفظة وإدخال الكلمات السرية (Mnemonic / 24 words) أو المفتاح السري لتفعيل التحويل المباشر على شبكة TON.`,
+        `⚠️ <b>Bot auto withdrawal wallet not configured!</b>\n\n` +
+          `The bot's passwords or secret key have not been set yet.\n` +
+          `Please enter the Admin Control Panel > Wallet Settings and enter the password (Mnemonic / 24 words) or secret key to activate direct transfer on the TON network.`,
         { parse_mode: "HTML" },
       );
     }
@@ -928,11 +930,11 @@ async function handleWithdrawalCallback(
       .where(eq(withdrawalsTable.id, wId))
       .limit(1);
     if (!w) {
-      await bot.sendMessage(chatId, "❌ الطلب غير موجود");
+      await bot.sendMessage(chatId, "❌ The request does not exist");
       return true;
     }
     if (w.status !== "pending") {
-      await bot.sendMessage(chatId, `⚠️ الطلب #${wId} بالفعل ${esc(w.status)}`);
+      await bot.sendMessage(chatId, `⚠️ The request #${wId} is already ${esc(w.status)}`);
       return true;
     }
     await db
@@ -946,15 +948,15 @@ async function handleWithdrawalCallback(
     try {
       await bot.sendMessage(
         w.userId,
-        `❌ <b>تم رفض طلب السحب #${wId}</b>\n` +
-          `💰 تم إعادة <b>${parseFloat(w.amount).toFixed(4)} Gram</b> لرصيدك داخل البوت.`,
+        `❌ <b>Withdrawal request #${wId}</b>\n was rejected` +
+          `💰 Your <b>${parseFloat(w.amount).toFixed(4)} Gram</b> has been restored to your balance within the bot.`,
         { parse_mode: "HTML" },
       );
     } catch {
       /* ignore */
     }
     await bot.editMessageText(
-      `❌ تم رفض الطلب #${wId}\n💰 أُعيد ${parseFloat(w.amount).toFixed(4)} Gram لرصيد المستخدم.`,
+      `❌ The request was rejected #${wId}\n💰 ${parseFloat(w.amount).toFixed(4)} Gram was returned to the user's balance.`,
       { chat_id: chatId, message_id: msgId },
     );
   } else if (data.startsWith("withdraw_ban_")) {
@@ -985,10 +987,10 @@ async function handleWithdrawalCallback(
     }
 
     await bot.editMessageText(
-      `🚫 <b>تم حظر المستخدم #${targetUserId}</b>\n` +
+      `🚫 <b>User #${targetUserId}</b>\n has been blocked` +
         (w
-          ? `❌ الطلب #${wId} مرفوض وأُعيد ${parseFloat(w.amount).toFixed(4)} Gram للرصيد.`
-          : `❌ الطلب #${wId} مرفوض.`),
+          ? `❌ The request #${wId} was rejected and ${parseFloat(w.amount).toFixed(4)} Gram was returned for the balance.`
+          : `❌ Request #${wId} rejected.`),
       { chat_id: chatId, message_id: msgId, parse_mode: "HTML" },
     );
   }
@@ -1055,7 +1057,7 @@ function setupBotHandlers() {
         if (existing.length > 0 && existing[0].isVisible === false) {
           await bot.sendMessage(
             chatId,
-            "🚫 حسابك محظور. تواصل مع الدعم للمزيد من المعلومات.",
+            "🚫 Your account is banned. Contact support for more information.",
             { parse_mode: "HTML" },
           );
           return;
@@ -1093,7 +1095,7 @@ function setupBotHandlers() {
               await bot
                 .sendMessage(
                   referredBy,
-                  `👥 صديق جديد انضم عبر رابطك!\n⏳ سيتم احتساب الإحالة بعد التحقق من اشتراكه في القنوات.`,
+                  `👥 A new friend joined via your link!\n⏳ The referral will be calculated after verifying his subscription to the channels.`,
                   { parse_mode: "HTML" },
                 )
                 .catch(() => {});
@@ -1118,12 +1120,12 @@ function setupBotHandlers() {
           await setAdminState(userId, "admin_broadcast", {});
           await bot.sendMessage(
             chatId,
-            `✨ <b>وضع البث الجماعي المتقدم (Broadcast Mode)</b>\n\n` +
-              `✍️ <b>أرسل الآن الرسالة التي تريد بثها لجميع المستخدمين:</b>\n` +
-              `• يمكنك استخدام <b>الإيموجي المميز (Telegram Premium Custom Emojis)</b>\n` +
-              `• يمكنك إرسال نصوص، صور، ملصقات، أو فيديوهات\n` +
-              `• ستصل الرسالة لجميع الناس مع كافة التنسيقات والإيموجي المميز 🚀\n\n` +
-              `<i>(للإلغاء في أي وقت أرسل /cancel)</i>`,
+            `✨ <b>Advanced Broadcast Mode</b>\n\n` +
+              `✍️ <b>Now send the message you want to broadcast to all users:</b>\n` +
+              `• You can use <b>Telegram Premium Custom Emojis</b>\n` +
+              `• You can send texts, photos, stickers, or videos\n` +
+              `• The message will reach all people with all formats and the distinctive emoji 🚀\n\n` +
+              `<i>(To cancel at any time send /cancel)</i>`,
             { parse_mode: "HTML" }
           );
           return;
@@ -1133,11 +1135,11 @@ function setupBotHandlers() {
           await setAdminState(userId, "admin_news_broadcast", {});
           await bot.sendMessage(
             chatId,
-            `📢 <b>نشر رسالة في قناة الأخبار</b>\n\n` +
-              `✍️ <b>أرسل الآن البوست (نص أو صورة أو فيديو) الذي تريد نشره في القناة:</b>\n` +
-              `• يمكنك استخدام الإيموجي المميز 🌟\n` +
-              `• بعد إرسال البوست، سأطلب منك بيانات الزر الذي سيظهر أسفله.\n\n` +
-              `<i>(للإلغاء في أي وقت أرسل /cancel)</i>`,
+            `📢 <b>Post a message in the news channel</b>\n\n` +
+              `✍️ <b>Now send the post (text, image or video) that you want to publish in the channel:</b>\n` +
+              `• You can use the distinctive emoji 🌟\n` +
+              `• After sending the post, I will ask you for the details of the button that will appear below it.\n\n` +
+              `<i>(To cancel at any time send /cancel)</i>`,
             { parse_mode: "HTML" }
           );
           return;
@@ -1149,7 +1151,7 @@ function setupBotHandlers() {
             await setAdminState(userId, "admin_replying_to_user", { targetUserId: targetId });
             await bot.sendMessage(
               chatId,
-              `✍️ <b>وضع المراسلة الخاصة</b> (المستخدم: <code>${targetId}</code>)\n\nأرسل الآن الرسالة التي تريد إرسالها له مباشرة.`,
+              `✍️ <b>Private Messaging Mode</b> (User: <code>${targetId}</code>)\n\nNow send the message you want to send to him directly.`,
               { parse_mode: "HTML" }
             );
             return;
@@ -1162,17 +1164,17 @@ function setupBotHandlers() {
         if (refParam === "complaint") {
           await bot.sendMessage(
             chatId,
-            "📝 <b>تقديم شكوى</b>\n\n" +
-            "هل تريد تقديم شكوى إلى فريق دعم GRAM GO؟\n\n" +
-            "يمكنك إرسال شكواك وسيتم مراجعتها من فريق الدعم والتواصل معك عند الحاجة.\n\n" +
-            "هل تريد المتابعة؟",
+            "📝 <b>Submit a complaint</b>\n\n" +
+            "Do you want to file a complaint with the GRAM GO support team?\n\n" +
+            "You can send your complaint and the support team will review it and contact you when needed.\n\n" +
+            "Do you want to continue?",
             {
               parse_mode: "HTML",
               reply_markup: {
                 inline_keyboard: [
                   [
-                    { text: "✅ نعم", callback_data: "complaint_yes" },
-                    { text: "❌ لا", callback_data: "complaint_no" },
+                    { text: "✅ Yes", callback_data: "complaint_yes" },
+                    { text: "❌ No", callback_data: "complaint_no" },
                   ],
                 ],
               },
@@ -1226,12 +1228,12 @@ function setupBotHandlers() {
       const calc = calculateUserMining(u, globalRate, startMinerVisible);
 
       const text =
-        `💰 <b>تفاصيل رصيدك الحالي — GramGo</b>\n\n` +
-        `🪙 رصيد عملة GO: <b>${calc.goBalance.toFixed(2)} GO</b>\n` +
-        `💎 رصيد عملة GRAM: <b>${calc.gramBalance.toFixed(6)} Gram</b>\n` +
-        `💼 رصيد TON: <b>${parseFloat(u.tonBalance || "0").toFixed(4)} TON</b>\n\n` +
-        `⛏️ أرباح التعدين قيد التجميع: <b>+${calc.unclaimedGram.toFixed(6)} Gram</b>\n` +
-        `⚡ نسبة التعدين اليومية: <b>${(calc.miningRate * 100).toFixed(3)}%</b>`;
+        `💰 <b>Details of your current balance — GramGo</b>\n\n` +
+        `🪙GO Coin Balance: <b>${calc.goBalance.toFixed(2)} GO</b>\n` +
+        `💎GRAM Balance: <b>${calc.gramBalance.toFixed(6)} Gram</b>\n` +
+        `💼 TON Balance: <b>${parseFloat(u.tonBalance || "0").toFixed(4)} TON</b>\n\n` +
+        `⛏️ Mining profits being collected: <b>+${calc.unclaimedGram.toFixed(6)} Gram</b>\n` +
+        `⚡ Daily Mining Rate: <b>${(calc.miningRate * 100).toFixed(3)}%</b>`;
 
       await bot.sendMessage(chatId, text, { parse_mode: "HTML" });
     }),
@@ -1246,19 +1248,19 @@ function setupBotHandlers() {
       const adminInfo = await getAdminInfo(userId, msg.from?.username);
 
       let text =
-        `ℹ️ <b>أوامر ومساعدة البوت — GramGo</b>\n\n` +
-        `🔹 /start — تشغيل البوت وفتح التطبيق المصغر\n` +
-        `🔹 /balance — عرض رصيدك وأرباح التعدين الحالية\n` +
-        `🔹 /mine — معلومات محطة التعدين السحابية\n` +
-        `🔹 /help — عرض هذه الرسالة\n\n` +
-        `💬 يمكنك كتابة أي استفسار أو مشكلة هنا مباشرة وسيصل لفريق الدعم.`;
+        `ℹ️ <b>Bot commands and help — GramGo</b>\n\n` +
+        `🔹 /start — start the bot and open the widget\n` +
+        `🔹 /balance — View your balance and current mining profits\n` +
+        `🔹 /mine — Cloud mining station information\n` +
+        `🔹 /help — Display this message\n\n` +
+        `💬 You can write any inquiry or problem directly here and it will reach the support team.`;
 
       if (adminInfo) {
         text +=
-          `\n\n👑 <b>أوامر الأدمن المتاحة:</b>\n` +
-          `🔸 /withdraw — مراجعة طلبات السحب المعلقة والتصويت عليها\n` +
-          `🔸 /wallet — فحص رصيد محفظة السحب الساخنة\n` +
-          `🔸 /cancel — إلغاء أي حالة إدخال جارية`;
+          `\n\n👑 <b>Available admin commands:</b>\n` +
+          `🔸 /withdraw — Review and vote on pending withdrawal requests\n` +
+          `🔸 /wallet — Check the balance of the hot wallet\n` +
+          `🔸 /cancel — Cancel any ongoing input state`;
       }
 
       await bot.sendMessage(chatId, text, { parse_mode: "HTML" });
@@ -1271,7 +1273,7 @@ function setupBotHandlers() {
     wrapHandler(async (msg) => {
       const userId = msg.from!.id;
       await clearAdminState(userId);
-      await bot.sendMessage(msg.chat.id, "✅ تم إلغاء العملية الحالية.");
+      await bot.sendMessage(msg.chat.id, "✅ The current operation has been cancelled.");
     }),
   );
 
@@ -1284,7 +1286,7 @@ function setupBotHandlers() {
       const adminInfo = await getAdminInfo(userId, msg.from?.username);
 
       if (!adminInfo) {
-        await bot.sendMessage(chatId, "⚠️ هذا الأمر مخصص للإدارة فقط.", { parse_mode: "HTML" });
+        await bot.sendMessage(chatId, "⚠️ This is for administration only.", { parse_mode: "HTML" });
         return;
       }
 
@@ -1308,7 +1310,7 @@ function setupBotHandlers() {
         .limit(10);
 
       if (pendingList.length === 0) {
-        await bot.sendMessage(chatId, "✅ لا توجد طلبات سحب معلقة حالياً.");
+        await bot.sendMessage(chatId, "✅ There are currently no pending withdrawal requests.");
         return;
       }
 
@@ -1318,24 +1320,24 @@ function setupBotHandlers() {
         const amountNum = parseFloat(w.amount);
         const isHigh = amountNum >= threshold;
         const votesCount = w.approvals?.length || 0;
-        const reqCount = w.requiredApprovals || (isHigh ? "الكل (إجماع)" : 1);
+        const reqCount = w.requiredApprovals || (isHigh ? "All (consensus)" : 1);
 
         const card =
-          `💸 <b>طلب سحب معلق #${w.id}</b>\n\n` +
-          `👤 المستخدم: <b>${esc(w.firstName || "مستخدم")}</b> (${w.username ? "@" + esc(w.username) : "بدون يوزر"})\n` +
-          `🆔 الآيدي: <code>${w.userId}</code>\n` +
-          `💰 المبلغ: <b>${w.amount} ${w.currency}</b> ${isHigh ? "⚠️ <i>(مبلغ كبير — يتطلب إجماع الأدمنية)</i>" : ""}\n` +
-          `📍 المحفظة: <code>${w.walletAddress}</code>\n` +
-          `🗳️ الأصوات الحالية: <b>${votesCount} / ${reqCount}</b>\n` +
-          `📅 التاريخ: <code>${w.createdAt ? new Date(w.createdAt).toLocaleString("ar") : "—"}</code>`;
+          `💸 <b>Pending withdrawal request #${w.id}</b>\n\n` +
+          `👤 User: <b>${esc(w.firstName || "User")}</b> (${w.username ? "@" + esc(w.username) : "Without User"})\n` +
+          `🆔 Handles: <code>${w.userId}</code>\n` +
+          `💰 Amount: <b>${w.amount} ${w.currency}</b> ${isHigh ? "⚠️ <i>(Large amount - requires administrative consensus)</i>" : ""}\n` +
+          `📍 Wallet: <code>${w.walletAddress}</code>\n` +
+          `🗳️ Current votes: <b>${votesCount} / ${reqCount}</b>\n` +
+          `📅 Date: <code>${w.createdAt ? new Date(w.createdAt).toLocaleString("ar") : "—"}</code>`;
 
         await bot.sendMessage(chatId, card, {
           parse_mode: "HTML",
           reply_markup: {
             inline_keyboard: [
               [
-                { text: "✅ موافقة", callback_data: `withdraw_approve_${w.id}` },
-                { text: "❌ رفض", callback_data: `withdraw_reject_${w.id}` },
+                { text: "✅ Agree", callback_data: `withdraw_approve_${w.id}` },
+                { text: "❌ He refused", callback_data: `withdraw_reject_${w.id}` },
               ],
             ],
           },
@@ -1374,13 +1376,13 @@ function setupBotHandlers() {
       const MINI_APP_URL = resolveMiniAppUrl();
 
       const text =
-        `⛏️ <b>محطة التعدين السحابية — GramGo</b>\n\n` +
-        `🪙 رصيد عملة GO: <b>${goBal.toFixed(2)} GO</b>\n` +
-        `⏳ أرباح التعدين المتراكمة الآن: <b>+${unclaimedGo.toFixed(6)} Gram</b>\n` +
-        `⚡ معدل التعدين: <b>${ratePercent}% يومياً</b>\n` +
-        `📈 الإنتاج المتوقع: <b>+${dailyYield} Gram / 24 ساعة</b>\n` +
-        `🟢 حالة التعدين: <b>${calc.isMining ? "تعدين سحابي 24/7 نشط (يعمل تلقائياً)" : calc.isCycleCompleted ? "توقف التعدين (اكتملت 24 ساعة) — يرجى جمع الأرباح لبدء دورة جديدة" : "في انتظار نقاط GO"}</b>\n\n` +
-        `اضغط على الزر أدناه لفتح التطبيق وجمع الأرباح وإدارة حسابك:`;
+        `⛏️ <b>Cloud Mining Station — GramGo</b>\n\n` +
+        `🪙GO Coin Balance: <b>${goBal.toFixed(2)} GO</b>\n` +
+        `⏳ Mining Profits Accumulated Now: <b>+${unclaimedGo.toFixed(6)} Gram</b>\n` +
+        `⚡ Mining rate: <b>${ratePercent}% daily</b>\n` +
+        `📈 Expected production: <b>+${dailyYield} Gram / 24 hours</b>\n` +
+        `🟢 Mining status: <b>${calc.isMining ? "Cloud mining 24/7 active (runs automatically)" : calc.isCycleCompleted ? "Mining stopped (24 hours completed) — Please collect profits to start a new cycle" : "Waiting for GO Points"}</b>\n\n` +
+        `Click the button below to open the app, collect profits and manage your account:`;
 
       await bot.sendMessage(chatId, text, {
         parse_mode: "HTML",
@@ -1415,22 +1417,22 @@ function setupBotHandlers() {
       ]);
       const { balance, error: balanceError } = balanceResult;
       const statusLine = balanceError
-        ? `❌ تعذّر قراءة الرصيد من شبكة TON:\n<code>${esc(balanceError)}</code>`
+        ? `❌ Unable to read balance from TON network:\n<code>${esc(balanceError)}</code>`
         : balance && parseFloat(balance) < 0.1
-          ? "⚠️ الرصيد منخفض — اشحن المحفظة لضمان نجاح عمليات السحب."
-          : "✅ المحفظة جاهزة للإرسال.";
+          ? "⚠️ Low balance — Top up the wallet to ensure successful withdrawals."
+          : "✅ The wallet is ready to send.";
       await bot.sendMessage(
         msg.chat.id,
-        `💼 <b>محفظة البوت الساخنة</b>\n\n` +
-          `📍 العنوان:\n<code>${esc(addr ?? "غير متاح")}</code>\n\n` +
-          `💰 الرصيد: <b>${balance ?? "—"} TON</b>\n\n` +
+        `💼 <b>Hot Bot Wallet</b>\n\n` +
+          `📍 Address:\n<code>${esc(addr ?? "unavailable")}</code>\n\n` +
+          `💰 Balance: <b>${balance ?? "—"} TON</b>\n\n` +
           statusLine +
           (mismatch
-            ? `\n\n🚨 <b>تحذير: عنوان مختلف عن المحفظة الفعلية!</b>\n` +
-              `المتغير <code>WALLET_ADDRESS</code> في السيرفر مضبوط على:\n<code>${esc(mismatch.configured)}</code>\n\n` +
-              `لكن المفتاح السري <code>OWNER_SECRET_KEY</code> بيتحكم فعليًا في محفظة تانية (العنوان أعلاه ⬆️). ` +
-              `الإرسال بيتم دايمًا من المحفظة اللي بتاعة المفتاح السري، مش من قيمة WALLET_ADDRESS — لأن الإرسال محتاج المفتاح السري نفسه مش مجرد العنوان. ` +
-              `لازم إما تشحن العنوان الظاهر أعلاه، أو تحط في OWNER_SECRET_KEY نفس مفتاح المحفظة اللي عنوانها ${esc(mismatch.configured)}.`
+            ? `\n\n🚨 <b>Warning: Address different from the actual wallet!</b>\n` +
+              `The <code>WALLET_ADDRESS</code> variable on the server is set to:\n<code>${esc(mismatch.configured)}</code>\n\n` +
+              `But the secret key <code>OWNER_SECRET_KEY</code> actually controls another wallet (address above ⬆️).` +
+              `Sending is always done from the wallet that holds the secret key, not from the WALLET_ADDRESS value — because sending needs the secret key itself, not just the address.` +
+              `You must either charge the address shown above, or put in OWNER_SECRET_KEY the same key as the wallet whose address is ${esc(mismatch.configured)}.`
             : ""),
         { parse_mode: "HTML" },
       );
@@ -1453,7 +1455,7 @@ function setupBotHandlers() {
         });
       await bot.sendMessage(
         msg.chat.id,
-        `✅ تم تسجيلك كمالك للبوت!\nID: ${userId}\nلوحة الإدارة متاحة لك داخل تطبيق الـ Web App في قسم Admin.`,
+        `✅ You have been registered as the owner of the bot!\nID: ${userId}\nThe administration panel is available to you within the Web App in the Admin section.`,
       );
     }),
   );
@@ -1475,7 +1477,7 @@ function setupBotHandlers() {
       if (data.startsWith("admin_reply_complaint_")) {
         const isAdmin = await getAdminInfo(userId);
         if (!isAdmin) {
-           await bot.answerCallbackQuery(q.id, { text: "غير مصرح", show_alert: true });
+           await bot.answerCallbackQuery(q.id, { text: "Unauthorized", show_alert: true });
            return;
         }
         await handleAdminReplyComplaintClick(bot, q);
@@ -1493,7 +1495,7 @@ function setupBotHandlers() {
         await clearAdminState(userId);
         await bot.sendMessage(
           userId,
-          "❌ تم إلغاء تقديم الشكوى.\n\nإذا احتجت إلى مساعدة في أي وقت، يمكنك العودة إلى قسم الدعم من جديد."
+          "❌ The complaint has been cancelled.\n\nIf you need help at any time, you can return to the support section again."
         );
         return;
       }
@@ -1509,10 +1511,10 @@ function setupBotHandlers() {
         await setAdminState(userId, "user_writing_complaint", {});
         await bot.sendMessage(
           userId,
-          "✍️ <b>اكتب شكواك الآن</b>\n\n" +
-          "من فضلك اكتب رسالتك بالتفصيل، وسيتم إرسالها مباشرة إلى فريق الدعم.\n\n" +
-          "يمكنك شرح المشكلة أو الاستفسار الذي تحتاج إلى مساعدة بشأنه.\n\n" +
-          "⏳ بعد إرسال الرسالة، سيتم إعلامك بوصولها إلى فريق الدعم.",
+          "✍️ <b>Write your complaint now</b>\n\n" +
+          "Please write your message in detail, and it will be sent directly to the support team.\n\n" +
+          "You can explain the problem or inquiry you need help with.\n\n" +
+          "⏳ After sending the message, you will be notified that it has reached the support team.",
           { parse_mode: "HTML" }
         );
         return;
@@ -1534,7 +1536,7 @@ function setupBotHandlers() {
           if (await botIsDisabled()) {
             await bot
               .answerCallbackQuery(q.id, {
-                text: "🚧 البوت تحت الصيانة حالياً. حاول مرة أخرى لاحقاً.",
+                text: "🚧 The bot is currently under maintenance. Try again later.",
                 show_alert: true,
               })
               .catch(() => {});
@@ -1547,7 +1549,7 @@ function setupBotHandlers() {
         if (data.startsWith("adm_task_cat:") && adminInfo) {
           const category = data.split(":")[1]; // "bot" or "channel"
           await setAdminState(userId, "admin_task_title", { category, chatId, messageId: q.message?.message_id });
-          await bot.editMessageText("📝 أدخل <b>اسم المهمة</b> (عنوان المهمة):", {
+          await bot.editMessageText("📝 Enter <b>task name</b> (task title):", {
             chat_id: chatId,
             message_id: q.message?.message_id,
             parse_mode: "HTML",
@@ -1562,25 +1564,25 @@ function setupBotHandlers() {
 
           if (subAction === "cancel") {
             await clearAdminState(userId);
-            await bot.editMessageText("❌ تم إلغاء نشر بوست قناة الأخبار.", {
+            await bot.editMessageText("❌ The news channel’s post has been cancelled.", {
               chat_id: chatId,
               message_id: q.message?.message_id,
             }).catch(() => {});
-            await bot.answerCallbackQuery(q.id, { text: "تم الإلغاء" });
+            await bot.answerCallbackQuery(q.id, { text: "Canceled" });
             return;
           }
 
           if (subAction === "send") {
             const state = await getAdminState(userId);
             if (!state || !state.metadata) {
-              await bot.answerCallbackQuery(q.id, { text: "انتهت الجلسة", show_alert: true });
+              await bot.answerCallbackQuery(q.id, { text: "The session has ended", show_alert: true });
               return;
             }
 
             const { fromChatId, messageId, btnStyle, btnName, customEmojiId, btnUrl, textData, entitiesData, mediaType, fileId } = state.metadata as any;
             await clearAdminState(userId);
 
-            await bot.editMessageText("⏳ <b>جاري النشر في القناة...</b>", {
+            await bot.editMessageText("⏳ <b>Posting in the channel...</b>", {
               chat_id: chatId,
               message_id: q.message?.message_id,
               parse_mode: "HTML",
@@ -1632,16 +1634,16 @@ function setupBotHandlers() {
                 } else {
                   await bot.copyMessage("@GramGO1News", fromChatId, messageId, { reply_markup: { inline_keyboard: [[newsButton]] } });
                 }
-              await bot.sendMessage(chatId, "✅ <b>تم النشر بنجاح في القناة!</b>", { parse_mode: "HTML" });
-              await bot.answerCallbackQuery(q.id, { text: "تم النشر 🚀" });
+              await bot.sendMessage(chatId, "✅ <b>Successfully published in the channel!</b>", { parse_mode: "HTML" });
+              await bot.answerCallbackQuery(q.id, { text: "Published 🚀" });
             } catch (err: any) {
               logger.error({ err }, "Error sending to news channel");
-              let errMsg = "حدث خطأ غير معروف";
+              let errMsg = "An unknown error has occurred";
               if (err.response && err.response.body && err.response.body.description) {
                 errMsg = err.response.body.description;
               }
-              await bot.sendMessage(chatId, `❌ <b>فشل النشر:</b> ${errMsg}`, { parse_mode: "HTML" });
-              await bot.answerCallbackQuery(q.id, { text: "فشل النشر" });
+              await bot.sendMessage(chatId, `❌ <b>Post failed:</b> ${errMsg}`, { parse_mode: "HTML" });
+              await bot.answerCallbackQuery(q.id, { text: "Deployment failed" });
             }
             return;
           }
@@ -1654,11 +1656,11 @@ function setupBotHandlers() {
 
           if (subAction === "cancel") {
             await clearAdminState(userId);
-            await bot.editMessageText("❌ تم إلغاء البث الجماعي.", {
+            await bot.editMessageText("❌ Group broadcast has been cancelled.", {
               chat_id: chatId,
               message_id: q.message?.message_id,
             }).catch(() => {});
-            await bot.answerCallbackQuery(q.id, { text: "تم الإلغاء" });
+            await bot.answerCallbackQuery(q.id, { text: "Canceled" });
             return;
           }
 
@@ -1671,7 +1673,7 @@ function setupBotHandlers() {
             const fromChatId = (state?.metadata?.fromChatId as number) || chatId;
             const messageId = msgId || (state?.metadata?.messageId as number);
 
-            await bot.editMessageText("⏳ <b>جاري بدء البث الجماعي للجميع مع الإيموجي المميز...</b>", {
+            await bot.editMessageText("⏳ <b>The group broadcast is starting for everyone with the special emoji...</b>", {
               chat_id: chatId,
               message_id: q.message?.message_id,
               parse_mode: "HTML",
@@ -1695,7 +1697,7 @@ function setupBotHandlers() {
             );
 
             await bot.sendMessage(chatId, res.message, { parse_mode: "HTML" });
-            await bot.answerCallbackQuery(q.id, { text: "تم بدء الإرسال 🚀" });
+            await bot.answerCallbackQuery(q.id, { text: "Transmission has started 🚀" });
             return;
           }
         }
@@ -1712,12 +1714,12 @@ function setupBotHandlers() {
             const [pendingWd] = await db.select({ c: sql`count(*)` }).from(withdrawalsTable).where(eq(withdrawalsTable.status, "pending"));
 
             const statsText =
-              `📊 <b>إحصائيات النظام الشاملة</b>\n\n` +
-              `👥 إجمالي المسجلين: <b>${usersCount?.c ?? 0}</b>\n` +
-              `🚫 المحظورين: <b>${bannedCount?.c ?? 0}</b>\n` +
-              `🔗 إجمالي الإحالات: <b>${refsCount?.c ?? 0}</b>\n` +
-              `💸 إجمالي السحوبات: <b>${totalWd?.c ?? 0}</b>\n` +
-              `⏳ السحوبات المعلقة: <b>${pendingWd?.c ?? 0}</b>`;
+              `📊 <b>Comprehensive system statistics</b>\n\n` +
+              `👥 Total registered: <b>${usersCount?.c ?? 0}</b>\n` +
+              `🚫 Banned: <b>${bannedCount?.c ?? 0}</b>\n` +
+              `🔗 Total Referrals: <b>${refsCount?.c ?? 0}</b>\n` +
+              `💸 Total withdrawals: <b>${totalWd?.c ?? 0}</b>\n` +
+              `⏳ Pending withdrawals: <b>${pendingWd?.c ?? 0}</b>`;
 
             await bot.sendMessage(chatId, statsText, { parse_mode: "HTML" });
             await bot.answerCallbackQuery(q.id);
@@ -1728,10 +1730,10 @@ function setupBotHandlers() {
             await setAdminState(userId, "admin_welcome_msg", {});
             await bot.sendMessage(
               chatId,
-              `✏️ <b>تعديل رسالة الترحيب</b>\n\n` +
-                `أرسل الآن نص رسالة الترحيب الجديدة.\n` +
-                `<i>يدعم تنسيق HTML واستخدام المتغيرات مثل: {first_name}, {username}, {user_id}</i>\n` +
-                `<i>(للإلغاء أرسل /cancel)</i>`,
+              `✏️ <b>Edit the welcome message</b>\n\n` +
+                `Now send the text of the new welcome message.\n` +
+                `<i>Supports HTML formatting and the use of variables such as: {first_name}, {username}, {user_id}</i>\n` +
+                `<i>(To cancel, send /cancel)</i>`,
               { parse_mode: "HTML" }
             );
             await bot.answerCallbackQuery(q.id);
@@ -1742,9 +1744,9 @@ function setupBotHandlers() {
             await setAdminState(userId, "admin_broadcast", {});
             await bot.sendMessage(
               chatId,
-              `📨 <b>إرسال بث جماعي (Broadcast)</b>\n\n` +
-                `أرسل الآن نص الرسالة التي تريد بثها لجميع المستخدمين.\n` +
-                `<i>(للإلغاء أرسل /cancel)</i>`,
+              `📨 <b>Send a group broadcast (Broadcast)</b>\n\n` +
+                `Now send the text of the message you want to broadcast to all users.\n` +
+                `<i>(To cancel, send /cancel)</i>`,
               { parse_mode: "HTML" }
             );
             await bot.answerCallbackQuery(q.id);
@@ -1755,7 +1757,7 @@ function setupBotHandlers() {
             await setAdminState(userId, "admin_find_user", {});
             await bot.sendMessage(
               chatId,
-              `👤 <b>بحث عن مستخدم</b>\n\nأرسل آيدي المستخدم (Telegram ID) أو اليوزرنيم (@username):\n<i>(للإلغاء أرسل /cancel)</i>`,
+              `👤 <b>Search for a user</b>\n\nSend user ID (Telegram ID) or username (@username):\n<i>(To cancel, send /cancel)</i>`,
               { parse_mode: "HTML" }
             );
             await bot.answerCallbackQuery(q.id);
@@ -1767,7 +1769,7 @@ function setupBotHandlers() {
             const current = await getSetting("min_withdraw").catch(() => "0.5");
             await bot.sendMessage(
               chatId,
-              `💸 <b>تعديل الحد الأدنى للسحب</b>\n\nالحد الحالي: <b>${current} TON</b>\nأرسل القيمة الجديدة (رقم فقط):\n<i>(للإلغاء أرسل /cancel)</i>`,
+              `💸 <b>Modify the minimum withdrawal amount</b>\n\nCurrent limit: <b>${current} TON</b>\nSend the new value (number only):\n<i>(To cancel, send /cancel)</i>`,
               { parse_mode: "HTML" }
             );
             await bot.answerCallbackQuery(q.id);
@@ -1779,7 +1781,7 @@ function setupBotHandlers() {
             const current = await getSetting("min_deposit").catch(() => "0.1");
             await bot.sendMessage(
               chatId,
-              `💰 <b>تعديل الحد الأدنى للإيداع</b>\n\nالحد الحالي: <b>${current} TON</b>\nأرسل القيمة الجديدة (رقم فقط):\n<i>(للإلغاء أرسل /cancel)</i>`,
+              `💰 <b>Modify the minimum deposit</b>\n\nCurrent limit: <b>${current} TON</b>\nSend the new value (number only):\n<i>(For cancellation send /cancel)</i>`,
               { parse_mode: "HTML" }
             );
             await bot.answerCallbackQuery(q.id);
@@ -1791,7 +1793,7 @@ function setupBotHandlers() {
             const current = await getSetting("referral_reward").catch(() => "5");
             await bot.sendMessage(
               chatId,
-              `🔗 <b>تعديل مكافأة الإحالة</b>\n\nالمكافأة الحالية: <b>${current} GO</b>\nأرسل القيمة الجديدة (رقم فقط):\n<i>(للإلغاء أرسل /cancel)</i>`,
+              `🔗 <b>Modify referral bonus</b>\n\nCurrent bonus: <b>${current} GO</b>\nSend the new value (number only):\n<i>(To cancel send /cancel)</i>`,
               { parse_mode: "HTML" }
             );
             await bot.answerCallbackQuery(q.id);
@@ -1805,12 +1807,12 @@ function setupBotHandlers() {
             clearBotEnabledCache();
             await logAdminAudit(userId, "toggle_maintenance", { enabled: newStatus });
             await bot.answerCallbackQuery(q.id, {
-              text: newStatus ? "🟢 تم إيقاف الصيانة — البوت يعمل الآن" : "🔴 تم تفعيل وضع الصيانة",
+              text: newStatus ? "🟢 Maintenance has been stopped — the bot is now working" : "🔴 Maintenance mode has been activated",
               show_alert: true,
             });
             await bot.sendMessage(
               chatId,
-              `🔧 حالة البوت الآن: <b>${newStatus ? "🟢 يعمل للجميع" : "🔴 تحت الصيانة (المستخدمون محجوبون)"}</b>`,
+              `🔧 Bot status now: <b>${newStatus ? "🟢Works for everyone": "🔴Under maintenance (users blocked)"}</b>`,
               { parse_mode: "HTML" }
             );
             return;
@@ -1839,25 +1841,25 @@ function setupBotHandlers() {
               .limit(5);
 
             if (pendingList.length === 0) {
-              await bot.sendMessage(chatId, "✅ لا توجد طلبات سحب معلقة حالياً.");
+              await bot.sendMessage(chatId, "✅ There are currently no pending withdrawal requests.");
               return;
             }
 
             for (const w of pendingList) {
               const card =
-                `💸 <b>طلب سحب معلق #${w.id}</b>\n\n` +
-                `👤 المستخدم: <b>${esc(w.firstName || "مستخدم")}</b> (${w.username ? "@" + esc(w.username) : "بدون يوزر"})\n` +
-                `🆔 الآيدي: <code>${w.userId}</code>\n` +
-                `💰 المبلغ: <b>${w.amount} ${w.currency}</b>\n` +
-                `📍 المحفظة: <code>${w.walletAddress}</code>`;
+                `💸 <b>Pending withdrawal request #${w.id}</b>\n\n` +
+                `👤 User: <b>${esc(w.firstName || "User")}</b> (${w.username ? "@" + esc(w.username) : "Without User"})\n` +
+                `🆔 Handles: <code>${w.userId}</code>\n` +
+                `💰 Amount: <b>${w.amount} ${w.currency}</b>\n` +
+                `📍 Wallet: <code>${w.walletAddress}</code>`;
 
               await bot.sendMessage(chatId, card, {
                 parse_mode: "HTML",
                 reply_markup: {
                   inline_keyboard: [
                     [
-                      { text: "✅ موافقة", callback_data: `withdraw_approve_${w.id}` },
-                      { text: "❌ رفض", callback_data: `withdraw_reject_${w.id}` },
+                      { text: "✅ Agree", callback_data: `withdraw_approve_${w.id}` },
+                      { text: "❌ He refused", callback_data: `withdraw_reject_${w.id}` },
                     ],
                   ],
                 },
@@ -1875,6 +1877,11 @@ function setupBotHandlers() {
 
         if (data.startsWith("user_reply_admin_")) {
           await handleUserReplyClick(bot, q);
+          return;
+        }
+
+        if (data.startsWith("user_reply_complaint_")) {
+          await handleUserReplyComplaintClick(bot, q);
           return;
         }
 
@@ -1915,7 +1922,7 @@ function setupBotHandlers() {
           if (!isNaN(targetId)) {
             await db.update(usersTable).set({ isVisible: false }).where(eq(usersTable.id, targetId));
             await logAdminAudit(userId, "ban_user", {}, targetId);
-            await bot.answerCallbackQuery(q.id, { text: "🚫 تم حظر المستخدم بنجاح", show_alert: true });
+            await bot.answerCallbackQuery(q.id, { text: "🚫 The user has been successfully blocked", show_alert: true });
             return;
           }
         }
@@ -1925,7 +1932,7 @@ function setupBotHandlers() {
           if (!isNaN(targetId)) {
             await db.update(usersTable).set({ isVisible: true }).where(eq(usersTable.id, targetId));
             await logAdminAudit(userId, "unban_user", {}, targetId);
-            await bot.answerCallbackQuery(q.id, { text: "🔓 تم فك حظر المستخدم", show_alert: true });
+            await bot.answerCallbackQuery(q.id, { text: "🔓 The user has been unblocked", show_alert: true });
             return;
           }
         }
@@ -1938,7 +1945,7 @@ function setupBotHandlers() {
             await db.update(usersTable).set({ isWithdrawalBanned: nextStatus }).where(eq(usersTable.id, targetId));
             await logAdminAudit(userId, "toggle_user_withdrawal", { isWithdrawalBanned: nextStatus }, targetId);
             await bot.answerCallbackQuery(q.id, {
-              text: nextStatus ? "🔒 تم منع المستخدم من السحب" : "🔓 تم السماح للمستخدم بالسحب",
+              text: nextStatus ? "🔒 The user has been blocked from withdrawing" : "🔓 The user has been allowed to withdraw",
               show_alert: true,
             });
             return;
@@ -2000,18 +2007,18 @@ function setupBotHandlers() {
             if (state.step === "admin_task_title") {
               const title = input.trim();
               if (!title) {
-                await bot.sendMessage(chatId, "❌ الرجاء إدخال نص صحيح.", { parse_mode: "HTML" });
+                await bot.sendMessage(chatId, "❌ Please enter valid text.", { parse_mode: "HTML" });
                 return;
               }
               await setAdminState(userId, "admin_task_desc", { ...state.metadata, title });
-              await bot.sendMessage(chatId, "📝 أدخل <b>وصف المهمة</b> (أو أرسل <code>-</code> لتخطي الوصف):", { parse_mode: "HTML" });
+              await bot.sendMessage(chatId, "📝 Enter <b>task description</b> (or send <code>-</code> to skip description):", { parse_mode: "HTML" });
               return;
             }
 
             if (state.step === "admin_task_desc") {
               const description = input.trim() === "-" ? null : input.trim();
               await setAdminState(userId, "admin_task_icon", { ...state.metadata, description });
-              await bot.sendMessage(chatId, "🖼 أرسل <b>الإيموجي المميز (Custom Emoji)</b> أو <b>صورة</b> للمهمة (أو أرسل <code>-</code> لتخطي الصورة):", { parse_mode: "HTML" });
+              await bot.sendMessage(chatId, "🖼 Send a <b>Custom Emoji</b> or <b>Image</b> for the task (or send <code>-</code> to skip the image):", { parse_mode: "HTML" });
               return;
             }
 
@@ -2052,31 +2059,31 @@ function setupBotHandlers() {
                 icon: customEmojiId ? customEmojiId : icon || "⭐" // if custom emoji, store it in icon field for DB
               });
 
-              await bot.sendMessage(chatId, "🔗 أدخل <b>رابط المهمة (URL)</b>:", { parse_mode: "HTML" });
+              await bot.sendMessage(chatId, "🔗 Enter <b>task link (URL)</b>:", { parse_mode: "HTML" });
               return;
             }
 
             if (state.step === "admin_task_url") {
               const url = input.trim() === "-" ? null : input.trim();
               if (url && !url.startsWith("http")) {
-                await bot.sendMessage(chatId, "❌ يجب أن يبدأ الرابط بـ http أو https. حاول مرة أخرى:", { parse_mode: "HTML" });
+                await bot.sendMessage(chatId, "❌ The link must start with http or https. Try again:", { parse_mode: "HTML" });
                 return;
               }
 
               await setAdminState(userId, "admin_task_reward", { ...state.metadata, url });
-              await bot.sendMessage(chatId, "💰 أدخل <b>قيمة المكافأة</b> (مثلاً: 5):", { parse_mode: "HTML" });
+              await bot.sendMessage(chatId, "💰 Enter <b>Bonus Value</b> (eg: 5):", { parse_mode: "HTML" });
               return;
             }
 
             if (state.step === "admin_task_reward") {
               const rewardAmount = parseFloat(input.trim());
               if (isNaN(rewardAmount) || rewardAmount <= 0) {
-                await bot.sendMessage(chatId, "❌ الرجاء إدخال رقم صحيح وموجب للمكافأة.", { parse_mode: "HTML" });
+                await bot.sendMessage(chatId, "❌ Please enter a valid and positive number for the reward.", { parse_mode: "HTML" });
                 return;
               }
 
               await setAdminState(userId, "admin_task_limit", { ...state.metadata, rewardAmount });
-              await bot.sendMessage(chatId, "📈 أدخل <b>الحد الأقصى للمطالبات (Limit)</b> (أرسل <code>0</code> أو <code>-</code> لجعلها بدون حد):", { parse_mode: "HTML" });
+              await bot.sendMessage(chatId, "📈 Enter <b>Limit</b> (send <code>0</code> or <code>-</code> to make it unlimited):", { parse_mode: "HTML" });
               return;
             }
 
@@ -2125,11 +2132,11 @@ function setupBotHandlers() {
                   isActive: true,
                 });
 
-                await bot.sendMessage(chatId, `✅ <b>تم إنشاء المهمة بنجاح!</b>\n\nاسم المهمة: ${esc(title)}\nالفئة: ${category}\nالمكافأة: ${rewardAmount} GO`, { parse_mode: "HTML" });
+                await bot.sendMessage(chatId, `✅ <b>Quest created successfully!</b>\n\nQuest Name: ${esc(title)}\nCategory: ${category}\nReward: ${rewardAmount} GO`, { parse_mode: "HTML" });
                 await clearAdminState(userId);
               } catch (err) {
                 logger.error({ err, userId }, "Failed to create task");
-                await bot.sendMessage(chatId, "❌ حدث خطأ أثناء إنشاء المهمة. يرجى المحاولة لاحقاً.", { parse_mode: "HTML" });
+                await bot.sendMessage(chatId, "❌ An error occurred while creating the task. Please try again later.", { parse_mode: "HTML" });
                 // We don't clear state so they can try again if it was a transient error, or they can use /cancel
               }
               return;
@@ -2167,25 +2174,25 @@ function setupBotHandlers() {
                 entitiesData: msg.entities || msg.caption_entities || [],
                 mediaType,
                 fileId,
-                textPreview: msg.text || msg.caption || "(ملف/وسائط)",
+                textPreview: msg.text || msg.caption || "(File/Media)",
               });
 
               await bot.sendMessage(
                 chatId,
-                `👁️ <b>معاينة رسالة البث جاهزة!</b>\n\n` +
-                  `👆 الرسالة أعلاه سيتم إرسالها لجميع مستخدمي البوت بكامل <b>الإيموجي المميز (Custom Emojis)</b> والتنسيقات والصور.\n\n` +
-                  `هل تريد بدء الإرسال الآن؟`,
+                `👁️ <b>Broadcast message preview is ready!</b>\n\n` +
+                  `👆 The above message will be sent to all bot users with all <b>Custom Emojis</b>, formats, and images.\n\n` +
+                  `Want to start sending now?`,
                 {
                   parse_mode: "HTML",
                   reply_to_message_id: msg.message_id,
                   reply_markup: {
                     inline_keyboard: [
                       [
-                        { text: "🚀 إرسال للجميع الآن", callback_data: `adm_bc:send:0:${msg.message_id}` },
-                        { text: "📌 إرسال مع التثبيت", callback_data: `adm_bc:send:1:${msg.message_id}` },
+                        { text: "🚀 Send to everyone now", callback_data: `adm_bc:send:0:${msg.message_id}` },
+                        { text: "📌 Send with installation", callback_data: `adm_bc:send:1:${msg.message_id}` },
                       ],
                       [
-                        { text: "❌ إلغاء", callback_data: "adm_bc:cancel" },
+                        { text: "❌ Cancel", callback_data: "adm_bc:cancel" },
                       ],
                     ],
                   },
@@ -2228,9 +2235,9 @@ function setupBotHandlers() {
               });
               await bot.sendMessage(
                 chatId,
-                `✅ <b>تم استلام البوست.</b>\n\n` +
-                `🎨 <b>ما هو لون الزر؟</b>\n` +
-                `(اكتب success للأخضر، primary للأزرق، أو destructive للأحمر، أو أي لون آخر)`,
+                `✅ <b>Post received.</b>\n\n` +
+                `🎨 <b>What color is the button?</b>\n` +
+                `(Type success for green, primary for blue, destructive for red, or any other color)`,
                 { parse_mode: "HTML" }
               );
               return;
@@ -2238,9 +2245,9 @@ function setupBotHandlers() {
 
             if (state.step === "admin_news_bc_color") {
               let style = input.trim().toLowerCase();
-              if (style === "الاخضر" || style === "أخضر") style = "success";
-              else if (style === "الاحمر" || style === "أحمر") style = "destructive";
-              else if (style === "الازرق" || style === "أزرق") style = "primary";
+              if (style === "Green" || style === "green") style = "success";
+              else if (style === "Red" || style === "red") style = "destructive";
+              else if (style === "Blue" || style === "blue") style = "primary";
 
               await setAdminState(userId, "admin_news_bc_btn_name", {
                 ...state.metadata,
@@ -2248,9 +2255,9 @@ function setupBotHandlers() {
               });
               await bot.sendMessage(
                 chatId,
-                `✅ <b>تم تحديد اللون:</b> ${style}\n\n` +
-                `📝 <b>ما هو اسم الزر؟</b>\n` +
-                `(الكلمة التي ستظهر على الزر)`,
+                `✅ <b>Color selected:</b> ${style}\n\n` +
+                `📝 <b>What is the name of the button?</b>\n` +
+                `(The word that will appear on the button)`,
                 { parse_mode: "HTML" }
               );
               return;
@@ -2264,9 +2271,9 @@ function setupBotHandlers() {
               });
               await bot.sendMessage(
                 chatId,
-                `✅ <b>تم تحديد الاسم:</b> ${btnName}\n\n` +
-                `✨ <b>ما هو الإيموجي المميز للزر؟</b>\n` +
-                `(أرسل الإيموجي هنا، أو أرسل ID الإيموجي مباشرة. إذا لم ترغب بإيموجي أرسل -)`,
+                `✅ <b>Name specified:</b> ${btnName}\n\n` +
+                `✨ <b>What is the special emoji for the button?</b>\n` +
+                `(Send the emoji here, or send the emoji ID directly. If you don't want an emoji, send -)`,
                 { parse_mode: "HTML" }
               );
               return;
@@ -2299,9 +2306,9 @@ function setupBotHandlers() {
 
               await bot.sendMessage(
                 chatId,
-                `✅ <b>تم تحديد الإيموجي!</b>\n\n` +
-                `🔗 <b>ما هو الرابط (URL) للزر؟</b>\n` +
-                `(مثال: https://t.me/GramGO1_bot أو رابط مسابقة)`,
+                `✅ <b>Emoji selected!</b>\n\n` +
+                `🔗 <b>What is the link (URL) of the button?</b>\n` +
+                `(Example: https://t.me/GramGO1_bot or contest link)`,
                 { parse_mode: "HTML" }
               );
               return;
@@ -2340,9 +2347,9 @@ function setupBotHandlers() {
 
               await bot.sendMessage(
                 chatId,
-                `👁️ <b>معاينة رسالة البث جاهزة!</b>\n\n` +
-                `سيتم نشر البوست المرفق في قناة <b>@GramGO1News</b> مع الزر التالي:\n\n` +
-                `هل أنت متأكد من النشر الآن؟`,
+                `👁️ <b>Broadcast message preview is ready!</b>\n\n` +
+                `The attached post will be published in the <b>@GramGO1News</b> channel with the following button:\n\n` +
+                `Are you sure to publish now?`,
                 {
                   parse_mode: "HTML",
                   reply_to_message_id: messageId,
@@ -2350,8 +2357,8 @@ function setupBotHandlers() {
                     inline_keyboard: [
                       [previewButton],
                       [
-                        { text: "🚀 نشر الآن في القناة", callback_data: `news_bc:send` },
-                        { text: "❌ إلغاء", callback_data: "news_bc:cancel" },
+                        { text: "🚀 Publish now in the channel", callback_data: `news_bc:send` },
+                        { text: "❌ Cancel", callback_data: "news_bc:cancel" },
                       ],
                     ],
                   },
@@ -2370,7 +2377,7 @@ function setupBotHandlers() {
                   set: { value: input },
                 });
               await logAdminAudit(userId, "update_welcome_message", { preview: input.slice(0, 100) });
-              await bot.sendMessage(chatId, "✅ <b>تم حفظ نص رسالة الترحيب بنجاح!</b>", { parse_mode: "HTML" });
+              await bot.sendMessage(chatId, "✅ <b>The text of the welcome message has been saved successfully!</b>", { parse_mode: "HTML" });
               return;
             }
 
@@ -2389,22 +2396,22 @@ function setupBotHandlers() {
               }
 
               if (!targetUser) {
-                await bot.sendMessage(chatId, "❌ لم يتم العثور على أي مستخدم بهذه البيانات.");
+                await bot.sendMessage(chatId, "❌ No user was found with this data.");
                 return;
               }
 
               const card =
-                `👤 <b>بطاقة بيانات المستخدم</b>\n\n` +
-                `🆔 الآيدي: <code>${targetUser.id}</code>\n` +
-                `👤 الاسم: <b>${esc(targetUser.firstName || "")} ${esc(targetUser.lastName || "")}</b>\n` +
-                `🔗 اليوزر: ${targetUser.username ? "@" + esc(targetUser.username) : "بدون يوزر"}\n` +
-                `🪙 رصيد GO: <b>${targetUser.goBalance} GO</b>\n` +
-                `💎 رصيد GRAM: <b>${targetUser.gramBalance} Gram</b>\n` +
-                `💼 رصيد TON: <b>${targetUser.tonBalance} TON</b>\n` +
-                `👥 عدد الإحالات: <b>${targetUser.referralCount}</b>\n` +
-                `🚫 حالة الحظر: <b>${targetUser.isVisible ? "نشط وغير محظور" : "🔴 محظور"}</b>\n` +
-                `💸 حالة السحب: <b>${targetUser.isWithdrawalBanned ? "🔴 ممنوع من السحب" : "🟢 مسموح له بالسحب"}</b>\n` +
-                `📅 تاريخ التسجيل: <code>${new Date(targetUser.createdAt).toLocaleDateString("ar")}</code>`;
+                `👤 <b>User data card</b>\n\n` +
+                `🆔 Handles: <code>${targetUser.id}</code>\n` +
+                `👤 Name: <b>${esc(targetUser.firstName || "")} ${esc(targetUser.lastName || "")}</b>\n` +
+                `🔗 Username: ${targetUser.username? "@" + esc(targetUser.username) : "Without user"}\n` +
+                `🪙GO Balance: <b>${targetUser.goBalance} GO</b>\n` +
+                `💎 GRAM Balance: <b>${targetUser.gramBalance} Gram</b>\n` +
+                `💼 TON Balance: <b>${targetUser.tonBalance} TON</b>\n` +
+                `👥 Number of referrals: <b>${targetUser.referralCount}</b>\n` +
+                `🚫 Ban status: <b>${targetUser.isVisible ? "Active and not blocked": "🔴Blocked"}</b>\n` +
+                `💸 Draw status: <b>${targetUser.isWithdrawalBanned ? "🔴Prohibited from withdrawing": "🟢Allowed to withdraw"}</b>\n` +
+                `📅 Registration date: <code>${new Date(targetUser.createdAt).toLocaleDateString("ar")}</code>`;
 
               const botUsername = (await bot.getMe()).username;
               const dmLink = `https://t.me/${botUsername}?start=dm_${targetUser.id}`;
@@ -2415,16 +2422,16 @@ function setupBotHandlers() {
                   inline_keyboard: [
                     [
                       {
-                        text: targetUser.isVisible ? "🚫 حظر المستخدم" : "🔓 فك الحظر",
+                        text: targetUser.isVisible ? "🚫 Block user" : "🔓 Unblock",
                         callback_data: targetUser.isVisible ? `adm_ban_${targetUser.id}` : `adm_unban_${targetUser.id}`,
                       },
                       {
-                        text: targetUser.isWithdrawalBanned ? "🔓 سماح بالسحب" : "🔒 منع السحب",
+                        text: targetUser.isWithdrawalBanned ? "🔓 Allow withdrawal" : "🔒 Prevent withdrawal",
                         callback_data: `adm_toggle_wd_${targetUser.id}`,
                       },
                     ],
                     [
-                      { text: "✉️ مراسلة خاصة (Deep Link)", url: dmLink },
+                      { text: "✉️ Private messaging (Deep Link)", url: dmLink },
                     ],
                   ],
                 },
@@ -2436,7 +2443,7 @@ function setupBotHandlers() {
               await clearAdminState(userId);
               const val = parseFloat(input);
               if (isNaN(val) || val <= 0) {
-                await bot.sendMessage(chatId, "❌ يجب إدخال رقم صحيح وموجب.");
+                await bot.sendMessage(chatId, "❌ You must enter a valid and positive number.");
                 return;
               }
               await db
@@ -2447,7 +2454,7 @@ function setupBotHandlers() {
                   set: { value: String(val) },
                 });
               await logAdminAudit(userId, "update_min_withdraw", { value: val });
-              await bot.sendMessage(chatId, `✅ تم تعيين الحد الأدنى للسحب إلى: <b>${val} TON</b>`, { parse_mode: "HTML" });
+              await bot.sendMessage(chatId, `✅ The minimum withdrawal limit is set to: <b>${val} TON</b>`, { parse_mode: "HTML" });
               return;
             }
 
@@ -2455,7 +2462,7 @@ function setupBotHandlers() {
               await clearAdminState(userId);
               const val = parseFloat(input);
               if (isNaN(val) || val <= 0) {
-                await bot.sendMessage(chatId, "❌ يجب إدخال رقم صحيح وموجب.");
+                await bot.sendMessage(chatId, "❌ You must enter a valid and positive number.");
                 return;
               }
               await db
@@ -2466,7 +2473,7 @@ function setupBotHandlers() {
                   set: { value: String(val) },
                 });
               await logAdminAudit(userId, "update_min_deposit", { value: val });
-              await bot.sendMessage(chatId, `✅ تم تعيين الحد الأدنى للإيداع إلى: <b>${val} TON</b>`, { parse_mode: "HTML" });
+              await bot.sendMessage(chatId, `✅ The minimum deposit is set to: <b>${val} TON</b>`, { parse_mode: "HTML" });
               return;
             }
 
@@ -2474,7 +2481,7 @@ function setupBotHandlers() {
               await clearAdminState(userId);
               const val = parseFloat(input);
               if (isNaN(val) || val <= 0) {
-                await bot.sendMessage(chatId, "❌ يجب إدخال رقم صحيح وموجب.");
+                await bot.sendMessage(chatId, "❌ You must enter a valid and positive number.");
                 return;
               }
               await db
@@ -2485,7 +2492,7 @@ function setupBotHandlers() {
                   set: { value: String(val) },
                 });
               await logAdminAudit(userId, "update_referral_reward", { value: val });
-              await bot.sendMessage(chatId, `✅ تم تعيين مكافأة الإحالة إلى: <b>${val} GO</b>`, { parse_mode: "HTML" });
+              await bot.sendMessage(chatId, `✅ Referral bonus is set to: <b>${val} GO</b>`, { parse_mode: "HTML" });
               return;
             }
 
@@ -2526,6 +2533,13 @@ function setupBotHandlers() {
             return;
           }
 
+          if (userState && userState.step === "user_replying_to_complaint") {
+            const complaintId = Number(userState.metadata?.complaintId || 0);
+            await clearAdminState(userId);
+            await handleUserReplyToComplaintMessage(bot, msg, complaintId);
+            return;
+          }
+
           // Any text sent by regular user treated as support/complaint message
           if (msg.text) {
             const blocked = await enforceSubscription(bot, chatId, userId);
@@ -2556,7 +2570,7 @@ function setupBotHandlers() {
         if (status !== "left" && status !== "kicked") return;
 
         const userId = user.id;
-        const channelName = raw.chat.title || raw.chat.username || "القناة";
+        const channelName = raw.chat.title || raw.chat.username || "Channel";
 
         const [userData] = await db
           .select({
@@ -2611,18 +2625,18 @@ function setupBotHandlers() {
         try {
           await bot.sendMessage(
             referrerId,
-            `⚠️ <b>تنبيه!</b>\nالمستخدم <b>${userDisplay}</b> غادر القناة: <b>${esc(channelName)}</b>`,
+            `⚠️ <b>Warning!</b>\nUser <b>${userDisplay}</b> left the channel: <b>${esc(channelName)}</b>`,
             {
               parse_mode: "HTML",
               reply_markup: {
                 inline_keyboard: [
                   [
                     {
-                      text: "📤 إرسال تنبيه للشخص",
+                      text: "📤 Send an alert to the person",
                       callback_data: `ref:warn:${userId}`,
                     },
                     {
-                      text: "❌ خصم الإحالة",
+                      text: "❌ Referral discount",
                       callback_data: `ref:deduct:${userId}`,
                     },
                   ],

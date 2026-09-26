@@ -70,7 +70,7 @@ export async function startBroadcast(
   fileId?: string
 ): Promise<{ success: boolean; totalUsers: number; message: string }> {
   if (isBroadcasting) {
-    return { success: false, totalUsers: 0, message: "يوجد بث جماعي قيد التشغيل بالفعل" };
+    return { success: false, totalUsers: 0, message: "A group broadcast is already running" };
   }
 
   const activeUsers = await db
@@ -81,7 +81,7 @@ export async function startBroadcast(
 
   const totalUsers = activeUsers.length;
   if (totalUsers === 0) {
-    return { success: false, totalUsers: 0, message: "لا يوجد مستخدمون نشطون لإرسال الرسالة إليهم" };
+    return { success: false, totalUsers: 0, message: "There are no active users to send the message to" };
   }
 
   const progress: BroadcastProgress = {
@@ -113,7 +113,7 @@ export async function startBroadcast(
   return {
     success: true,
     totalUsers,
-    message: `بدأ البث الجماعي إلى ${totalUsers} مستخدم...`,
+    message: `Mass broadcast to ${totalUsers} user started...`,
   };
 }
 
@@ -263,10 +263,10 @@ async function runBroadcastLoop(
     // Notify admin
     await bot.sendMessage(
       progress.adminId,
-      `✅ <b>اكتمل البث الجماعي!</b>\n\n` +
-        `📊 الإجمالي: <b>${progress.totalUsers}</b>\n` +
-        `📨 تم الإرسال: <b>${progress.sentCount}</b>\n` +
-        `❌ فشل / حظر: <b>${progress.failedCount}</b> (منهم ${progress.blockedCount} حظروا البوت)`,
+      `✅ <b>Group broadcast complete!</b>\n\n` +
+        `📊 Total: <b>${progress.totalUsers}</b>\n` +
+        `📨 Sent: <b>${progress.sentCount}</b>\n` +
+        `❌ Failed / Blocked: <b>${progress.failedCount}</b> (of whom ${progress.blockedCount} blocked the bot)`,
       { parse_mode: "HTML" }
     ).catch(() => {});
 

@@ -21,11 +21,11 @@ export async function handleComplaintSubmission(
   msg: TelegramBot.Message
 ): Promise<void> {
   const userId = msg.from!.id;
-  const username = msg.from?.username ? `@${msg.from.username}` : "بدون يوزر";
+  const username = msg.from?.username ? `@${msg.from.username}` : "Without user";
   const firstName = msg.from?.first_name || "";
   const lastName = msg.from?.last_name || "";
-  const fullName = `${firstName} ${lastName}`.trim() || "مستخدم";
-  const text = msg.text || "(ملف / وسائط)";
+  const fullName = `${firstName} ${lastName}`.trim() || "user";
+  const text = msg.text || "(file/media)";
 
   // Save to DB
   let complaintId = 0;
@@ -99,7 +99,7 @@ export async function handleComplaintSubmission(
   await clearAdminState(userId);
   await bot.sendMessage(
     msg.chat.id,
-    "👀 تم استلام شكواك وإرسالها إلى فريق الدعم.\n\nسيتم مراجعة رسالتك والرد عليك في أقرب وقت ممكن.\n\nشكرًا لتواصلك مع فريق GRAM GO 💙"
+    "👀 Your complaint has been received and sent to the support team.\n\nYour message will be reviewed and we will respond to you as soon as possible.\n\nThank you for contacting the GRAM GO team 💙"
   );
 }
 
@@ -108,9 +108,9 @@ export async function handleUserSupportMessage(
   msg: TelegramBot.Message
 ): Promise<void> {
   const userId = msg.from!.id;
-  const username = msg.from?.username ? `@${msg.from.username}` : "بدون يوزر";
-  const fullName = `${msg.from?.first_name || ""} ${msg.from?.last_name || ""}`.trim() || "مستخدم";
-  const text = msg.text || "(ملف / وسائط)";
+  const username = msg.from?.username ? `@${msg.from.username}` : "Without user";
+  const fullName = `${msg.from?.first_name || ""} ${msg.from?.last_name || ""}`.trim() || "user";
+  const text = msg.text || "(file/media)";
 
   // Forward to all authorized admins with a one-time Reply button
   const { allAdminIds } = await getAuthorizedAdmins();
@@ -220,9 +220,8 @@ export async function deliverAdminReplyToComplaint(
 ): Promise<boolean> {
   try {
     const userMsg =
-      `💬 <b>رد فريق الدعم:</b>\n\n` +
-      `${esc(replyText)}\n\n` +
-      `🎫 رقم الشكوى: #${complaintId}`;
+      `💬 <b>Support Team Response:</b>\n\n` +
+      `${esc(replyText)}`;
 
     await bot.sendMessage(targetUserId, userMsg, {
       parse_mode: "HTML",
@@ -245,14 +244,14 @@ export async function deliverAdminReplyToComplaint(
     await clearAdminState(adminId);
     await logAdminAudit(adminId, "reply_to_complaint", { replyPreview: replyText.slice(0, 100), complaintId }, targetUserId);
 
-    await bot.sendMessage(adminId, `✅ تم إرسال الرد إلى المستخدم بنجاح.\n\n🎫 Complaint ID: #${complaintId}`, {
+    await bot.sendMessage(adminId, `✅ The response was sent to the user successfully.\n\n🎫 Complaint ID: #${complaintId}`, {
       parse_mode: "HTML",
     });
 
     return true;
   } catch (err) {
     logger.error({ err, targetUserId, complaintId }, "Error delivering admin reply to complaint");
-    await bot.sendMessage(adminId, `❌ تعذر إرسال الرسالة إلى المستخدم (قد يكون حظر البوت).`);
+    await bot.sendMessage(adminId, `❌ The message could not be sent to the user (the bot may have been blocked).`);
     await clearAdminState(adminId);
     return false;
   }
@@ -377,5 +376,82 @@ export async function handleUserReplyClick(
   await bot.sendMessage(
     userId,
     `✍️ Please write your message...`
+  );
+}
+
+/**
+ * Handle user clicking "Reply" to a specific complaint message
+ */
+export async function handleUserReplyComplaintClick(
+  bot: TelegramBot,
+  query: TelegramBot.CallbackQuery
+): Promise<void> {
+  const userId = query.from.id;
+  const data = query.data || "";
+  const parts = data.split("_");
+  const complaintId = parseInt(parts[3] || "0");
+
+  if (query.message) {
+    try {
+      await bot.editMessageReplyMarkup(
+        { inline_keyboard: [] },
+        { chat_id: query.message.chat.id, message_id: query.message.message_id }
+      );
+    } catch {}
+  }
+
+  await setAdminState(userId, "user_replying_to_complaint", { complaintId });
+  await bot.answerCallbackQuery(query.id, { text: "✍️ Please write your message..." });
+  await bot.sendMessage(userId, "✍️ Please write your message...");
+}
+
+export async function handleUserReplyToComplaintMessage(
+  bot: TelegramBot,
+  msg: TelegramBot.Message,
+  complaintId: number
+): Promise<void> {
+  const userId = msg.from!.id;
+  const username = msg.from?.username ? `@${msg.from.username}` : "Without user";
+  const fullName = `${msg.from?.first_name || ""} ${msg.from?.last_name || ""}`.trim() || "user";
+  const text = msg.text || "(file/media)";
+
+  try {
+    await bot.setMessageReaction(msg.chat.id, msg.message_id, {
+      reaction: [{ type: "emoji", emoji: "👀" }],
+      is_big: true,
+    });
+  } catch (err) {}
+
+  const { allAdminIds } = await getAuthorizedAdmins();
+
+  const adminNotice =
+    `📩 <b>User Reply to Complaint</b>\n\n` +
+    `👤 From: <b>${esc(fullName)}</b> (${esc(username)})\n` +
+    `🆔 User ID: <code>${userId}</code>\n` +
+    `🎫 Complaint ID: #${complaintId}\n\n` +
+    `💬 Message Text:\n<i>${esc(text)}</i>`;
+
+  for (const adminId of allAdminIds) {
+    try {
+      await bot.sendMessage(adminId, adminNotice, {
+        parse_mode: "HTML",
+        reply_markup: {
+          inline_keyboard: [
+            [
+              {
+                text: "↩️ Reply to User",
+                callback_data: `admin_reply_complaint_${complaintId}`,
+              },
+            ],
+          ],
+        },
+      });
+    } catch (err) {}
+  }
+
+  await bot.sendMessage(
+    msg.chat.id,
+    "✅ <b>Your reply has been sent!</b>\nAn admin will review it as soon as possible.",
+    { parse_mode: "HTML" }
   );
 }

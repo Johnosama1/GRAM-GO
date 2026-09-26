@@ -78,7 +78,7 @@ async function activatePendingReferrals(bot: TelegramBot): Promise<number> {
           .where(eq(usersTable.id, ref.referredId));
         await bot.sendMessage(
           ref.referrerId,
-          `⚠️ تم رفض إحالة: تطابق عنوان الجهاز/الشبكة مع حسابك.\nالإحالات من نفس الجهاز غير مسموحة.`,
+          `⚠️ Referral rejected: Device/network address matches your account.\nReferrals from the same device are not allowed.`,
         ).catch(() => {});
         await new Promise(r => setTimeout(r, 150));
         continue;
@@ -101,7 +101,7 @@ async function activatePendingReferrals(bot: TelegramBot): Promise<number> {
         .returning({ id: usersTable.id, referralCount: usersTable.referralCount, goBalance: usersTable.goBalance });
 
       if (inviter) {
-        const msg = `🎉 <b>مبروك!</b> انضم صديق وتم تأكيد اشتراكه!\n🪙 حصلت على <b>+10 عملات Go</b> لزيادة سرعة تعدين الجرام بنسبة 3%! ⛏️`;
+        const msg = `🎉 <b>Congratulations!</b> A friend joined and their subscription was confirmed!\n🪙 You got <b>+10 Go Coins</b> to increase your gram mining speed by 3%! ⛏️`;
         await bot.sendMessage(ref.referrerId, msg, { parse_mode: "HTML" }).catch(() => {});
       }
 
@@ -163,9 +163,9 @@ async function scanActiveReferrals(bot: TelegramBot): Promise<{ removed: number;
 
           await bot.sendMessage(
             ref.referrerId,
-            `❌ <b>تم خصم إحالة تلقائياً</b>\n` +
-            `المستخدم <b>${userDisplay}</b> غادر القناة <b>${channelName}</b>\n` +
-            `تم خصم إحالة واحدة من رصيدك.`,
+            `❌ <b>A referral has been automatically deducted</b>\n` +
+            `User <b>${userDisplay}</b> left channel <b>${channelName}</b>\n` +
+            `One referral has been deducted from your balance.`,
             { parse_mode: "HTML" }
           ).catch(() => {});
 
@@ -198,9 +198,9 @@ async function scanActiveReferrals(bot: TelegramBot): Promise<{ removed: number;
 
           await bot.sendMessage(
             ref.referrerId,
-            `❌ <b>تم إلغاء إحالة:</b> نشاط مشبوه\n` +
-            `تطابق عنوان الجهاز/الشبكة بين المُحيل والمُحال.\n` +
-            `تم خصم إحالة واحدة من رصيدك.`,
+            `❌ <B>Referral cancelled:</b> Suspicious activity\n` +
+            `Device/network address matches between referrer and referrer.\n` +
+            `One referral has been deducted from your balance.`,
             { parse_mode: "HTML" }
           ).catch(() => {});
 
@@ -254,17 +254,17 @@ async function detectReferralSpam(bot: TelegramBot): Promise<void> {
 
     await bot.sendMessage(
       ownerId,
-      `🚨 <b>تنبيه: المستخدم ${userDisplay} لديه ${row.total_refs} إحالة بنسبة 0% انضمام للقنوات</b>\n\n` +
-      `هذا يشير إلى رشق إحالات.\nاختر الإجراء:`,
+      `🚨 <b>Alert: User ${userDisplay} has ${row.total_refs} 0% referral channel join</b>\n\n` +
+      `This indicates referral spamming.\nChoose action:`,
       {
         parse_mode: "HTML",
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "⚠️ إرسال تحذير للمستخدم", callback_data: `spam:warn:${row.id}`, style: "primary" } as any,
-              { text: "🚫 حظر المستخدم", callback_data: `spam:ban:${row.id}`, style: "danger" } as any,
+              { text: "⚠️ Send a warning to the user", callback_data: `spam:warn:${row.id}`, style: "primary" } as any,
+              { text: "🚫 Block user", callback_data: `spam:ban:${row.id}`, style: "danger" } as any,
             ],
-            [{ text: "👁️ مراقبة فقط", callback_data: `spam:ignore:${row.id}`, style: "primary" } as any],
+            [{ text: "👁️ Monitoring only", callback_data: `spam:ignore:${row.id}`, style: "primary" } as any],
           ],
         },
       }
@@ -323,13 +323,13 @@ async function sendRiskWarnings(bot: TelegramBot): Promise<void> {
       if (risk === 100 && ownerId) {
         await bot.sendMessage(
           ownerId,
-          `🚨 <b>مستخدم بدرجة خطر 100/100</b>\n👤 ${userDisplay} (${row.id})\n\nيجب اتخاذ إجراء فوري:`,
+          `🚨 <b>100/100 risk user</b>\n👤 ${userDisplay} (${row.id})\n\nImmediate action must be taken:`,
           {
             parse_mode: "HTML",
             reply_markup: {
               inline_keyboard: [[
-                { text: "🚫 حظر المستخدم", callback_data: `spam:ban:${row.id}`, style: "danger" } as any,
-                { text: "👁️ مراقبة فقط",  callback_data: `spam:ignore:${row.id}`, style: "primary" } as any,
+                { text: "🚫 Block user", callback_data: `spam:ban:${row.id}`, style: "danger" } as any,
+                { text: "👁️ Monitoring only",  callback_data: `spam:ignore:${row.id}`, style: "primary" } as any,
               ]],
             },
           }
@@ -337,13 +337,13 @@ async function sendRiskWarnings(bot: TelegramBot): Promise<void> {
       } else if (risk >= 80) {
         await bot.sendMessage(
           row.id,
-          `🚨 <b>تحذير شديد:</b> حسابك معرض للحظر بسبب نشاط مشبوه.\nيرجى الالتزام بشروط الاستخدام.`,
+          `🚨 <b>Strict Warning:</b> Your account is at risk of being banned due to suspicious activity.\nPlease adhere to the terms of use.`,
           { parse_mode: "HTML" }
         ).catch(() => {});
       } else {
         await bot.sendMessage(
           row.id,
-          `⚠️ <b>تحذير:</b> نشاط مشبوه تم رصده على حسابك.\nيرجى الالتزام بشروط الاستخدام.`,
+          `⚠️ <b>Warning:</b> Suspicious activity has been detected on your account.\nPlease adhere to the terms of use.`,
           { parse_mode: "HTML" }
         ).catch(() => {});
       }
@@ -392,16 +392,16 @@ async function detectMultiAccounts(bot: TelegramBot): Promise<void> {
 
     await bot.sendMessage(
       ownerId,
-      `🚨 <b>تم اكتشاف تعدد حسابات</b>\n\nالحسابات:\n${accounts}\n\nاختر الإجراء:`,
+      `🚨 <b>Multiple accounts detected</b>\n\nAccounts:\n${accounts}\n\nChoose action:`,
       {
         parse_mode: "HTML",
         reply_markup: {
           inline_keyboard: [
             [
-              { text: "🚫 حظر الكل",         callback_data: `multi:banall:${idsStr}`, style: "danger" } as any,
-              { text: "🚫 حظر الجديد فقط",   callback_data: `multi:bannew:${newestId}`, style: "danger" } as any,
+              { text: "🚫 Block all",         callback_data: `multi:banall:${idsStr}`, style: "danger" } as any,
+              { text: "🚫 Block new only",   callback_data: `multi:bannew:${newestId}`, style: "danger" } as any,
             ],
-            [{ text: "👁️ تجاهل",            callback_data: `multi:ignore:${userIds[0]}`, style: "primary" } as any],
+            [{ text: "👁️ Ignore",            callback_data: `multi:ignore:${userIds[0]}`, style: "primary" } as any],
           ],
         },
       }
