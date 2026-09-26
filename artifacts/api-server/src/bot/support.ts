@@ -65,16 +65,16 @@ export async function handleComplaintSubmission(
   const { allAdminIds } = await getAuthorizedAdmins();
 
   const adminNotice =
-    `🚨 <b>شكوى جديدة</b>\n\n` +
-    `👤 المستخدم:\n<b>${esc(fullName)}</b>\n\n` +
+    `🚨 <b>New Complaint</b>\n\n` +
+    `👤 User:\n<b>${esc(fullName)}</b>\n\n` +
     `🔹 Username:\n${esc(username)}\n\n` +
     `🆔 User ID:\n<code>${userId}</code>\n\n` +
     `🎫 Complaint ID:\n#${complaintId}\n\n` +
-    `🕐 الوقت:\n${new Date().toLocaleString('en-GB', { timeZone: 'UTC' })} UTC\n\n` +
+    `🕐 Time:\n${new Date().toLocaleString('en-GB', { timeZone: 'UTC' })} UTC\n\n` +
     `━━━━━━━━━━━━━━\n\n` +
-    `💬 رسالة المستخدم:\n\n<i>${esc(text)}</i>\n\n` +
+    `💬 User Message:\n\n<i>${esc(text)}</i>\n\n` +
     `━━━━━━━━━━━━━━\n\n` +
-    `📌 الحالة:\n🟡 قيد المراجعة`;
+    `📌 Status:\n🟡 Pending`;
 
   for (const adminId of allAdminIds) {
     try {
@@ -84,7 +84,7 @@ export async function handleComplaintSubmission(
           inline_keyboard: [
             [
               {
-                text: "↩️ الرد على المستخدم",
+                text: "↩️ Reply to User",
                 callback_data: `admin_reply_complaint_${complaintId}`,
               },
             ],
@@ -116,10 +116,10 @@ export async function handleUserSupportMessage(
   const { allAdminIds } = await getAuthorizedAdmins();
 
   const adminNotice =
-    `📩 <b>رسالة دعم / استفسار جديدة</b>\n\n` +
-    `👤 من: <b>${esc(fullName)}</b> (${esc(username)})\n` +
-    `🆔 الآيدي: <code>${userId}</code>\n\n` +
-    `💬 نص الرسالة:\n<i>${esc(text)}</i>`;
+    `📩 <b>New Support Message / Inquiry</b>\n\n` +
+    `👤 From: <b>${esc(fullName)}</b> (${esc(username)})\n` +
+    `🆔 User ID: <code>${userId}</code>\n\n` +
+    `💬 Message Text:\n<i>${esc(text)}</i>`;
 
   for (const adminId of allAdminIds) {
     try {
@@ -129,7 +129,7 @@ export async function handleUserSupportMessage(
           inline_keyboard: [
             [
               {
-                text: "✉️ رد على المستخدم",
+                text: "✉️ Reply to User",
                 callback_data: `sup_reply_${userId}_${msg.message_id}`,
               },
             ],
@@ -143,7 +143,7 @@ export async function handleUserSupportMessage(
 
   await bot.sendMessage(
     msg.chat.id,
-    "✅ <b>تم استلام رسالتك!</b>\nسيقوم أحد مسؤولي الإدارة بالرد عليك في أقرب وقت.",
+    "✅ <b>Your message has been received!</b>\nAn admin will reply to you as soon as possible.",
     { parse_mode: "HTML" }
   );
 }
@@ -165,7 +165,7 @@ export async function handleAdminReplyComplaintClick(
   const complaintId = parseInt(parts[3] || "0");
 
   if (isNaN(complaintId) || complaintId <= 0) {
-    await bot.answerCallbackQuery(query.id, { text: "معرّف الشكوى غير صالح", show_alert: true });
+    await bot.answerCallbackQuery(query.id, { text: "Invalid complaint ID", show_alert: true });
     return;
   }
 
@@ -186,7 +186,7 @@ export async function handleAdminReplyComplaintClick(
   }
 
   if (!targetUserId) {
-    await bot.answerCallbackQuery(query.id, { text: "تعذر العثور على صاحب الشكوى", show_alert: true });
+    await bot.answerCallbackQuery(query.id, { text: "Could not find the user for this complaint", show_alert: true });
     return;
   }
 
@@ -196,14 +196,14 @@ export async function handleAdminReplyComplaintClick(
     complaintId,
   });
 
-  await bot.answerCallbackQuery(query.id, { text: "اكتب رسالتك الآن..." });
+  await bot.answerCallbackQuery(query.id, { text: "Please write your message now..." });
 
   await bot.sendMessage(
     adminId,
-    `💬 <b>اكتب الآن ردك على المستخدم.</b>\n\n` +
-      `سيتم إرسال الرسالة التي تكتبها مباشرة إلى المستخدم.\n\n` +
+    `💬 <b>Please write your reply to the user now.</b>\n\n` +
+      `The message you write will be sent directly to the user.\n\n` +
       `🎫 Complaint ID: #${complaintId}\n\n` +
-      `<i>(للإلغاء أرسل /cancel)</i>`,
+      `<i>(Send /cancel to abort)</i>`,
     { parse_mode: "HTML" }
   );
 }
@@ -270,7 +270,7 @@ export async function handleAdminReplyClick(
   const originalMsgId = parseInt(parts[3] || "0");
 
   if (isNaN(targetUserId) || targetUserId <= 0) {
-    await bot.answerCallbackQuery(query.id, { text: "معرّف المستخدم غير صالح", show_alert: true });
+    await bot.answerCallbackQuery(query.id, { text: "Invalid user ID", show_alert: true });
     return;
   }
 
@@ -292,13 +292,13 @@ export async function handleAdminReplyClick(
     originalMsgId,
   });
 
-  await bot.answerCallbackQuery(query.id, { text: "اكتب رسالتك الآن..." });
+  await bot.answerCallbackQuery(query.id, { text: "Please write your message now..." });
 
   await bot.sendMessage(
     adminId,
-    `✍️ <b>أنت الآن في وضع الرد على المستخدم</b> (<code>${targetUserId}</code>)\n\n` +
-      `أرسل نص الرسالة الآن وسيتم تحويلها للمستخدم مباشرة.\n` +
-      `<i>(للإلغاء أرسل /cancel)</i>`,
+    `✍️ <b>You are now replying to user</b> (<code>${targetUserId}</code>)\n\n` +
+      `Send your message now and it will be forwarded directly to the user.\n` +
+      `<i>(Send /cancel to abort)</i>`,
     { parse_mode: "HTML" }
   );
 }
@@ -314,9 +314,9 @@ export async function deliverAdminReplyToUser(
 ): Promise<boolean> {
   try {
     const userMsg =
-      `💬 <b>رد من إدارة البوت:</b>\n\n` +
+      `💬 <b>Reply from Support:</b>\n\n` +
       `${esc(replyText)}\n\n` +
-      `<i>يمكنك الرد على هذه الرسالة بالضغط على الزر أدناه:</i>`;
+      `<i>You can reply to this message by clicking the button below:</i>`;
 
     await bot.sendMessage(targetUserId, userMsg, {
       parse_mode: "HTML",
@@ -324,7 +324,7 @@ export async function deliverAdminReplyToUser(
         inline_keyboard: [
           [
             {
-              text: "✉️ رد على الإدارة",
+              text: "↩️ Reply",
               callback_data: `user_reply_admin_${adminId}`,
             },
           ],
@@ -335,14 +335,14 @@ export async function deliverAdminReplyToUser(
     await logAdminAudit(adminId, "reply_to_user", { replyPreview: replyText.slice(0, 100) }, targetUserId);
     await clearAdminState(adminId);
 
-    await bot.sendMessage(adminId, `✅ تم إرسال ردك إلى المستخدم <code>${targetUserId}</code> بنجاح.`, {
+    await bot.sendMessage(adminId, `✅ Reply sent to user <code>${targetUserId}</code> successfully.`, {
       parse_mode: "HTML",
     });
 
     return true;
   } catch (err) {
     logger.error({ err, targetUserId }, "Error delivering admin reply to user");
-    await bot.sendMessage(adminId, `❌ تعذر إرسال الرسالة إلى المستخدم (قد يكون حظر البوت).`);
+    await bot.sendMessage(adminId, `❌ Could not send message to user (they might have blocked the bot).`);
     await clearAdminState(adminId);
     return false;
   }
@@ -372,10 +372,10 @@ export async function handleUserReplyClick(
   // 2. Set user state
   await setAdminState(userId, "user_replying_to_admin", {});
 
-  await bot.answerCallbackQuery(query.id, { text: "اكتب رسالتك..." });
+  await bot.answerCallbackQuery(query.id, { text: "✍️ Please write your message..." });
 
   await bot.sendMessage(
     userId,
-    `✍️ أرسل رسالتك الآن وسيتم تسليمها لفريق الإدارة مباشرة:`
+    `✍️ Please write your message...`
   );
 }
