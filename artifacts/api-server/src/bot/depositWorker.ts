@@ -76,7 +76,7 @@ export async function processPendingDeposits() {
         }
 
       } else if (verification.error) {
-         if (verification.isDuplicate || verification.error.includes("processed") || verification.error.includes("مسبقاً") || verification.error.includes("failed")) {
+         if (verification.isDuplicate || verification.error.includes("processed") || verification.error.includes("pre") || verification.error.includes("failed")) {
              // It's a duplicate or explicit failure, mark failed
               await db
                .update(depositsTable)

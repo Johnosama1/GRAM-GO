@@ -138,7 +138,7 @@ export function buildBlockMessage(missingChannels: RequiredChannel[]): {
   keyboard: TelegramBot.InlineKeyboardButton[][];
 } {
   const text =
-    `⚠️ <b>يجب الانضمام إلى قنوات الشرط أولاً لاستخدام البوت</b>`;
+    `⚠️ <b>You must join the condition channels first to use the bot</b>`;
 
   const keyboard: TelegramBot.InlineKeyboardButton[][] = [
     ...missingChannels.map((ch) => [
@@ -148,7 +148,7 @@ export function buildBlockMessage(missingChannels: RequiredChannel[]): {
         style: "primary",
       } as any,
     ]),
-    [{ text: "✅ تحقق", callback_data: "sub_recheck", style: "success" } as any],
+    [{ text: "✅ Check", callback_data: "sub_recheck", style: "success" } as any],
   ];
 
   return { text, keyboard };
@@ -205,7 +205,7 @@ export async function enforceSubscription(
     if (callbackQueryId) {
       try {
         await bot.answerCallbackQuery(callbackQueryId, {
-          text: "⛔ يجب الاشتراك في القنوات المطلوبة أولاً",
+          text: "⛔ You must subscribe to the required channels first",
           show_alert: true,
         });
       } catch { /* ignore */ }
@@ -224,7 +224,7 @@ export async function enforceSubscription(
   }
 }
 
-// ── Handle ✅ "تحقق" callback ──────────────────────────────────────────────
+// ── Handle ✅ "verification" callback ──────────────────────────────────────────────
 export async function handleSubRecheckCallback(
   bot: TelegramBot,
   q: TelegramBot.CallbackQuery
@@ -235,7 +235,7 @@ export async function handleSubRecheckCallback(
   const chatId = q.message!.chat.id;
   const msgId = q.message!.message_id;
 
-  await bot.answerCallbackQuery(q.id, { text: "⏳ جاري التحقق من اشتراكاتك..." });
+  await bot.answerCallbackQuery(q.id, { text: "⏳Checking your subscriptions..." });
 
   try {
     // ── Clear cache for fresh check ───────────────────────────────────
@@ -245,7 +245,7 @@ export async function handleSubRecheckCallback(
     if (requiredChannels.length === 0) {
       try {
         await bot.editMessageText(
-          "✅ <b>لا توجد قنوات مطلوبة. يمكنك استخدام البوت!</b>",
+          "✅<b>No channels required. You can use a bot!</b>",
           { chat_id: chatId, message_id: msgId, parse_mode: "HTML", reply_markup: { inline_keyboard: [] } }
         );
       } catch { /* ignore */ }
