@@ -2219,10 +2219,7 @@ function setupBotHandlers() {
               const btnName = md.btnName as string;
 
               await setAdminState(userId, "admin_news_bc_btn_url", {
-                fromChatId,
-                messageId,
-                btnStyle,
-                btnName,
+                ...md,
                 customEmojiId,
               });
 
@@ -2251,16 +2248,8 @@ function setupBotHandlers() {
               const fileId = md.fileId;
 
               await setAdminState(userId, "admin_news_bc_confirm", {
-                fromChatId,
-                messageId,
-                btnStyle,
-                btnName,
-                customEmojiId,
-                btnUrl,
-                textData,
-                entitiesData,
-                mediaType,
-                fileId,
+                ...md,
+                btnUrl
               });
 
               // Construct the preview keyboard
