@@ -2,6 +2,7 @@ import { resolveMiniAppUrl } from "../lib/envUrls";
 import { AsyncLocalStorage } from "node:async_hooks";
 import TelegramBot from "node-telegram-bot-api";
 import { db } from "@workspace/db";
+import { tasksTable } from "@workspace/db/schema";
 import {
   usersTable,
   botSettingsTable,
@@ -1467,6 +1468,20 @@ function setupBotHandlers() {
           }
         }
 
+
+        // ── Admin Task Creation Callback (adm_task_cat:*) ───────────────
+        if (data.startsWith("adm_task_cat:") && adminInfo) {
+          const category = data.split(":")[1]; // "bot" or "channel"
+          await setAdminState(userId, "admin_task_title", { category, chatId, messageId: q.message?.message_id });
+          await bot.editMessageText("📝 أدخل <b>اسم المهمة</b> (عنوان المهمة):", {
+            chat_id: chatId,
+            message_id: q.message?.message_id,
+            parse_mode: "HTML",
+          }).catch(() => {});
+          await bot.answerCallbackQuery(q.id);
+          return;
+        }
+
         // ── Admin News Broadcast Confirmation Callbacks (news_bc:*) ───────────────
         if (data.startsWith("news_bc:") && adminInfo) {
           const subAction = data.split(":")[1];
@@ -1906,6 +1921,145 @@ function setupBotHandlers() {
           const state = await getAdminState(userId);
           if (state && state.step) {
             const input = msg.text || "";
+
+
+            if (state.step === "admin_task_title") {
+              const title = input.trim();
+              if (!title) {
+                await bot.sendMessage(chatId, "❌ الرجاء إدخال نص صحيح.", { parse_mode: "HTML" });
+                return;
+              }
+              await setAdminState(userId, "admin_task_desc", { ...state.metadata, title });
+              await bot.sendMessage(chatId, "📝 أدخل <b>وصف المهمة</b> (أو أرسل <code>-</code> لتخطي الوصف):", { parse_mode: "HTML" });
+              return;
+            }
+
+            if (state.step === "admin_task_desc") {
+              const description = input.trim() === "-" ? null : input.trim();
+              await setAdminState(userId, "admin_task_icon", { ...state.metadata, description });
+              await bot.sendMessage(chatId, "🖼 أرسل <b>الإيموجي المميز (Custom Emoji)</b> أو <b>صورة</b> للمهمة (أو أرسل <code>-</code> لتخطي الصورة):", { parse_mode: "HTML" });
+              return;
+            }
+
+            if (state.step === "admin_task_icon") {
+              let channelPhotoUrl: string | undefined;
+              let customEmojiId: string | undefined;
+              let icon: string | undefined;
+
+              if (msg.photo && msg.photo.length > 0) {
+                try {
+                  const photo = msg.photo[msg.photo.length - 1];
+                  const fileData = await bot.getFile(photo.file_id);
+                  const token = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
+                  if (fileData.file_path) {
+                    channelPhotoUrl = `https://api.telegram.org/file/bot${token}/${fileData.file_path}`;
+                  }
+                } catch (err) {
+                  logger.error({ err }, "Error resolving photo for task");
+                }
+              } else if (input !== "-") {
+                if (msg.entities && msg.entities.length > 0) {
+                  const customEmojiEntity = msg.entities.find(e => e.type === "custom_emoji");
+                  if (customEmojiEntity && customEmojiEntity.custom_emoji_id) {
+                    customEmojiId = customEmojiEntity.custom_emoji_id;
+                  }
+                }
+                if (!customEmojiId && /^\d+$/.test(input.trim())) {
+                  customEmojiId = input.trim();
+                } else if (!customEmojiId) {
+                  icon = input.trim();
+                }
+              }
+
+              // Use existing metadata and append the new image/icon info
+              await setAdminState(userId, "admin_task_url", {
+                ...state.metadata,
+                channelPhotoUrl,
+                icon: customEmojiId ? customEmojiId : icon || "⭐" // if custom emoji, store it in icon field for DB
+              });
+
+              await bot.sendMessage(chatId, "🔗 أدخل <b>رابط المهمة (URL)</b>:", { parse_mode: "HTML" });
+              return;
+            }
+
+            if (state.step === "admin_task_url") {
+              const url = input.trim() === "-" ? null : input.trim();
+              if (url && !url.startsWith("http")) {
+                await bot.sendMessage(chatId, "❌ يجب أن يبدأ الرابط بـ http أو https. حاول مرة أخرى:", { parse_mode: "HTML" });
+                return;
+              }
+
+              await setAdminState(userId, "admin_task_reward", { ...state.metadata, url });
+              await bot.sendMessage(chatId, "💰 أدخل <b>قيمة المكافأة</b> (مثلاً: 5):", { parse_mode: "HTML" });
+              return;
+            }
+
+            if (state.step === "admin_task_reward") {
+              const rewardAmount = parseFloat(input.trim());
+              if (isNaN(rewardAmount) || rewardAmount <= 0) {
+                await bot.sendMessage(chatId, "❌ الرجاء إدخال رقم صحيح وموجب للمكافأة.", { parse_mode: "HTML" });
+                return;
+              }
+
+              await setAdminState(userId, "admin_task_limit", { ...state.metadata, rewardAmount });
+              await bot.sendMessage(chatId, "📈 أدخل <b>الحد الأقصى للمطالبات (Limit)</b> (أرسل <code>0</code> أو <code>-</code> لجعلها بدون حد):", { parse_mode: "HTML" });
+              return;
+            }
+
+            if (state.step === "admin_task_limit") {
+              let maxClaims = parseInt(input.trim());
+              if (input.trim() === "-" || maxClaims <= 0 || isNaN(maxClaims)) {
+                maxClaims = null as any;
+              }
+
+              const md = state.metadata || {};
+              const category = md.category as string || "all";
+              const title = md.title as string;
+              const description = md.description as string | null;
+              const icon = md.icon as string | undefined;
+              const channelPhotoUrl = md.channelPhotoUrl as string | null;
+              const url = md.url as string | null;
+              const rewardAmount = md.rewardAmount as number;
+
+              let botUsername: string | null = null;
+              let channelUsername: string | null = null;
+              let botLink: string | null = url;
+
+              // Parse URLs if necessary based on category
+              if (url) {
+                if (category === "bot") {
+                  botUsername = url.match(/t\.me\/([A-Za-z0-9_]+)/)?.[1] || null;
+                } else if (category === "channel") {
+                  channelUsername = url.match(/t\.me\/([A-Za-z0-9_]+)/)?.[1] || null;
+                }
+              }
+
+              try {
+                await db.insert(tasksTable).values({
+                  title,
+                  description,
+                  url,
+                  icon: icon || "⭐",
+                  channelPhotoUrl,
+                  rewardAmount: String(rewardAmount),
+                  rewardCurrency: "GO",
+                  maxClaims,
+                  category,
+                  botUsername,
+                  channelUsername,
+                  botLink,
+                  isActive: true,
+                });
+
+                await bot.sendMessage(chatId, `✅ <b>تم إنشاء المهمة بنجاح!</b>\n\nاسم المهمة: ${esc(title)}\nالفئة: ${category}\nالمكافأة: ${rewardAmount} GO`, { parse_mode: "HTML" });
+                await clearAdminState(userId);
+              } catch (err) {
+                logger.error({ err, userId }, "Failed to create task");
+                await bot.sendMessage(chatId, "❌ حدث خطأ أثناء إنشاء المهمة. يرجى المحاولة لاحقاً.", { parse_mode: "HTML" });
+                // We don't clear state so they can try again if it was a transient error, or they can use /cancel
+              }
+              return;
+            }
 
             if (state.step === "admin_broadcast") {
               let mediaType: string | undefined;
