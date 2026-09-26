@@ -36,6 +36,9 @@ import {
   handleAdminReplyClick,
   handleUserReplyClick,
   deliverAdminReplyToUser,
+  handleComplaintSubmission,
+  handleAdminReplyComplaintClick,
+  deliverAdminReplyToComplaint,
 } from "./support";
 import { processWithdrawalVote, getConsensusThreshold } from "./consensus";
 import { logAdminAudit } from "../lib/adminSecurity";
@@ -1155,6 +1158,29 @@ function setupBotHandlers() {
 
 
 
+        // ── Complaint System ────────────────────────────────────────────────────────
+        if (refParam === "complaint") {
+          await bot.sendMessage(
+            chatId,
+            "📝 <b>تقديم شكوى</b>\n\n" +
+            "هل تريد تقديم شكوى إلى فريق دعم GRAM GO؟\n\n" +
+            "يمكنك إرسال شكواك وسيتم مراجعتها من فريق الدعم والتواصل معك عند الحاجة.\n\n" +
+            "هل تريد المتابعة؟",
+            {
+              parse_mode: "HTML",
+              reply_markup: {
+                inline_keyboard: [
+                  [
+                    { text: "✅ نعم", callback_data: "complaint_yes" },
+                    { text: "❌ لا", callback_data: "complaint_no" },
+                  ],
+                ],
+              },
+            }
+          );
+          return;
+        }
+
         // ── Subscription check for ALL users (new and existing) ─────────────
         if (!adminInfo) {
           const blocked = await enforceSubscription(bot, chatId, userId);
@@ -1444,6 +1470,54 @@ function setupBotHandlers() {
       const userId = q.from.id;
       const chatId = q.message.chat.id;
       const data = q.data ?? "";
+
+      // ── Complaint System Callbacks ──────────────────────────────────────────
+      if (data.startsWith("admin_reply_complaint_")) {
+        const isAdmin = await getAdminInfo(userId);
+        if (!isAdmin) {
+           await bot.answerCallbackQuery(q.id, { text: "غير مصرح", show_alert: true });
+           return;
+        }
+        await handleAdminReplyComplaintClick(bot, q);
+        return;
+      }
+
+      if (data === "complaint_no") {
+        await bot.answerCallbackQuery(q.id);
+        try {
+          await bot.editMessageReplyMarkup(
+            { inline_keyboard: [] },
+            { chat_id: chatId, message_id: q.message.message_id }
+          );
+        } catch {}
+        await clearAdminState(userId);
+        await bot.sendMessage(
+          userId,
+          "❌ تم إلغاء تقديم الشكوى.\n\nإذا احتجت إلى مساعدة في أي وقت، يمكنك العودة إلى قسم الدعم من جديد."
+        );
+        return;
+      }
+
+      if (data === "complaint_yes") {
+        await bot.answerCallbackQuery(q.id);
+        try {
+          await bot.editMessageReplyMarkup(
+            { inline_keyboard: [] },
+            { chat_id: chatId, message_id: q.message.message_id }
+          );
+        } catch {}
+        await setAdminState(userId, "user_writing_complaint", {});
+        await bot.sendMessage(
+          userId,
+          "✍️ <b>اكتب شكواك الآن</b>\n\n" +
+          "من فضلك اكتب رسالتك بالتفصيل، وسيتم إرسالها مباشرة إلى فريق الدعم.\n\n" +
+          "يمكنك شرح المشكلة أو الاستفسار الذي تحتاج إلى مساعدة بشأنه.\n\n" +
+          "⏳ بعد إرسال الرسالة، سيتم إعلامك بوصولها إلى فريق الدعم.",
+          { parse_mode: "HTML" }
+        );
+        return;
+      }
+      // ──────────────────────────────────────────────────────────────────────
 
       try {
         // 1. sub_recheck is handled first (no maintenance block for it)
@@ -2422,6 +2496,15 @@ function setupBotHandlers() {
                 return;
               }
             }
+
+            if (state.step === "admin_reply_complaint") {
+              const targetUserId = state.metadata?.targetUserId as number;
+              const complaintId = state.metadata?.complaintId as number;
+              if (targetUserId && complaintId) {
+                await deliverAdminReplyToComplaint(bot, userId, targetUserId, complaintId, input);
+                return;
+              }
+            }
           }
         }
 
@@ -2431,6 +2514,12 @@ function setupBotHandlers() {
         // ── 2. Check if Regular User is in Reply mode or sending feedback ────
         if (!adminInfo) {
           const userState = await getAdminState(userId);
+
+          if (userState && userState.step === "user_writing_complaint") {
+            await handleComplaintSubmission(bot, msg);
+            return;
+          }
+
           if (userState && userState.step === "user_replying_to_admin") {
             await clearAdminState(userId);
             await handleUserSupportMessage(bot, msg);

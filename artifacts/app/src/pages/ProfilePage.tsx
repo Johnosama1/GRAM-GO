@@ -2269,10 +2269,14 @@ export default function ProfilePage() {
             }}
           >
             {/* 1. Submit a Complaint */}
-            <a
-              href="https://t.me/J_O_H_N8"
-              target="_blank"
-              rel="noreferrer"
+            <button
+              onClick={() => {
+                if (window.Telegram?.WebApp) {
+                  window.Telegram.WebApp.openTelegramLink("https://t.me/GRAMGO1_bot?start=complaint");
+                } else {
+                  window.open("https://t.me/GRAMGO1_bot?start=complaint", "_blank");
+                }
+              }}
               style={{
                 padding: "16px",
                 borderRadius: 14,
@@ -2283,6 +2287,7 @@ export default function ProfilePage() {
                 justifyContent: "space-between",
                 cursor: "pointer",
                 textDecoration: "none",
+                width: "100%",
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -2292,7 +2297,7 @@ export default function ProfilePage() {
                 </span>
               </div>
               <ExternalLink size={18} color="rgba(255, 255, 255, 0.4)" />
-            </a>
+            </button>
 
             {/* 2. FAQ */}
             <button
