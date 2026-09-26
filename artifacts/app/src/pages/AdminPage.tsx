@@ -453,6 +453,7 @@ export default function AdminPage() {
         ms,
         se,
         adsSetts,
+        promos,
       ] = await Promise.all([
         api.adminGetStats().catch(() => null),
         api.adminGetSettings().catch(() => ({}) as Record<string, string>),
@@ -473,6 +474,7 @@ export default function AdminPage() {
         api.adminGetMilestones().catch(() => []),
         api.adminGetSecurityEvents().catch(() => []),
         api.adminGetAdsSettings().catch(() => ({ adsDailyLimit: "10", adsRewardAmount: "0.5" })),
+        api.adminGetPromoCodes().catch(() => []),
       ]);
 
       if (s) setStats(s);
@@ -521,6 +523,7 @@ export default function AdminPage() {
         });
       if (ms && ms.length > 0) setMilestones(ms);
       if (se) setSecurityEvents(se);
+      if (promos) setPromoCodes(promos);
 
       const wm = await api.adminGetWelcomeMessage().catch(() => null);
       if (wm) setWelcomeText(wm.welcomeMessage);

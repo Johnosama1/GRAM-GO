@@ -345,39 +345,39 @@ router.post("/promo/redeem", requireSession, verifyAccessMiddleware, async (req,
         throw new Error("هذا الكود منتهي الصلاحية");
       }
 
-      const max = parseInt(promo.maxUses || "0");
-      const current = parseInt(promo.currentUses || "0");
-      if (max > 0 && current >= max) {
+      // 2. Claim the code (this will throw if already claimed due to unique constraint)
+      try {
+        await tx.insert(userPromoCodesTable).values({
+          userId,
+          promoCodeId: promo.id,
+        });
+      } catch (insertError: any) {
+        if (insertError.code === "23505" || insertError.message.includes("unique constraint")) {
+          throw new Error("لقد قمت باستخدام هذا الكود مسبقاً");
+        }
+        throw insertError;
+      }
+
+      // 3. Atomic Update usage count with concurrency check
+      const maxUsesNum = parseInt(promo.maxUses || "0");
+      let condition = eq(promoCodesTable.id, promo.id);
+
+      if (maxUsesNum > 0) {
+        condition = and(
+          eq(promoCodesTable.id, promo.id),
+          sql`CAST(current_uses AS integer) < CAST(max_uses AS integer)`
+        ) as typeof condition;
+      }
+
+      const updateResult = await tx
+        .update(promoCodesTable)
+        .set({ currentUses: sql`(CAST(current_uses AS integer) + 1)::text` })
+        .where(condition)
+        .returning();
+
+      if (updateResult.length === 0) {
         throw new Error("تم الوصول للحد الأقصى لاستخدام هذا الكود");
       }
-
-      // 2. Check if user already claimed
-      const [alreadyClaimed] = await tx
-        .select()
-        .from(userPromoCodesTable)
-        .where(
-          and(
-            eq(userPromoCodesTable.userId, userId),
-            eq(userPromoCodesTable.promoCodeId, promo.id)
-          )
-        )
-        .limit(1);
-
-      if (alreadyClaimed) {
-        throw new Error("لقد قمت باستخدام هذا الكود مسبقاً");
-      }
-
-      // 3. Claim the code
-      await tx.insert(userPromoCodesTable).values({
-        userId,
-        promoCodeId: promo.id,
-      });
-
-      // 4. Update usage count
-      await tx
-        .update(promoCodesTable)
-        .set({ currentUses: String(current + 1) })
-        .where(eq(promoCodesTable.id, promo.id));
 
       // 5. Grant Reward
       const amount = parseFloat(promo.rewardAmount || "0");
