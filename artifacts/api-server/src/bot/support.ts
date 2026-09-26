@@ -50,6 +50,17 @@ export async function handleComplaintSubmission(
     complaintId = Math.floor(Math.random() * 1000000);
   }
 
+  // Attempt to add 👀 reaction directly to the user's message
+  try {
+    await bot.setMessageReaction(msg.chat.id, msg.message_id, {
+      reaction: [{ type: "emoji", emoji: "👀" }],
+      is_big: true,
+    });
+  } catch (err) {
+    logger.error({ err, userId }, "Failed to set 👀 reaction on complaint message");
+    // Continue gracefully even if reaction fails
+  }
+
   // Forward to all authorized admins
   const { allAdminIds } = await getAuthorizedAdmins();
 
