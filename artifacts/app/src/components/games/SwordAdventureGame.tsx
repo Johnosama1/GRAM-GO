@@ -1123,6 +1123,16 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
       });
 
       s.droppedWeapons.forEach((w) => {
+        // Glowing circle to indicate pickup
+        ctx.save();
+        ctx.fillStyle = "rgba(0, 242, 254, 0.15)";
+        ctx.shadowColor = "#00f2fe";
+        ctx.shadowBlur = 15 + Math.sin(Date.now() / 150) * 5;
+        ctx.beginPath();
+        ctx.arc(w.x + 16, w.y + 16, 25, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
         const dImg = weaponImagesRef.current[w.weaponId];
         if (dImg && dImg.complete && dImg.naturalWidth > 0) {
             ctx.imageSmoothingEnabled = false;
@@ -1330,18 +1340,63 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
           width: "100%",
           height: "100%",
           overflow: "hidden",
+          touchAction: "none",
         }}
-        onTouchStart={(e) => {
-          const touch = e.touches[0];
-          if (!touch) return;
+        onPointerDown={(e) => {
           const rect = containerRef.current?.getBoundingClientRect();
           if (!rect) return;
-          const relativeX = touch.clientX - rect.left;
-          // Left half jumps, Right half attacks
-          if (relativeX < rect.width * 0.5) {
-            handleJump();
-          } else {
-            handleAttack();
+          const relativeX = e.clientX - rect.left;
+          const relativeY = e.clientY - rect.top;
+
+          let weaponClicked = false;
+          const s = stateRef.current;
+
+          for (let i = s.droppedWeapons.length - 1; i >= 0; i--) {
+            const w = s.droppedWeapons[i];
+            const weaponCenterX = w.x + 16;
+            const weaponCenterY = w.y + 16;
+            const distToClick = Math.hypot(relativeX - weaponCenterX, relativeY - weaponCenterY);
+
+            if (distToClick <= 50) {
+              weaponClicked = true;
+              const hero = s.hero;
+              const heroCenterX = hero.x + hero.width / 2;
+              const distToHero = Math.abs(heroCenterX - weaponCenterX);
+
+              if (distToHero < 150) {
+                hero.equippedWeaponId = w.weaponId;
+                s.floatingTexts.push({
+                  id: Date.now() + Math.random(),
+                  x: hero.x,
+                  y: hero.y - 20,
+                  text: "EQUIPPED!",
+                  color: "#00f2fe",
+                  alpha: 1,
+                  vy: -1
+                });
+                s.droppedWeapons.splice(i, 1);
+              } else {
+                s.floatingTexts.push({
+                  id: Date.now() + Math.random(),
+                  x: w.x,
+                  y: w.y - 20,
+                  text: "Too far!",
+                  color: "#ef4444",
+                  alpha: 1,
+                  vy: -1
+                });
+              }
+              break;
+            }
+          }
+
+          if (!weaponClicked) {
+            // Left half jumps, Right half attacks
+            if (relativeX < rect.width * 0.5) {
+              handleJump();
+            } else {
+              handleAttack();
+            }
           }
         }}
       >
