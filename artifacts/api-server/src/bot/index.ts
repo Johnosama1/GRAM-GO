@@ -1488,7 +1488,7 @@ function setupBotHandlers() {
               return;
             }
 
-            const { fromChatId, messageId, btnStyle, btnName, customEmojiId, btnUrl } = state.metadata as any;
+            const { fromChatId, messageId, btnStyle, btnName, customEmojiId, btnUrl, textData, entitiesData, mediaType, fileId } = state.metadata as any;
             await clearAdminState(userId);
 
             await bot.editMessageText("⏳ <b>جاري النشر في القناة...</b>", {
@@ -1509,11 +1509,40 @@ function setupBotHandlers() {
             }
 
             try {
-              await bot.copyMessage("@GramGO1News", fromChatId, messageId, {
-                reply_markup: {
-                  inline_keyboard: [[newsButton]],
-                },
-              });
+              const sendOpts: any = {
+                  reply_markup: {
+                    inline_keyboard: [[newsButton]],
+                  },
+                };
+                if (entitiesData && entitiesData.length > 0) {
+                  if (mediaType) {
+                    sendOpts.caption_entities = entitiesData;
+                  } else {
+                    sendOpts.entities = entitiesData;
+                  }
+                }
+                if (mediaType && fileId) {
+                  sendOpts.caption = textData;
+                  if (mediaType === "photo") {
+                    await bot.sendPhoto("@GramGO1News", fileId, sendOpts);
+                  } else if (mediaType === "video") {
+                    await bot.sendVideo("@GramGO1News", fileId, sendOpts);
+                  } else if (mediaType === "animation") {
+                    await bot.sendAnimation("@GramGO1News", fileId, sendOpts);
+                  } else if (mediaType === "document") {
+                    await bot.sendDocument("@GramGO1News", fileId, sendOpts);
+                  } else if (mediaType === "audio") {
+                    await bot.sendAudio("@GramGO1News", fileId, sendOpts);
+                  } else if (mediaType === "voice") {
+                    await bot.sendVoice("@GramGO1News", fileId, sendOpts);
+                  } else {
+                    await bot.copyMessage("@GramGO1News", fromChatId, messageId, { reply_markup: { inline_keyboard: [[newsButton]] } });
+                  }
+                } else if (textData || (entitiesData && entitiesData.length > 0)) {
+                  await bot.sendMessage("@GramGO1News", textData || " ", sendOpts);
+                } else {
+                  await bot.copyMessage("@GramGO1News", fromChatId, messageId, { reply_markup: { inline_keyboard: [[newsButton]] } });
+                }
               await bot.sendMessage(chatId, "✅ <b>تم النشر بنجاح في القناة!</b>", { parse_mode: "HTML" });
               await bot.answerCallbackQuery(q.id, { text: "تم النشر 🚀" });
             } catch (err: any) {
@@ -1559,14 +1588,21 @@ function setupBotHandlers() {
               parse_mode: "HTML",
             }).catch(() => {});
 
+            const textData = (state?.metadata?.textData as string) || "";
+            const entitiesData = (state?.metadata?.entitiesData as any[]) || undefined;
+            const mediaType = state?.metadata?.mediaType as string | undefined;
+            const fileId = state?.metadata?.fileId as string | undefined;
+
             const res = await startBroadcast(
               bot,
               userId,
-              (state?.metadata?.textPreview as string) || "Broadcast",
-              undefined,
+              textData || "Broadcast",
+              entitiesData,
               isPin,
               fromChatId,
-              messageId
+              messageId,
+              mediaType,
+              fileId
             );
 
             await bot.sendMessage(chatId, res.message, { parse_mode: "HTML" });
@@ -1872,10 +1908,37 @@ function setupBotHandlers() {
             const input = msg.text || "";
 
             if (state.step === "admin_broadcast") {
+              let mediaType: string | undefined;
+              let fileId: string | undefined;
+
+              if (msg.photo && msg.photo.length > 0) {
+                mediaType = "photo";
+                fileId = msg.photo[msg.photo.length - 1].file_id;
+              } else if (msg.video) {
+                mediaType = "video";
+                fileId = msg.video.file_id;
+              } else if (msg.animation) {
+                mediaType = "animation";
+                fileId = msg.animation.file_id;
+              } else if (msg.document) {
+                mediaType = "document";
+                fileId = msg.document.file_id;
+              } else if (msg.audio) {
+                mediaType = "audio";
+                fileId = msg.audio.file_id;
+              } else if (msg.voice) {
+                mediaType = "voice";
+                fileId = msg.voice.file_id;
+              }
+
               // Store pending broadcast message in state
               await setAdminState(userId, "admin_broadcast_confirm", {
                 fromChatId: msg.chat.id,
                 messageId: msg.message_id,
+                textData: msg.text || msg.caption || "",
+                entitiesData: msg.entities || msg.caption_entities || [],
+                mediaType,
+                fileId,
                 textPreview: msg.text || msg.caption || "(ملف/وسائط)",
               });
 
@@ -1904,9 +1967,36 @@ function setupBotHandlers() {
             }
 
             if (state.step === "admin_news_broadcast") {
+              let mediaType: string | undefined;
+              let fileId: string | undefined;
+
+              if (msg.photo && msg.photo.length > 0) {
+                mediaType = "photo";
+                fileId = msg.photo[msg.photo.length - 1].file_id;
+              } else if (msg.video) {
+                mediaType = "video";
+                fileId = msg.video.file_id;
+              } else if (msg.animation) {
+                mediaType = "animation";
+                fileId = msg.animation.file_id;
+              } else if (msg.document) {
+                mediaType = "document";
+                fileId = msg.document.file_id;
+              } else if (msg.audio) {
+                mediaType = "audio";
+                fileId = msg.audio.file_id;
+              } else if (msg.voice) {
+                mediaType = "voice";
+                fileId = msg.voice.file_id;
+              }
+
               await setAdminState(userId, "admin_news_bc_color", {
                 fromChatId: msg.chat.id,
                 messageId: msg.message_id,
+                textData: msg.text || msg.caption || "",
+                entitiesData: msg.entities || msg.caption_entities || [],
+                mediaType,
+                fileId,
               });
               await bot.sendMessage(
                 chatId,
@@ -2001,6 +2091,10 @@ function setupBotHandlers() {
               const btnStyle = md.btnStyle as string;
               const btnName = md.btnName as string;
               const customEmojiId = md.customEmojiId as string | undefined;
+              const textData = md.textData;
+              const entitiesData = md.entitiesData;
+              const mediaType = md.mediaType;
+              const fileId = md.fileId;
 
               await setAdminState(userId, "admin_news_bc_confirm", {
                 fromChatId,
@@ -2009,6 +2103,10 @@ function setupBotHandlers() {
                 btnName,
                 customEmojiId,
                 btnUrl,
+                textData,
+                entitiesData,
+                mediaType,
+                fileId,
               });
 
               // Construct the preview keyboard
