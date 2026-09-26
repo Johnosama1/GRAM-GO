@@ -123,8 +123,10 @@ export async function handleUserSupportMessage(
 
   for (const adminId of allAdminIds) {
     try {
-      await bot.sendMessage(adminId, adminNotice, {
-        parse_mode: "HTML",
+      await bot.sendMessage(adminId, adminNotice, { parse_mode: "HTML" });
+
+      const sendOpts = {
+        entities: msg.entities || msg.caption_entities,
         reply_markup: {
           inline_keyboard: [
             [
@@ -134,8 +136,30 @@ export async function handleUserSupportMessage(
               },
             ],
           ],
-        },
-      });
+        }
+      };
+
+      if (msg.photo && msg.photo.length > 0) {
+        await bot.sendPhoto(adminId, msg.photo[msg.photo.length - 1].file_id, {
+          caption: msg.caption || "",
+          caption_entities: msg.caption_entities,
+          ...sendOpts
+        });
+      } else if (msg.video) {
+        await bot.sendVideo(adminId, msg.video.file_id, {
+          caption: msg.caption || "",
+          caption_entities: msg.caption_entities,
+          ...sendOpts
+        });
+      } else if (msg.document) {
+        await bot.sendDocument(adminId, msg.document.file_id, {
+          caption: msg.caption || "",
+          caption_entities: msg.caption_entities,
+          ...sendOpts
+        });
+      } else {
+        await bot.sendMessage(adminId, msg.text || "", sendOpts);
+      }
     } catch (err) {
       // Admin might have blocked bot or not started it yet
     }
@@ -216,16 +240,48 @@ export async function deliverAdminReplyToComplaint(
   adminId: number,
   targetUserId: number,
   complaintId: number,
-  replyText: string
+  msg: TelegramBot.Message
 ): Promise<boolean> {
   try {
-    const userMsg =
-      `💬 <b>Support Team Response:</b>\n\n` +
-      `${esc(replyText)}`;
-
-    await bot.sendMessage(targetUserId, userMsg, {
+    await bot.sendMessage(targetUserId, `💬 <b>Support Team Response:</b>\n\n`, {
       parse_mode: "HTML",
     });
+
+    const sendOpts = {
+      entities: msg.entities || msg.caption_entities,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: "↩️ Reply",
+              callback_data: `user_reply_complaint_${complaintId}`,
+            },
+          ],
+        ],
+      }
+    };
+
+    if (msg.photo && msg.photo.length > 0) {
+      await bot.sendPhoto(targetUserId, msg.photo[msg.photo.length - 1].file_id, {
+        caption: msg.caption || "",
+        caption_entities: msg.caption_entities,
+        ...sendOpts
+      });
+    } else if (msg.video) {
+      await bot.sendVideo(targetUserId, msg.video.file_id, {
+        caption: msg.caption || "",
+        caption_entities: msg.caption_entities,
+        ...sendOpts
+      });
+    } else if (msg.document) {
+      await bot.sendDocument(targetUserId, msg.document.file_id, {
+        caption: msg.caption || "",
+        caption_entities: msg.caption_entities,
+        ...sendOpts
+      });
+    } else {
+      await bot.sendMessage(targetUserId, msg.text || "", sendOpts);
+    }
 
     // Update DB
     try {
@@ -233,7 +289,7 @@ export async function deliverAdminReplyToComplaint(
         .update(complaintsTable)
         .set({
           status: "replied",
-          adminReply: replyText,
+          adminReply: msg.text || msg.caption || "",
           repliedAt: new Date(),
         })
         .where(eq(complaintsTable.id, complaintId));
@@ -242,7 +298,7 @@ export async function deliverAdminReplyToComplaint(
     }
 
     await clearAdminState(adminId);
-    await logAdminAudit(adminId, "reply_to_complaint", { replyPreview: replyText.slice(0, 100), complaintId }, targetUserId);
+    await logAdminAudit(adminId, "reply_to_complaint", { replyPreview: (msg.text || msg.caption || "").slice(0, 100), complaintId }, targetUserId);
 
     await bot.sendMessage(adminId, `✅ The response was sent to the user successfully.\n\n🎫 Complaint ID: #${complaintId}`, {
       parse_mode: "HTML",
@@ -309,16 +365,15 @@ export async function deliverAdminReplyToUser(
   bot: TelegramBot,
   adminId: number,
   targetUserId: number,
-  replyText: string
+  msg: TelegramBot.Message
 ): Promise<boolean> {
   try {
-    const userMsg =
-      `💬 <b>Reply from Support:</b>\n\n` +
-      `${esc(replyText)}\n\n` +
-      `<i>You can reply to this message by clicking the button below:</i>`;
-
-    await bot.sendMessage(targetUserId, userMsg, {
+    await bot.sendMessage(targetUserId, `💬 <b>Reply from Support:</b>\n\n<i>You can reply to this message by clicking the button below:</i>`, {
       parse_mode: "HTML",
+    });
+
+    const sendOpts = {
+      entities: msg.entities || msg.caption_entities,
       reply_markup: {
         inline_keyboard: [
           [
@@ -328,10 +383,32 @@ export async function deliverAdminReplyToUser(
             },
           ],
         ],
-      },
-    });
+      }
+    };
 
-    await logAdminAudit(adminId, "reply_to_user", { replyPreview: replyText.slice(0, 100) }, targetUserId);
+    if (msg.photo && msg.photo.length > 0) {
+      await bot.sendPhoto(targetUserId, msg.photo[msg.photo.length - 1].file_id, {
+        caption: msg.caption || "",
+        caption_entities: msg.caption_entities,
+        ...sendOpts
+      });
+    } else if (msg.video) {
+      await bot.sendVideo(targetUserId, msg.video.file_id, {
+        caption: msg.caption || "",
+        caption_entities: msg.caption_entities,
+        ...sendOpts
+      });
+    } else if (msg.document) {
+      await bot.sendDocument(targetUserId, msg.document.file_id, {
+        caption: msg.caption || "",
+        caption_entities: msg.caption_entities,
+        ...sendOpts
+      });
+    } else {
+      await bot.sendMessage(targetUserId, msg.text || "", sendOpts);
+    }
+
+    await logAdminAudit(adminId, "reply_to_user", { replyPreview: (msg.text || msg.caption || "").slice(0, 100) }, targetUserId);
     await clearAdminState(adminId);
 
     await bot.sendMessage(adminId, `✅ Reply sent to user <code>${targetUserId}</code> successfully.`, {
@@ -433,8 +510,10 @@ export async function handleUserReplyToComplaintMessage(
 
   for (const adminId of allAdminIds) {
     try {
-      await bot.sendMessage(adminId, adminNotice, {
-        parse_mode: "HTML",
+      await bot.sendMessage(adminId, adminNotice, { parse_mode: "HTML" });
+
+      const sendOpts = {
+        entities: msg.entities || msg.caption_entities,
         reply_markup: {
           inline_keyboard: [
             [
@@ -444,8 +523,30 @@ export async function handleUserReplyToComplaintMessage(
               },
             ],
           ],
-        },
-      });
+        }
+      };
+
+      if (msg.photo && msg.photo.length > 0) {
+        await bot.sendPhoto(adminId, msg.photo[msg.photo.length - 1].file_id, {
+          caption: msg.caption || "",
+          caption_entities: msg.caption_entities,
+          ...sendOpts
+        });
+      } else if (msg.video) {
+        await bot.sendVideo(adminId, msg.video.file_id, {
+          caption: msg.caption || "",
+          caption_entities: msg.caption_entities,
+          ...sendOpts
+        });
+      } else if (msg.document) {
+        await bot.sendDocument(adminId, msg.document.file_id, {
+          caption: msg.caption || "",
+          caption_entities: msg.caption_entities,
+          ...sendOpts
+        });
+      } else {
+        await bot.sendMessage(adminId, msg.text || "", sendOpts);
+      }
     } catch (err) {}
   }
 

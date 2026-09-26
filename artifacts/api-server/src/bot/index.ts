@@ -2499,7 +2499,7 @@ function setupBotHandlers() {
             if (state.step === "admin_replying_to_user") {
               const targetUserId = state.metadata?.targetUserId as number;
               if (targetUserId) {
-                await deliverAdminReplyToUser(bot, userId, targetUserId, input);
+                await deliverAdminReplyToUser(bot, userId, targetUserId, msg);
                 return;
               }
             }
@@ -2508,7 +2508,7 @@ function setupBotHandlers() {
               const targetUserId = state.metadata?.targetUserId as number;
               const complaintId = state.metadata?.complaintId as number;
               if (targetUserId && complaintId) {
-                await deliverAdminReplyToComplaint(bot, userId, targetUserId, complaintId, input);
+                await deliverAdminReplyToComplaint(bot, userId, targetUserId, complaintId, msg);
                 return;
               }
             }
