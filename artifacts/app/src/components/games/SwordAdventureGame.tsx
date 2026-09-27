@@ -10,6 +10,13 @@ interface WeaponConfig {
   color: string;
 }
 
+interface WeaponInstance {
+  id: number;
+  weaponId: number;
+  ammo: number;
+  maxAmmo: number;
+}
+
 import weaponsData from "./weapons_config.json";
 const WEAPONS: Record<string, WeaponConfig> = weaponsData;
 
@@ -30,7 +37,8 @@ interface DroppedWeapon {
   id: number;
   x: number;
   y: number;
-  weaponId: number;
+  weaponInstance: WeaponInstance;
+  isPlayerDropped?: boolean;
   timer: number;
   vy: number;
 }
@@ -84,7 +92,7 @@ interface Enemy {
   speed: number;
   hitFlash: number;
   defeated: boolean;
-  weaponId: number;
+  weaponInstance: WeaponInstance;
   shootTimer: number;
   state: "walking" | "running" | "shooting" | "death";
   frameIndex: number;
@@ -182,11 +190,19 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
   const [joystickActive, setJoystickActive] = useState(false);
   const [joystickPos, setJoystickPos] = useState({ x: 0, y: 0 });
   const [joystickOrigin, setJoystickOrigin] = useState({ x: 0, y: 0 });
+  const hudAmmoRef = useRef<HTMLSpanElement | null>(null);
+  const hudWeaponRef = useRef<HTMLSpanElement | null>(null);
+  const [backpackOpen, setBackpackOpen] = useState(false);
+  const [inventoryState, setInventoryState] = useState<WeaponInstance[]>([]);
+  const [draggedWeapon, setDraggedWeapon] = useState<WeaponInstance | null>(null);
+  const [dragPos, setDragPos] = useState({ x: 0, y: 0 });
 
   // Game Engine State in Ref (for 60fps loop without React re-render overhead)
   const stateRef = useRef({
     gameState: "playing" as "playing" | "over" | "claiming" | "level_complete" | "game_won",
     sessionToken: null as string | null,
+    inventory: [] as WeaponInstance[],
+    equippedInstanceId: null as number | null,
     width: 380,
     height: 600,
     groundY: 460,
@@ -203,7 +219,8 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
       invulnerableTimer: 0,
       frameIndex: 0,
       animTimer: 0,
-      equippedWeaponId: 1, // Start with weapon 1
+      isAttacking: false,
+
       shootCooldown: 0,
     },
     projectiles: [] as Projectile[],
@@ -322,7 +339,9 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
     s.hero.invulnerableTimer = 0;
     s.hero.shootCooldown = 0;
     // Keep equippedWeaponId across levels if they continue, but if new session, reset to 1
-    s.hero.equippedWeaponId = 1;
+    const initWeaponInstanceId = Date.now() + Math.random();
+    s.inventory = [{ id: initWeaponInstanceId, weaponId: 1, ammo: 30, maxAmmo: 30 }];
+    s.equippedInstanceId = initWeaponInstanceId;
     s.hero.frameIndex = 0;
     s.hero.animTimer = 0;
     s.hero.y = s.groundY - s.hero.height;
@@ -379,6 +398,30 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
     s.gameState = "over";
   }, [refresh]);
 
+
+  // Drop Weapon
+  const handleDropWeapon = useCallback((weaponInstance: WeaponInstance) => {
+    const s = stateRef.current;
+    if (s.gameState !== "playing") return;
+
+    // Remove from inventory
+    s.inventory = s.inventory.filter(w => w.id !== weaponInstance.id);
+    if (s.equippedInstanceId === weaponInstance.id) {
+      s.equippedInstanceId = s.inventory.length > 0 ? s.inventory[0].id : null;
+    }
+
+    // Spawn dropped weapon in world
+    s.droppedWeapons.push({
+      id: Date.now() + Math.random(),
+      x: s.hero.x + (s.hero.facingRight ? 40 : -40),
+      y: s.hero.y,
+      weaponInstance: weaponInstance,
+      isPlayerDropped: true,
+      timer: 999999, // Essentially infinite or very long
+      vy: -5
+    });
+  }, []);
+
   // Jump Action
   const handleJump = useCallback(() => {
     const s = stateRef.current;
@@ -408,83 +451,79 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
     }
   }, [playSound]);
 
-  // Attack Action (Shoot Weapon)
-  const handleAttack = useCallback(() => {
-    const s = stateRef.current;
-    if (s.gameState !== "playing") return;
-    const hero = s.hero;
-
-    if (hero.shootCooldown <= 0) {
-      const weapon = WEAPONS[hero.equippedWeaponId.toString()];
-      if (!weapon) return;
-
-      hero.shootCooldown = weapon.fireRate;
-      playSound("slash"); // Fallback for shoot sound
-
-      // Spawn projectile
-      const isShotgun = weapon.type === "shotgun";
-      const numBullets = isShotgun ? 3 : 1;
-
-      for (let i = 0; i < numBullets; i++) {
-        let vy = 0;
-        if (isShotgun) {
-          vy = (i - 1) * 2; // Spread: -2, 0, 2
-        }
-
-        s.projectiles.push({
-          id: Date.now() + Math.random(),
-          x: hero.x + hero.width,
-          y: hero.y + hero.height / 2 - 4,
-          vx: weapon.bulletSpeed,
-          vy: vy,
-          isEnemy: false,
-          damage: weapon.damage,
-          color: weapon.color,
-          distance: 0,
-          maxRange: weapon.range,
-        });
-      }
-
-      // Muzzle flash particles
-      for (let i = 0; i < 4; i++) {
-        s.particles.push({
-          x: hero.x + hero.width + 5,
-          y: hero.y + hero.height / 2 + (Math.random() - 0.5) * 10,
-          vx: Math.random() * 3 + 1,
-          vy: (Math.random() - 0.5) * 2,
-          size: Math.random() * 3 + 1,
-          color: weapon.color,
-          alpha: 1,
-          life: 0,
-          maxLife: 8,
-        });
-      }
-    }
-  }, [playSound]);
+  // Attack Action is now handled in the render loop with isAttacking
 
   // Keyboard support for desktop / browser testing
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === "Space" || e.code === "ArrowUp" || e.key === "w" || e.key === "W") {
+      if (e.code === "Space" || e.code === "ArrowUp") {
         e.preventDefault();
         handleJump();
-      } else if (e.code === "KeyX" || e.code === "KeyJ" || e.code === "Enter" || e.code === "KeyF") {
-        e.preventDefault();
-        handleAttack();
-      } else if (e.code === "ArrowLeft" || e.key === "a" || e.key === "A") {
-        stateRef.current.hero.vx = -4;
-        stateRef.current.hero.facingRight = false;
-      } else if (e.code === "ArrowRight" || e.key === "d" || e.key === "D") {
+      } else if (e.key === "w" || e.key === "W" || e.code === "ArrowRight" || e.key === "d" || e.key === "D") {
         stateRef.current.hero.vx = 4;
         stateRef.current.hero.facingRight = true;
+      } else if (e.key === "s" || e.key === "S" || e.code === "ArrowLeft" || e.key === "a" || e.key === "A") {
+        stateRef.current.hero.vx = -4;
+        stateRef.current.hero.facingRight = false;
+      } else if (e.key === "e" || e.key === "E") {
+        e.preventDefault();
+        const s = stateRef.current;
+        for (let i = s.droppedWeapons.length - 1; i >= 0; i--) {
+          const w = s.droppedWeapons[i];
+          const hero = s.hero;
+          const heroCenterX = hero.x + hero.width / 2;
+          const weaponCenterX = w.x + 16;
+          const distToHero = Math.abs(heroCenterX - weaponCenterX);
+          if (distToHero < 150) {
+            if (s.inventory.length >= 5) {
+              s.floatingTexts.push({
+                id: Date.now() + Math.random(),
+                x: hero.x,
+                y: hero.y - 20,
+                text: "Backpack Full",
+                color: "#ef4444",
+                alpha: 1,
+                vy: -1
+              });
+            } else {
+              s.inventory.push(w.weaponInstance);
+              s.floatingTexts.push({
+                id: Date.now() + Math.random(),
+                x: hero.x,
+                y: hero.y - 20,
+                text: "Picked Up!",
+                color: "#00f2fe",
+                alpha: 1,
+                vy: -1
+              });
+              s.droppedWeapons.splice(i, 1);
+            }
+            break;
+          }
+        }
+      } else if (e.code === "KeyX" || e.code === "KeyJ" || e.code === "Enter") {
+        e.preventDefault();
+        stateRef.current.hero.isAttacking = true;
+      } else if (e.code === "KeyF") {
+        e.preventDefault();
+        setBackpackOpen(prev => !prev);
+      } else if (e.key === "w" || e.key === "W" || e.code === "ArrowRight" || e.key === "d" || e.key === "D") {
+        stateRef.current.hero.vx = 4;
+        stateRef.current.hero.facingRight = true;
+      } else if (e.key === "s" || e.key === "S" || e.code === "ArrowLeft" || e.key === "a" || e.key === "A") {
+        stateRef.current.hero.vx = -4;
+        stateRef.current.hero.facingRight = false;
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => {
       if (
-        e.code === "ArrowLeft" || e.key === "a" || e.key === "A" ||
-        e.code === "ArrowRight" || e.key === "d" || e.key === "D"
+        e.code === "ArrowLeft" || e.key === "a" || e.key === "A" || e.key === "s" || e.key === "S" ||
+        e.code === "ArrowRight" || e.key === "d" || e.key === "D" || e.key === "w" || e.key === "W"
       ) {
         stateRef.current.hero.vx = 0;
+      }
+      if (e.code === "KeyX" || e.code === "KeyJ" || e.code === "Enter") {
+        stateRef.current.hero.isAttacking = false;
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -493,7 +532,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
     };
-  }, [handleJump, handleAttack]);
+  }, [handleJump]);
 
   // Main Canvas & Game Loop
   useEffect(() => {
@@ -683,6 +722,59 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
           hero.shootCooldown -= 1;
         }
 
+        // Handle Continuous Shooting
+        if (hero.isAttacking && hero.shootCooldown <= 0) {
+          const equippedWeapon = s.equippedInstanceId !== null ? s.inventory.find(w => w.id === s.equippedInstanceId) : null;
+          if (equippedWeapon && equippedWeapon.ammo > 0) {
+            const weaponIdStr = equippedWeapon.weaponId.toString();
+            const weapon = WEAPONS[weaponIdStr];
+            if (weapon) {
+              hero.shootCooldown = weapon.fireRate;
+              playSound("slash"); // Fallback for shoot sound
+              equippedWeapon.ammo -= 1;
+
+              // Spawn projectile
+              const isShotgun = weapon.type === "shotgun";
+              const numBullets = isShotgun ? 3 : 1;
+
+              for (let i = 0; i < numBullets; i++) {
+                let vy = 0;
+                if (isShotgun) {
+                  vy = (i - 1) * 2; // Spread: -2, 0, 2
+                }
+
+                s.projectiles.push({
+                  id: Date.now() + Math.random(),
+                  x: hero.x + hero.width,
+                  y: hero.y + hero.height / 2 - 4,
+                  vx: weapon.bulletSpeed,
+                  vy: vy,
+                  isEnemy: false,
+                  damage: weapon.damage,
+                  color: weapon.color,
+                  distance: 0,
+                  maxRange: weapon.range,
+                });
+              }
+
+              // Muzzle flash particles
+              for (let i = 0; i < 4; i++) {
+                s.particles.push({
+                  x: hero.x + hero.width + 5,
+                  y: hero.y + hero.height / 2 + (Math.random() - 0.5) * 10,
+                  vx: Math.random() * 3 + 1,
+                  vy: (Math.random() - 0.5) * 2,
+                  size: Math.random() * 3 + 1,
+                  color: weapon.color,
+                  alpha: 1,
+                  life: 0,
+                  maxLife: 8,
+                });
+              }
+            }
+          }
+        }
+
         if (hero.invulnerableTimer > 0) {
           hero.invulnerableTimer -= 1;
         }
@@ -729,7 +821,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
               speed: 1.5 + Math.random() * 0.5,
               hitFlash: 0,
               defeated: false,
-              weaponId: assignedWeaponId,
+              weaponInstance: { id: Date.now() + Math.random(), weaponId: assignedWeaponId, ammo: 40, maxAmmo: 40 },
               shootTimer: (60 + Math.random() * 60) / (1 + s.levelEnemiesSpawned * 0.005),
               state: "walking",
               frameIndex: 0,
@@ -766,11 +858,15 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
             w.vy += 0.5;
           }
 
-          if (w.timer <= 0 || w.x < -60) {
-             // Game over if timer expires OR weapon is missed off-screen
-             playSound("over");
-             finishGameSession();
-             return;
+          if (w.timer <= 0 || w.x < s.cameraX - 800) {
+             if (w.isPlayerDropped) {
+                s.droppedWeapons.splice(i, 1);
+             } else {
+                 // Game over if timer expires OR weapon is missed off-screen
+                 playSound("over");
+                 finishGameSession();
+                 return;
+             }
           }
         }
 
@@ -842,7 +938,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
                       id: Date.now() + Math.random(),
                       x: enemy.x,
                       y: enemy.y,
-                      weaponId: enemy.weaponId,
+                      weaponInstance: enemy.weaponInstance,
                       timer: 300, // 5 seconds at 60fps
                       vy: -5
                     });
@@ -925,9 +1021,9 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
              enemy.shootTimer -= 1;
              if (enemy.shootTimer <= 0) {
                  enemy.shootTimer = 80;
-                 const weapon = WEAPONS[enemy.weaponId];
-                 if (weapon && enemy.x > 0 && enemy.x < width) {
-
+                 const weapon = WEAPONS[enemy.weaponInstance.weaponId];
+                 if (weapon && enemy.x > 0 && enemy.x < width && enemy.weaponInstance.ammo > 0) {
+                   enemy.weaponInstance.ammo -= 1;
                    s.projectiles.push({
                       id: Date.now() + Math.random(),
                       x: enemy.x,
@@ -1072,7 +1168,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
       }
 
       // Draw Equipped Weapon
-      const wImg = weaponImagesRef.current[hero.equippedWeaponId];
+      const wImg = weaponImagesRef.current[s.equippedInstanceId !== null ? (s.inventory.find(w => w.id === s.equippedInstanceId)?.weaponId || 1) : 1];
       if (wImg && wImg.complete && wImg.naturalWidth > 0) {
           ctx.save();
           // The hero origin for drawing is hx, hy. The hand position changes per frame.
@@ -1154,7 +1250,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
         ctx.fill();
         ctx.restore();
 
-        const dImg = weaponImagesRef.current[w.weaponId];
+        const dImg = weaponImagesRef.current[w.weaponInstance.weaponId];
         if (dImg && dImg.complete && dImg.naturalWidth > 0) {
             ctx.imageSmoothingEnabled = false;
             // Hover effect
@@ -1214,6 +1310,24 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
       }
 
       ctx.restore(); // Restore Camera Transform
+
+      // Update HUD directly
+      const currentEquippedId = s.equippedInstanceId;
+      if (currentEquippedId !== null) {
+          const equippedWeapon = s.inventory.find(w => w.id === currentEquippedId);
+          if (equippedWeapon) {
+             const weaponConfig = WEAPONS[equippedWeapon.weaponId];
+             if (hudAmmoRef.current) hudAmmoRef.current.innerText = `${equippedWeapon.ammo} / ${equippedWeapon.maxAmmo}`;
+             if (hudWeaponRef.current) hudWeaponRef.current.innerText = weaponConfig?.type ? `🔫 ${weaponConfig.type.charAt(0).toUpperCase() + weaponConfig.type.slice(1)}` : "🔫 Weapon";
+          }
+      } else {
+          if (hudAmmoRef.current) hudAmmoRef.current.innerText = "0 / 0";
+          if (hudWeaponRef.current) hudWeaponRef.current.innerText = "🔫 Empty";
+      }
+
+      if (backpackOpen) {
+          setInventoryState([...s.inventory]);
+      }
 
       animId = requestAnimationFrame(render);
     };
@@ -1287,6 +1401,25 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
           </div>
         </div>
 
+        {/* Middle: Current Weapon & Ammo */}
+        <div style={{
+           position: "absolute",
+           left: "50%",
+           transform: "translateX(-50%)",
+           display: "flex",
+           flexDirection: "column",
+           alignItems: "center",
+           background: "rgba(10, 16, 38, 0.85)",
+           border: "1px solid rgba(0, 242, 254, 0.4)",
+           borderRadius: 12,
+           padding: "4px 12px",
+           boxShadow: "0 0 12px rgba(0, 242, 254, 0.2)",
+           pointerEvents: "none",
+        }}>
+           <span ref={hudWeaponRef} style={{ color: "#ffffff", fontWeight: 900, fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 }}>🔫 Rifle</span>
+           <span ref={hudAmmoRef} style={{ color: "#00f2fe", fontWeight: 900, fontSize: 14 }}>30 / 30</span>
+        </div>
+
         {/* Right: GO Earned & Buttons */}
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {/* GO Earned */}
@@ -1308,6 +1441,23 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
             </span>
           </div>
 
+          <button
+            onClick={() => setBackpackOpen(prev => !prev)}
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: 10,
+              background: "rgba(10, 16, 38, 0.85)",
+              border: "1px solid rgba(255, 255, 255, 0.15)",
+              color: "#ffffff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
+          >
+            🎒
+          </button>
           {/* Mute Button */}
           <button
             onClick={() => setMuted((m) => !m)}
@@ -1376,7 +1526,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
 
           for (let i = s.droppedWeapons.length - 1; i >= 0; i--) {
             const w = s.droppedWeapons[i];
-            const weaponCenterX = w.x + 16;
+            const weaponCenterX = w.x + 16 - s.cameraX; // Apply camera offset
             const weaponCenterY = w.y + 16;
             const distToClick = Math.hypot(relativeX - weaponCenterX, relativeY - weaponCenterY);
 
@@ -1387,17 +1537,29 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
               const distToHero = Math.abs(heroCenterX - weaponCenterX);
 
               if (distToHero < 150) {
-                hero.equippedWeaponId = w.weaponId;
-                s.floatingTexts.push({
-                  id: Date.now() + Math.random(),
-                  x: hero.x,
-                  y: hero.y - 20,
-                  text: "EQUIPPED!",
-                  color: "#00f2fe",
-                  alpha: 1,
-                  vy: -1
-                });
-                s.droppedWeapons.splice(i, 1);
+                if (s.inventory.length >= 5) {
+                  s.floatingTexts.push({
+                    id: Date.now() + Math.random(),
+                    x: hero.x,
+                    y: hero.y - 20,
+                    text: "Backpack Full",
+                    color: "#ef4444",
+                    alpha: 1,
+                    vy: -1
+                  });
+                } else {
+                  s.inventory.push(w.weaponInstance);
+                  s.floatingTexts.push({
+                    id: Date.now() + Math.random(),
+                    x: hero.x,
+                    y: hero.y - 20,
+                    text: "Picked Up!",
+                    color: "#00f2fe",
+                    alpha: 1,
+                    vy: -1
+                  });
+                  s.droppedWeapons.splice(i, 1);
+                }
               } else {
                 s.floatingTexts.push({
                   id: Date.now() + Math.random(),
@@ -1418,9 +1580,15 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
             if (relativeX < rect.width * 0.5) {
               handleJump();
             } else {
-              handleAttack();
+              stateRef.current.hero.isAttacking = true;
             }
           }
+        }}
+        onPointerUp={(e) => {
+          stateRef.current.hero.isAttacking = false;
+        }}
+        onPointerLeave={(e) => {
+          stateRef.current.hero.isAttacking = false;
         }}
       >
         <canvas
@@ -1555,11 +1723,24 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
             onTouchStart={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              handleAttack();
+              stateRef.current.hero.isAttacking = true;
             }}
-            onClick={(e) => {
+            onTouchEnd={(e) => {
               e.preventDefault();
-              handleAttack();
+              e.stopPropagation();
+              stateRef.current.hero.isAttacking = false;
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              stateRef.current.hero.isAttacking = true;
+            }}
+            onMouseUp={(e) => {
+              e.preventDefault();
+              stateRef.current.hero.isAttacking = false;
+            }}
+            onMouseLeave={(e) => {
+              e.preventDefault();
+              stateRef.current.hero.isAttacking = false;
             }}
             style={{
               width: 82,
@@ -1583,6 +1764,115 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
             </span>
           </button>
           </div>
+        </div>
+      )}
+
+      {/* ── Backpack Modal ─────────────────────────────── */}
+      {backpackOpen && (
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            zIndex: 105,
+            background: "rgba(3, 6, 18, 0.4)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "auto",
+          }}
+          onPointerMove={(e) => {
+            if (draggedWeapon) {
+              setDragPos({ x: e.clientX, y: e.clientY });
+            }
+          }}
+          onPointerUp={(e) => {
+            if (draggedWeapon) {
+              // Dropped outside modal
+              handleDropWeapon(draggedWeapon);
+              setDraggedWeapon(null);
+            } else {
+               setBackpackOpen(false);
+            }
+          }}
+        >
+          <div
+            onPointerUp={(e) => {
+              if (draggedWeapon) {
+                  e.stopPropagation(); // Prevent dropping if released inside modal
+                  setDraggedWeapon(null);
+              } else {
+                  e.stopPropagation();
+              }
+            }}
+            style={{
+              background: "linear-gradient(145deg, rgba(10, 16, 38, 0.96), rgba(4, 7, 20, 0.98))",
+              border: "1.5px solid rgba(0, 242, 254, 0.35)",
+              borderRadius: 24,
+              padding: "24px",
+              width: "320px",
+              boxShadow: "0 0 40px rgba(0, 242, 254, 0.25)",
+            }}
+          >
+            <h2 style={{ color: "#00f2fe", textAlign: "center", marginBottom: 16, marginTop: 0 }}>BACKPACK ({inventoryState.length}/5)</h2>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {inventoryState.map((weapon) => {
+                const wConfig = WEAPONS[weapon.weaponId];
+                const isEquipped = stateRef.current.equippedInstanceId === weapon.id;
+
+                return (
+                  <div
+                    key={weapon.id}
+                    onPointerDown={(e) => {
+                       e.stopPropagation();
+                       setDraggedWeapon(weapon);
+                       setDragPos({ x: e.clientX, y: e.clientY });
+                    }}
+                    onClick={(e) => {
+                       e.stopPropagation();
+                       stateRef.current.equippedInstanceId = weapon.id;
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "8px 12px",
+                      background: isEquipped ? "rgba(0, 242, 254, 0.2)" : "rgba(255,255,255,0.05)",
+                      border: isEquipped ? "1px solid #00f2fe" : "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: 12,
+                      cursor: "pointer",
+                      position: "relative",
+                      opacity: draggedWeapon?.id === weapon.id ? 0.3 : 1
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <img src={`/weapons/${weapon.weaponId}.png`} alt="weapon" style={{width: 32, height: 32, objectFit: "contain"}} />
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                           <span style={{ color: "white", fontSize: 14, fontWeight: "bold" }}>{wConfig?.type || "Weapon"}</span>
+                           <span style={{ color: "#fbbf24", fontSize: 12 }}>{weapon.ammo} / {weapon.maxAmmo} Ammo</span>
+                        </div>
+                    </div>
+                  </div>
+                );
+              })}
+              {inventoryState.length === 0 && (
+                  <div style={{textAlign: 'center', color: 'gray', padding: 20}}>Empty</div>
+              )}
+            </div>
+          </div>
+
+          {draggedWeapon && (
+            <div style={{
+                position: 'fixed',
+                left: dragPos.x,
+                top: dragPos.y,
+                transform: 'translate(-50%, -50%)',
+                pointerEvents: 'none',
+                zIndex: 110
+            }}>
+                <img src={`/weapons/${draggedWeapon.weaponId}.png`} alt="dragged" style={{width: 48, height: 48, objectFit: "contain", filter: "drop-shadow(0 0 10px #00f2fe)"}} />
+            </div>
+          )}
         </div>
       )}
 
