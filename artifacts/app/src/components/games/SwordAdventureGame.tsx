@@ -399,6 +399,48 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
   }, [refresh]);
 
 
+
+  // Pickup Weapon unified logic
+  const pickupWeapon = useCallback((wIndex: number) => {
+    const s = stateRef.current;
+    const w = s.droppedWeapons[wIndex];
+    if (!w) return;
+
+    if (s.inventory.length >= 5) {
+      s.floatingTexts.push({
+        id: Date.now() + Math.random(),
+        x: s.hero.x,
+        y: s.hero.y - 20,
+        text: "Backpack Full",
+        color: "#ef4444",
+        alpha: 1,
+        vy: -1
+      });
+      return;
+    }
+
+    // Transfer the EXACT weapon instance to inventory (preserving ammo)
+    const newWeapon = { ...w.weaponInstance };
+    s.inventory.push(newWeapon);
+
+    s.floatingTexts.push({
+      id: Date.now() + Math.random(),
+      x: s.hero.x,
+      y: s.hero.y - 20,
+      text: "Picked Up!",
+      color: "#00f2fe",
+      alpha: 1,
+      vy: -1
+    });
+
+    s.droppedWeapons.splice(wIndex, 1);
+
+    // Auto-equip if the player currently holds nothing
+    if (s.equippedInstanceId === null) {
+      s.equippedInstanceId = newWeapon.id;
+    }
+  }, []);
+
   // Drop Weapon
   const handleDropWeapon = useCallback((weaponInstance: WeaponInstance) => {
     const s = stateRef.current;
@@ -472,32 +514,10 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
           const w = s.droppedWeapons[i];
           const hero = s.hero;
           const heroCenterX = hero.x + hero.width / 2;
-          const weaponCenterX = w.x + 16;
-          const distToHero = Math.abs(heroCenterX - weaponCenterX);
+          const trueWeaponCenterX = w.x + 16;
+          const distToHero = Math.abs(heroCenterX - trueWeaponCenterX);
           if (distToHero < 150) {
-            if (s.inventory.length >= 5) {
-              s.floatingTexts.push({
-                id: Date.now() + Math.random(),
-                x: hero.x,
-                y: hero.y - 20,
-                text: "Backpack Full",
-                color: "#ef4444",
-                alpha: 1,
-                vy: -1
-              });
-            } else {
-              s.inventory.push(w.weaponInstance);
-              s.floatingTexts.push({
-                id: Date.now() + Math.random(),
-                x: hero.x,
-                y: hero.y - 20,
-                text: "Picked Up!",
-                color: "#00f2fe",
-                alpha: 1,
-                vy: -1
-              });
-              s.droppedWeapons.splice(i, 1);
-            }
+            pickupWeapon(i);
             break;
           }
         }
@@ -858,7 +878,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
             w.vy += 0.5;
           }
 
-          if (w.timer <= 0 || w.x < s.cameraX - 800) {
+          if (w.timer <= 0) {
              if (w.isPlayerDropped) {
                 s.droppedWeapons.splice(i, 1);
              } else {
@@ -1022,7 +1042,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
              if (enemy.shootTimer <= 0) {
                  enemy.shootTimer = 80;
                  const weapon = WEAPONS[enemy.weaponInstance.weaponId];
-                 if (weapon && enemy.x > 0 && enemy.x < width && enemy.weaponInstance.ammo > 0) {
+                 if (weapon && enemy.weaponInstance.ammo > 0) {
                    enemy.weaponInstance.ammo -= 1;
                    s.projectiles.push({
                       id: Date.now() + Math.random(),
@@ -1061,9 +1081,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
             }
           }
 
-          if (enemy.x < s.cameraX - 800 && !enemy.defeated) {
-            s.enemies.splice(i, 1);
-          }
+          // Enemies are no longer removed off-screen
         }
 
         // s.gameSpeed = Math.min(6.0, 3.5 + s.enemiesDefeated * 0.04);
@@ -1536,30 +1554,10 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
               const heroCenterX = hero.x + hero.width / 2;
               const distToHero = Math.abs(heroCenterX - weaponCenterX);
 
-              if (distToHero < 150) {
-                if (s.inventory.length >= 5) {
-                  s.floatingTexts.push({
-                    id: Date.now() + Math.random(),
-                    x: hero.x,
-                    y: hero.y - 20,
-                    text: "Backpack Full",
-                    color: "#ef4444",
-                    alpha: 1,
-                    vy: -1
-                  });
-                } else {
-                  s.inventory.push(w.weaponInstance);
-                  s.floatingTexts.push({
-                    id: Date.now() + Math.random(),
-                    x: hero.x,
-                    y: hero.y - 20,
-                    text: "Picked Up!",
-                    color: "#00f2fe",
-                    alpha: 1,
-                    vy: -1
-                  });
-                  s.droppedWeapons.splice(i, 1);
-                }
+              const trueWeaponCenterX = w.x + 16; // WORLD coordinate for pickup logic
+              const trueDistToHero = Math.abs(heroCenterX - trueWeaponCenterX);
+              if (trueDistToHero < 150) {
+                pickupWeapon(i);
               } else {
                 s.floatingTexts.push({
                   id: Date.now() + Math.random(),
