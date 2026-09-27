@@ -193,6 +193,14 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
   const hudAmmoRef = useRef<HTMLSpanElement | null>(null);
   const hudWeaponRef = useRef<HTMLSpanElement | null>(null);
   const [backpackOpen, setBackpackOpen] = useState(false);
+  const backpackOpenRef = useRef(false);
+
+  useEffect(() => {
+    backpackOpenRef.current = backpackOpen;
+    if (backpackOpen) {
+      setInventoryState([...stateRef.current.inventory]);
+    }
+  }, [backpackOpen]);
   const [inventoryState, setInventoryState] = useState<WeaponInstance[]>([]);
   const [draggedWeapon, setDraggedWeapon] = useState<WeaponInstance | null>(null);
   const [dragPos, setDragPos] = useState({ x: 0, y: 0 });
@@ -420,8 +428,11 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
     }
 
     // Transfer the EXACT weapon instance to inventory (preserving ammo)
-    const newWeapon = { ...w.weaponInstance };
+    const newWeapon = w.weaponInstance;
     s.inventory.push(newWeapon);
+
+    // Sync React state
+    setInventoryState([...s.inventory]);
 
     s.floatingTexts.push({
       id: Date.now() + Math.random(),
@@ -448,6 +459,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
 
     // Remove from inventory
     s.inventory = s.inventory.filter(w => w.id !== weaponInstance.id);
+    setInventoryState([...s.inventory]);
     if (s.equippedInstanceId === weaponInstance.id) {
       s.equippedInstanceId = s.inventory.length > 0 ? s.inventory[0].id : null;
     }
@@ -752,6 +764,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
               hero.shootCooldown = weapon.fireRate;
               playSound("slash"); // Fallback for shoot sound
               equippedWeapon.ammo -= 1;
+              if (backpackOpenRef.current) setInventoryState([...s.inventory]);
 
               // Spawn projectile
               const isShotgun = weapon.type === "shotgun";
@@ -1009,21 +1022,21 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
           }
 
           const distToPlayer = enemy.x - (hero.x + hero.width);
+          const absDistToPlayer = Math.abs(distToPlayer);
 
           // AI State Machine
-          if (distToPlayer > 200) {
+          if (absDistToPlayer > 200) {
               enemy.state = "walking";
-              enemy.x -= enemy.speed;
-          } else if (distToPlayer > 120) {
+              enemy.x += (distToPlayer > 0 ? -enemy.speed : enemy.speed);
+          } else if (absDistToPlayer > 120) {
               enemy.state = "running";
-              enemy.x -= enemy.speed * 1.5;
-          } else if (distToPlayer <= 120 && distToPlayer > -50) {
+              enemy.x += (distToPlayer > 0 ? -enemy.speed * 1.5 : enemy.speed * 1.5);
+          } else if (absDistToPlayer <= 120 && absDistToPlayer > 50) {
               enemy.state = "shooting";
               // Stop moving while shooting
-              if (distToPlayer < 50) enemy.x += enemy.speed * 0.5;
           } else {
               enemy.state = "running";
-              enemy.x -= enemy.speed;
+              enemy.x += (distToPlayer > 0 ? enemy.speed : -enemy.speed); // back away
           }
 
           // Global Scroll removed for camera system
@@ -1044,18 +1057,22 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
                  const weapon = WEAPONS[enemy.weaponInstance.weaponId];
                  if (weapon && enemy.weaponInstance.ammo > 0) {
                    enemy.weaponInstance.ammo -= 1;
+
+                   const dir = distToPlayer > 0 ? -1 : 1;
+                   const timeToHit = Math.max(1, absDistToPlayer / weapon.bulletSpeed);
                    s.projectiles.push({
                       id: Date.now() + Math.random(),
                       x: enemy.x,
                       y: enemy.y + 20,
-                      vx: weapon.bulletSpeed,
-                      vy: (hero.y - enemy.y) / (distToPlayer / weapon.bulletSpeed) * 0.5,
+                      vx: weapon.bulletSpeed * dir,
+                      vy: (hero.y - enemy.y) / timeToHit * 0.5,
                       isEnemy: true,
                       damage: 1,
                       color: "#ef4444",
                       distance: 0,
                       maxRange: weapon.range,
                    });
+
                  }
              }
           }
@@ -1343,9 +1360,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
           if (hudWeaponRef.current) hudWeaponRef.current.innerText = "🔫 Empty";
       }
 
-      if (backpackOpen) {
-          setInventoryState([...s.inventory]);
-      }
+
 
       animId = requestAnimationFrame(render);
     };
