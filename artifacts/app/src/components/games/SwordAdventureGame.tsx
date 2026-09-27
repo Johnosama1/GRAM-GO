@@ -215,7 +215,9 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
     levelEnemiesSpawned: 0,
     levelEnemiesDefeated: 0,
     currentLevel: 1,
-    gameSpeed: 3.5,
+    gameSpeed: 0,
+    cameraX: 0,
+    levelWidth: 6000,
     spawnEnemyTimer: 80,
     bgOffset: 0,
     stars: [] as Array<{ x: number; y: number; size: number; alpha: number; speed: number }>,
@@ -590,26 +592,34 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
 
       // Distant Gothic Castle Silhouettes
       ctx.fillStyle = "rgba(10, 16, 38, 0.85)";
-      ctx.beginPath();
       const castleBaseY = groundY - 24;
-      ctx.moveTo(width * 0.55, groundY);
-      ctx.lineTo(width * 0.55, castleBaseY - 50);
-      ctx.lineTo(width * 0.6, castleBaseY - 95);
-      ctx.lineTo(width * 0.65, castleBaseY - 50);
-      ctx.lineTo(width * 0.72, castleBaseY - 45);
-      ctx.lineTo(width * 0.76, castleBaseY - 120);
-      ctx.lineTo(width * 0.8, castleBaseY - 45);
-      ctx.lineTo(width * 0.92, castleBaseY - 60);
-      ctx.lineTo(width * 0.95, castleBaseY - 90);
-      ctx.lineTo(width * 0.98, castleBaseY - 35);
-      ctx.lineTo(width + 20, groundY);
-      ctx.fill();
+      const drawCastle = (offsetX: number) => {
+        ctx.save();
+        ctx.translate(offsetX, 0);
+        ctx.beginPath();
+        ctx.moveTo(width * 0.55, groundY);
+        ctx.lineTo(width * 0.55, castleBaseY - 50);
+        ctx.lineTo(width * 0.6, castleBaseY - 95);
+        ctx.lineTo(width * 0.65, castleBaseY - 50);
+        ctx.lineTo(width * 0.72, castleBaseY - 45);
+        ctx.lineTo(width * 0.76, castleBaseY - 120);
+        ctx.lineTo(width * 0.8, castleBaseY - 45);
+        ctx.lineTo(width * 0.92, castleBaseY - 60);
+        ctx.lineTo(width * 0.95, castleBaseY - 90);
+        ctx.lineTo(width * 0.98, castleBaseY - 35);
+        ctx.lineTo(width + 20, groundY);
+        ctx.fill();
+        ctx.restore();
+      };
+
+      const parallaxX = -(s.cameraX * 0.15) % width;
+      drawCastle(parallaxX);
+      drawCastle(parallaxX + width);
 
       // ── 2. Scrolling Ground Platform ──────────────────────────────────
       if (s.gameState === "playing") {
         // No automatic global scroll
         s.gameSpeed = 0;
-        s.bgOffset = (s.bgOffset + s.gameSpeed) % 40;
       }
 
       // Stone Ground
@@ -634,7 +644,8 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
       // Stone Slabs
       ctx.strokeStyle = "rgba(0, 242, 254, 0.15)";
       ctx.lineWidth = 1.5;
-      for (let x = -s.bgOffset; x < width + 40; x += 36) {
+      const slabOffset = s.cameraX % 36;
+      for (let x = -slabOffset; x < width + 40; x += 36) {
         ctx.beginPath();
         ctx.moveTo(x, groundY);
         ctx.lineTo(x - 14, height);
@@ -647,8 +658,15 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
 
         // Hero Physics & Gravity
         hero.x += hero.vx;
-        if (hero.x < 0) hero.x = 0;
-        if (hero.x > width - hero.width) hero.x = width - hero.width;
+        const minX = 0;
+        const maxX = s.levelWidth;
+        if (hero.x < minX) hero.x = minX;
+        if (hero.x > maxX - hero.width) hero.x = maxX - hero.width;
+
+        // Camera Follow
+        const targetCameraX = hero.x - width / 2 + hero.width / 2;
+        s.cameraX = Math.max(minX, Math.min(targetCameraX, maxX - width));
+        const cx = s.cameraX;
         hero.y += hero.vy;
         if (!hero.isGrounded) {
           hero.vy += 0.72;
@@ -702,7 +720,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
 
                         s.enemies.push({
               id: Date.now() + Math.random(),
-              x: width + 50,
+              x: cx + width + 50,
               y: groundY - 60,
               width: 50,
               height: 60,
@@ -892,8 +910,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
               enemy.x -= enemy.speed;
           }
 
-          // Global Scroll
-          enemy.x -= s.gameSpeed;
+          // Global Scroll removed for camera system
 
           // Animation
           enemy.animTimer += 1;
@@ -948,7 +965,7 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
             }
           }
 
-          if (enemy.x < -100 && !enemy.defeated) {
+          if (enemy.x < s.cameraX - 800 && !enemy.defeated) {
             s.enemies.splice(i, 1);
           }
         }
@@ -957,6 +974,10 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
       }
 
 
+
+      // Apply Camera Transform for World Objects
+      ctx.save();
+      ctx.translate(-s.cameraX, 0);
 
       // ── 5. Draw Enemies ─────────────────────
       s.enemies.forEach((enemy) => {
@@ -1191,6 +1212,8 @@ export default function SwordAdventureGame({ onClose }: SwordAdventureGameProps)
           s.floatingTexts.splice(i, 1);
         }
       }
+
+      ctx.restore(); // Restore Camera Transform
 
       animId = requestAnimationFrame(render);
     };
