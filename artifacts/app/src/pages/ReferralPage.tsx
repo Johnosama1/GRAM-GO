@@ -388,7 +388,7 @@ export default function ReferralPage() {
               pointerEvents: "none",
               width: 100,
               height: 100,
-              backgroundImage: "url('https://vynex-coin1.vercel.app/sad-icon.png')",
+              backgroundImage: "url('/games/sad-icon.png')",
               backgroundSize: "contain",
               backgroundRepeat: "no-repeat",
               filter: "brightness(0) invert(1)",
