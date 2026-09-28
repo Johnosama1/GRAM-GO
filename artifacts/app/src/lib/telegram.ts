@@ -79,8 +79,8 @@ export function getStartParam(): string | null {
 export function initTelegramApp() {
   const tg = getTelegramWebApp();
   if (tg) {
-    tg.ready();
-    tg.expand();
+
+
     // Disable vertical swipe-to-close gesture
     if (typeof (tg as unknown as Record<string, unknown>).disableVerticalSwipes === "function") {
       (tg as unknown as Record<string, () => void>).disableVerticalSwipes();
