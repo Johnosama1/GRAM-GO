@@ -552,10 +552,10 @@ export default function AdminPage() {
           maxUses: "100",
           expiresAt: "",
         });
-        alert("Promo Code Created");
+        showToast("Promo Code Created", "ok");
       }
     } catch (e) {
-      alert("Error creating code");
+      showToast("Error creating code", "err");
     }
   };
 
@@ -565,7 +565,7 @@ export default function AdminPage() {
       await api.adminDeletePromoCode(id);
       setPromoCodes(promoCodes.filter((c) => c.id !== id));
     } catch (e) {
-      alert("Error deleting code");
+      showToast("Error deleting code", "err");
     }
   };
 

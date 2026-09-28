@@ -238,6 +238,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           setInitialized(true);
           hideSplash();
           return;
+        } else {
+          console.warn("User init failed, proceeding with cache if available:", err);
         }
       }
 
@@ -274,6 +276,25 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         getWithdrawalsOnce(freshUser.id).catch(() => {});
 
         // Step 6: Check daily checkin availability
+        checkCheckinStatus().catch(() => {});
+      } else if (cachedUser) {
+        // Init failed (server busy), but we have cached user! We can still issue a session and let them use the app
+        setUser(cachedUser);
+        if (cachedSlots) {
+          setSlots(cachedSlots);
+        }
+
+        doIssueSession(cachedUser.id).catch(() => {});
+
+        const isOwnerAdmin = Number(cachedUser.id) === 6145230334;
+        setIsAdminState(isOwnerAdmin);
+        api.adminCheck(cachedUser.id)
+          .then((res) => setIsAdminState(res.isAdmin))
+          .catch(() => setIsAdminState(isOwnerAdmin));
+
+        getTasksOnce().catch(() => {});
+        getCompletedTasksOnce(cachedUser.id).catch(() => {});
+        getWithdrawalsOnce(cachedUser.id).catch(() => {});
         checkCheckinStatus().catch(() => {});
       }
 
