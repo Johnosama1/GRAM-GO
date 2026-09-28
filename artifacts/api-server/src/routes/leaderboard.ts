@@ -16,20 +16,20 @@ router.get("/leaderboard", async (req, res) => {
         firstName: usersTable.firstName,
         lastName: usersTable.lastName,
         photoUrl: usersTable.photoUrl,
-        referralCount: usersTable.referralCount,
+        goBalance: sql<number>`CAST(${usersTable.goBalance} AS float)`,
       })
       .from(usersTable)
-      .where(and(eq(usersTable.isVisible, true), gt(usersTable.referralCount, 0)))
-      .orderBy(desc(usersTable.referralCount))
+      .where(and(eq(usersTable.isVisible, true), gt(sql`CAST(${usersTable.goBalance} AS float)`, 0)))
+      .orderBy(desc(sql`CAST(${usersTable.goBalance} AS float)`))
       .limit(20);
 
     const ranked = top.map((u, i) => ({ rank: i + 1, ...u }));
 
-    let myRank: { rank: number; referralCount: number } | null = null;
+    let myRank: { rank: number; goBalance: number } | null = null;
     if (userId) {
       const userInTop = ranked.find((u) => u.id === userId);
       if (userInTop) {
-        myRank = { rank: userInTop.rank, referralCount: userInTop.referralCount };
+        myRank = { rank: userInTop.rank, goBalance: userInTop.goBalance };
       } else {
         const [countRow] = await db
           .select({ cnt: sql<number>`count(*)` })
@@ -37,16 +37,16 @@ router.get("/leaderboard", async (req, res) => {
           .where(
             and(
               eq(usersTable.isVisible, true),
-              sql`referral_count > (SELECT referral_count FROM users WHERE id = ${userId})`
+              sql`CAST(go_balance AS float) > (SELECT CAST(go_balance AS float) FROM users WHERE id = ${userId})`
             )
           );
         const [me] = await db
-          .select({ referralCount: usersTable.referralCount })
+          .select({ goBalance: sql<number>`CAST(${usersTable.goBalance} AS float)` })
           .from(usersTable)
           .where(eq(usersTable.id, userId))
           .limit(1);
         if (me) {
-          myRank = { rank: Number(countRow.cnt) + 1, referralCount: me.referralCount };
+          myRank = { rank: Number(countRow.cnt) + 1, goBalance: me.goBalance };
         }
       }
     }

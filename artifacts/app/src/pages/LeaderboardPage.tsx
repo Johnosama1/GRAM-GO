@@ -11,12 +11,12 @@ interface LeaderEntry {
   firstName: string | null;
   lastName: string | null;
   photoUrl: string | null;
-  referralCount: number;
+  goBalance: number;
 }
 
 interface LeaderboardData {
   top: LeaderEntry[];
-  myRank: { rank: number; referralCount: number } | null;
+  myRank: { rank: number; goBalance: number } | null;
 }
 
 function getDisplayName(entry: { firstName?: string | null; lastName?: string | null; username?: string | null }): string {
@@ -114,7 +114,7 @@ export default function LeaderboardPage() {
               margin: "2px 0 0",
             }}
           >
-            Rankings are based on referrals and rewards
+            Rankings are based on GO Balance
           </p>
         </div>
       </div>
@@ -227,10 +227,7 @@ export default function LeaderboardPage() {
                   {getDisplayName(top2)}
                 </span>
                 <span style={{ color: "rgba(0, 242, 254, 0.8)", fontSize: 9.5, fontWeight: 700 }}>
-                  {top2.referralCount} Friends
-                </span>
-                <span style={{ color: "#fbbf24", fontSize: 10.5, fontWeight: 900, marginTop: 2 }}>
-                  +{top2.referralCount * 10} GO
+                  {top2.goBalance.toLocaleString()} GO
                 </span>
               </div>
             ) : <div />}
@@ -296,10 +293,7 @@ export default function LeaderboardPage() {
                   {getDisplayName(top1)}
                 </span>
                 <span style={{ color: "rgba(255, 255, 255, 0.75)", fontSize: 10, fontWeight: 700 }}>
-                  {top1.referralCount} Friends
-                </span>
-                <span style={{ color: "#fbbf24", fontSize: 12, fontWeight: 900, marginTop: 2, textShadow: "0 0 8px rgba(251, 191, 36, 0.4)" }}>
-                  +{top1.referralCount * 10} GO
+                  {top1.goBalance.toLocaleString()} GO
                 </span>
               </div>
             ) : <div />}
@@ -364,10 +358,7 @@ export default function LeaderboardPage() {
                   {getDisplayName(top3)}
                 </span>
                 <span style={{ color: "rgba(0, 242, 254, 0.8)", fontSize: 9.5, fontWeight: 700 }}>
-                  {top3.referralCount} Friends
-                </span>
-                <span style={{ color: "#fbbf24", fontSize: 10.5, fontWeight: 900, marginTop: 2 }}>
-                  +{top3.referralCount * 10} GO
+                  {top3.goBalance.toLocaleString()} GO
                 </span>
               </div>
             ) : <div />}
@@ -460,10 +451,7 @@ export default function LeaderboardPage() {
 
                   <div style={{ textAlign: "right", flexShrink: 0 }}>
                     <div style={{ color: "#fff", fontSize: 13, fontWeight: 800 }}>
-                      {entry.referralCount} <span style={{ color: "rgba(255, 255, 255, 0.5)", fontSize: 11 }}>Friends</span>
-                    </div>
-                    <div style={{ color: "#fbbf24", fontSize: 12, fontWeight: 900, marginTop: 2 }}>
-                      +{entry.referralCount * 10} GO
+                      {entry.goBalance.toLocaleString()} <span style={{ color: "rgba(255, 255, 255, 0.5)", fontSize: 11 }}>GO</span>
                     </div>
                   </div>
                 </div>
@@ -521,10 +509,7 @@ export default function LeaderboardPage() {
 
             <div style={{ textAlign: "right", flexShrink: 0 }}>
               <div style={{ color: "#fff", fontSize: 13, fontWeight: 800 }}>
-                {data.myRank.referralCount} <span style={{ color: "rgba(255, 255, 255, 0.5)", fontSize: 11 }}>Friends</span>
-              </div>
-              <div style={{ color: "#fbbf24", fontSize: 12, fontWeight: 900, marginTop: 2 }}>
-                +{data.myRank.referralCount * 10} GO
+                {data.myRank.goBalance.toLocaleString()} <span style={{ color: "rgba(255, 255, 255, 0.5)", fontSize: 11 }}>GO</span>
               </div>
             </div>
           </div>
