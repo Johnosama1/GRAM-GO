@@ -4,6 +4,7 @@ import { useLocation, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { TonConnectUIProvider } from "@tonconnect/ui-react";
 import { UserProvider, useUser } from "./lib/userContext";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { LanguageProvider, useLanguage } from "./lib/i18nContext";
 import TabBar from "./components/TabBar";
 import AnimatedBackground from "./components/AnimatedBackground";
@@ -289,23 +290,6 @@ function PersistentRouter() {
   // ── 0. Initial Loading ────────────────────────────────────────────
   if (loading && !user) return <LoadingScreen />;
 
-  // ── 0.5. Network Error / No User ──────────────────────────────────
-  if (!loading && !user && sessionState !== "banned" && sessionState !== "maintenance") {
-    return (
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", gap: 16 }}>
-        <div style={{ fontSize: 48 }}>🌐</div>
-        <h2 style={{ color: "#fff", margin: 0 }}>خطأ في الاتصال</h2>
-        <p style={{ color: "rgba(255,255,255,0.6)", margin: 0 }}>تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت والمحاولة مرة أخرى.</p>
-        <button
-          onClick={() => window.location.reload()}
-          style={{ background: "#fbbf24", color: "#000", border: "none", padding: "12px 24px", borderRadius: 12, fontWeight: 700, marginTop: 8 }}
-        >
-          إعادة المحاولة
-        </button>
-      </div>
-    );
-  }
-
   // ── 1. Banned ─────────────────────────────────────────────────────
   if (banned || sessionState === "banned") return <BannedScreen />;
 
@@ -375,7 +359,9 @@ function App() {
             <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
               <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
                 <AnimatedBackground />
-                <PersistentRouter />
+                <ErrorBoundary>
+                  <PersistentRouter />
+                </ErrorBoundary>
               </WouterRouter>
             </div>
           </UserProvider>

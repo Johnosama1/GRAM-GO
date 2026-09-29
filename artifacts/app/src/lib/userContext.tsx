@@ -296,6 +296,41 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         getCompletedTasksOnce(cachedUser.id).catch(() => {});
         getWithdrawalsOnce(cachedUser.id).catch(() => {});
         checkCheckinStatus().catch(() => {});
+      } else {
+        // Fallback for completely new users or guests when the server fails to initialize them
+        const fallbackUser: User = {
+          id: tgUser.id,
+          username: tgUser.username || null,
+          firstName: tgUser.first_name || "",
+          lastName: tgUser.last_name || "",
+          photoUrl: tgUser.photo_url || null,
+          balance: "0",
+          goBalance: "0",
+          gramBalance: "0",
+          miningRate: 0.03,
+          lastMiningAt: new Date().toISOString(),
+          spins: 0,
+          createdAt: new Date().toISOString(),
+          tonBalance: "0",
+          unclaimedGram: "0",
+          dailyYield: "0",
+          perSecondYield: "0",
+          isMining: false,
+          savedWalletAddress: null,
+          isBlockedForLeaving: false,
+          referralCount: 0,
+          isVisible: true,
+          ipHash: null,
+          tasksCompleted: 0,
+          referredBy: null,
+          inviterName: null,
+          isVerified: false,
+          rewardedSpins: 0,
+        };
+        setUser(fallbackUser);
+        if (cachedSlots) setSlots(cachedSlots);
+
+        doIssueSession(fallbackUser.id).catch(() => {});
       }
 
       setLoading(false);
