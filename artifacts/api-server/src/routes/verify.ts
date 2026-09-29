@@ -416,26 +416,15 @@ async function handleDeviceVerification(req: import("express").Request, res: imp
     }
   }
 
-  // 5. If duplicate account detected: Ban account, record in bans & security_events
+  // 5. If duplicate account detected: Mark as suspicious, record security event, but DO NOT AUTO BAN
   if (duplicateMatch) {
-    logger.warn({ userId, duplicateOf: duplicateMatch.matchedUserId, signals: duplicateMatch.signals }, "Duplicate account detected and blocked");
+    logger.warn({ userId, duplicateOf: duplicateMatch.matchedUserId, signals: duplicateMatch.signals }, "Duplicate account detected, marking suspicious but not banning");
 
-    // Ban in users table
+    // Mark as suspicious in users table but keep visible
     await db
       .update(usersTable)
-      .set({ isVisible: false, ipSuspicious: true })
+      .set({ ipSuspicious: true })
       .where(eq(usersTable.id, userId));
-
-    // Record in bans table
-    await db.insert(bansTable).values({
-      userId,
-      reason: "duplicate_account",
-      matchedUserId: duplicateMatch.matchedUserId,
-      matchedSignals: duplicateMatch.signals,
-      bannedAt: new Date(),
-      bannedBy: "system",
-      isActive: true,
-    }).catch(() => {});
 
     // Log security event
     await db.insert(securityEventsTable).values({
@@ -448,27 +437,10 @@ async function handleDeviceVerification(req: import("express").Request, res: imp
       },
     }).catch(() => {});
 
-    try {
-      const bot = getBot();
-      if (bot) {
-        const { text: banText, entities: banEntities } = buildMsg([
-          { text: "🚫", emojiId: "6132089060933505983" },
-          { text: " تم كشف تعدد حسابات وتم حظر هذا الحساب لمخالفة شروط الاستخدام." },
-        ]);
-        await bot.sendMessage(userId, banText, { entities: banEntities });
-      }
-    } catch { /* ignore */ }
-
-    res.status(403).json({
-      ok: false,
-      success: false,
-      banned: true,
-      error: "Access denied. This account has been blocked because it violated the account security rules.",
-    });
-    return;
+    // We intentionally DO NOT ban the user or block the response here anymore
   }
 
-  // 6. User is clean: Save device fingerprint and mark verified
+  // 6. Save device fingerprint and mark verified (even if suspicious, let them in)
   await db
     .insert(deviceFingerprintsTable)
     .values({
