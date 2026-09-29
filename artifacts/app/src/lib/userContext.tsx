@@ -219,7 +219,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       ]);
 
       // Check for ban from device fingerprinting
-      if (fpRes.status === "fulfilled" && fpRes.value && (fpRes.value.banned || fpRes.value.ok === false)) {
+      if (fpRes.status === "fulfilled" && fpRes.value && fpRes.value.banned) {
         setBanned(true);
         setSessionState("banned");
         setLoading(false);
