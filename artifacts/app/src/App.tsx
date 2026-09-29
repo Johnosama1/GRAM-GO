@@ -291,7 +291,8 @@ function PersistentRouter() {
   if (loading && !user) return <LoadingScreen />;
 
   // ── 1. Banned ─────────────────────────────────────────────────────
-  if (banned || sessionState === "banned") return <BannedScreen />;
+  // BAN SCREEN DISABLED
+  // if (banned || sessionState === "banned") return <BannedScreen />;
 
   // ── 2. Maintenance mode ───────────────────────────────────────────
   if (sessionState === "maintenance") return <MaintenanceScreen />;
