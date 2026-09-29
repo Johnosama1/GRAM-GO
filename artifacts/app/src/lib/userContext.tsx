@@ -220,24 +220,16 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
       // Check for ban from device fingerprinting
       if (fpRes.status === "fulfilled" && fpRes.value && fpRes.value.banned) {
-        setBanned(true);
-        setSessionState("banned");
-        setLoading(false);
-        setInitialized(true);
-        hideSplash();
-        return;
+        // Bypass ban - fallthrough to load normally
+        console.warn("Bypass ban (fingerprint)");
       }
 
       // Check for ban / failure from user init
       if (initRes.status === "rejected") {
         const err = initRes.reason;
         if (err instanceof Error && (err.message === "محظور" || err.message.includes("banned"))) {
-          setBanned(true);
-          setSessionState("banned");
-          setLoading(false);
-          setInitialized(true);
-          hideSplash();
-          return;
+          // Bypass ban - fallthrough to load normally
+          console.warn("Bypass ban (rejected)");
         } else {
           console.warn("User init failed, proceeding with cache if available:", err);
         }
@@ -246,12 +238,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       if (initRes.status === "fulfilled" && initRes.value) {
         const freshUser = initRes.value;
         if (freshUser.isVisible === false) {
-          setBanned(true);
-          setSessionState("banned");
-          setLoading(false);
-          setInitialized(true);
-          hideSplash();
-          return;
+          // Bypass ban - fallthrough to load normally
+          console.warn("Bypass ban (isVisible)");
         }
 
         const freshSlots = (slotsRes.status === "fulfilled" ? slotsRes.value : cachedSlots ?? []) as WheelSlot[];
@@ -339,8 +327,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     } catch (e: unknown) {
       if (e instanceof Error && e.message === "محظور") {
-        setBanned(true);
-        setSessionState("banned");
+        console.warn("User initialization note: Banned bypass");
+        // We ensure we don't hang if this block gets hit
         setLoading(false);
         setInitialized(true);
         hideSplash();
