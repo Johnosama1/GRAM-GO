@@ -67,7 +67,7 @@ router.get("/status", requireSession, async (req, res) => {
   res.setHeader("Cache-Control", "no-store");
 
   const todayStr = getTodayDateString();
-  await getOrCreateTodayCombo(todayStr);
+  const correctCombo = await getOrCreateTodayCombo(todayStr);
 
   const [attempt] = await db
     .select()
@@ -136,26 +136,7 @@ router.post("/check", requireSession, verifyAccessMiddleware, async (req, res) =
   tomorrow.setUTCHours(24, 0, 0, 0);
 
   try {
-    // 1. Check existing attempt outside transaction to fail fast
-    const [existingAttempt] = await db
-      .select()
-      .from(userComboAttemptsTable)
-      .where(
-        and(
-          eq(userComboAttemptsTable.userId, userId),
-          eq(userComboAttemptsTable.comboDate, todayStr),
-        )
-      )
-      .limit(1);
 
-    if (existingAttempt) {
-      res.status(400).json({
-        error: "You have already used your daily combo attempt for today.",
-        attempted: true,
-        isSuccess: existingAttempt.isSuccess,
-      });
-      return;
-    }
 
     // Database Transaction for safety & anti-duplicate protection
     const result = await db.transaction(async (tx) => {
