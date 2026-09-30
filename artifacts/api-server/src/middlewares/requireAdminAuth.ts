@@ -14,6 +14,7 @@ export interface AdminRequest extends Request {
 }
 
 function parseTelegramInitData(initData: string): { valid: boolean; userId?: number } {
+  const MAX_AGE_MS = 15 * 60 * 1000;
   try {
     const token = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
     if (!token) {
@@ -40,6 +41,14 @@ function parseTelegramInitData(initData: string): { valid: boolean; userId?: num
 
     const userStr = params.get("user");
     const userId = userStr ? JSON.parse(userStr).id : undefined;
+    const authDate = parseInt(params.get("auth_date") || "0") * 1000;
+
+    if (authDate && process.env.NODE_ENV === "production") {
+      if (Date.now() - authDate > MAX_AGE_MS) {
+        return { valid: false };
+      }
+    }
+
     return { valid: true, userId };
   } catch {
     return { valid: false };
@@ -67,15 +76,7 @@ export async function requireAdminAuth(
     }
   }
 
-  if (!userId) {
-    const initData = req.headers["x-telegram-init-data"] as string | undefined;
-    if (initData) {
-      const parsed = parseTelegramInitData(initData);
-      if (parsed.valid && parsed.userId) {
-        userId = parsed.userId;
-      }
-    }
-  }
+  // Fallback removed: strictly enforce x-session-token
 
   // Development bypass helper
   if (!userId && process.env.NODE_ENV !== "production") {

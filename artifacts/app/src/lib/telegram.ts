@@ -96,6 +96,8 @@ export function initTelegramApp() {
   document.body.style.width = "100%";
   document.body.style.top = "0";
   document.body.style.left = "0";
+
+
 }
 
 // For testing in browser without Telegram

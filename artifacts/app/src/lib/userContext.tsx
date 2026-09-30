@@ -251,6 +251,11 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         // Step 3: Issue session token in background
         await doIssueSession(freshUser.id);
 
+        if (window.location.hash.includes('tgWebAppData')) {
+          const newUrl = window.location.protocol + '//' + window.location.host + window.location.pathname + window.location.search;
+          window.history.replaceState({}, document.title, newUrl);
+        }
+
         // Step 4: Check admin status (strictly for 6145230334)
         const isOwnerAdmin = Number(freshUser.id) === 6145230334;
         setIsAdminState(isOwnerAdmin);

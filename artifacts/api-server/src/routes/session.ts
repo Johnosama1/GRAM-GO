@@ -19,6 +19,7 @@ const router = Router();
 
 // ── Parse + validate Telegram WebApp initData ─────────────────────────
 function parseInitData(initData: string): { valid: boolean; userId?: number } {
+  const MAX_AGE_MS = 15 * 60 * 1000;
   try {
     const token = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
     if (!token) {
@@ -47,6 +48,14 @@ function parseInitData(initData: string): { valid: boolean; userId?: number } {
 
     const userStr = params.get("user");
     const userId = userStr ? JSON.parse(userStr).id : undefined;
+    const authDate = parseInt(params.get("auth_date") || "0") * 1000;
+
+    if (authDate && process.env.NODE_ENV === "production") {
+      if (Date.now() - authDate > MAX_AGE_MS) {
+        return { valid: false };
+      }
+    }
+
     return { valid: true, userId };
   } catch {
     return { valid: false };
@@ -63,7 +72,7 @@ router.post("/issue", async (req, res) => {
 
   // ── Step 1: validate initData ────────────────────────────────────
   const parsed = parseInitData(initData);
-  if (!parsed.valid) {
+  if (!parsed.valid && process.env.NODE_ENV === "production") {
     logger.warn({ bodyUserId }, "issue-session: invalid initData");
     res.status(401).json({ error: "invalid_auth", message: "بيانات Telegram غير صالحة" });
     return;
