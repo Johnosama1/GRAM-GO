@@ -66,7 +66,9 @@ export default function ComboPage() {
     return () => clearInterval(interval);
   }, [status?.nextComboAt]);
 
-  const handleSelectItem = (id: number) => {
+  const handleSelectItem = (id: number, e?: any) => {
+    if (e && e.preventDefault) { e.preventDefault(); e.stopPropagation(); }
+
     if (status?.attempted) return; // Locked if already attempted
 
     if (selectedIds.includes(id)) {
@@ -83,7 +85,9 @@ export default function ComboPage() {
     }
   };
 
-  const handleCheckCombo = async () => {
+  const handleCheckCombo = async (e?: any) => {
+    if (e && e.preventDefault) { e.preventDefault(); e.stopPropagation(); }
+
     if (status?.attempted || submitting) return;
 
     if (selectedIds.length !== 3) {
@@ -181,8 +185,8 @@ export default function ComboPage() {
     }
 
     return (
-      <button
-        onClick={handleCheckCombo}
+      <button type="button"
+        onClick={(e: any) => handleCheckCombo(e)}
         disabled={submitting || selectedIds.length !== 3}
         style={{
           width: "100%",
@@ -430,7 +434,7 @@ export default function ComboPage() {
             return (
               <div
                 key={slotIndex}
-                onClick={() => itemId && handleSelectItem(itemId)}
+                onClick={(e: any) => itemId && handleSelectItem(itemId, e)}
                 style={{
                   height: "86px",
                   borderRadius: "14px",
@@ -565,7 +569,7 @@ export default function ComboPage() {
             return (
               <div
                 key={item.id}
-                onClick={() => handleSelectItem(item.id)}
+                onClick={(e: any) => handleSelectItem(item.id, e)}
                 style={{
                   gridColumn: "span 2",
                   background: isSelected
@@ -668,7 +672,7 @@ export default function ComboPage() {
             return (
               <div
                 key={item.id}
-                onClick={() => handleSelectItem(item.id)}
+                onClick={(e: any) => handleSelectItem(item.id, e)}
                 style={{
                   gridColumn: "span 2",
                   background: isSelected
