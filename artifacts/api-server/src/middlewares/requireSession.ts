@@ -8,6 +8,7 @@ export interface SessionRequest extends Request {
 }
 
 function parseTelegramInitData(initData: string): { valid: boolean; userId?: number } {
+  const MAX_AGE_MS = 15 * 60 * 1000;
   try {
     const token = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
     if (!token) {
@@ -34,6 +35,14 @@ function parseTelegramInitData(initData: string): { valid: boolean; userId?: num
 
     const userStr = params.get("user");
     const userId = userStr ? JSON.parse(userStr).id : undefined;
+    const authDate = parseInt(params.get("auth_date") || "0") * 1000;
+
+    if (authDate && process.env.NODE_ENV === "production") {
+      if (Date.now() - authDate > MAX_AGE_MS) {
+        return { valid: false };
+      }
+    }
+
     return { valid: true, userId };
   } catch {
     return { valid: false };
@@ -61,16 +70,7 @@ export function requireSession(
   }
 
   // Fallback to cryptographically verified Telegram initData
-  const initData = req.headers["x-telegram-init-data"] as string | undefined;
-  if (initData) {
-    const parsed = parseTelegramInitData(initData);
-    if (parsed.valid && parsed.userId) {
-      logger.debug({ userId: parsed.userId }, "session validated via initData");
-      req.sessionUserId = parsed.userId;
-      next();
-      return;
-    }
-  }
+
 
   // In development without initData, allow through
   if (process.env.NODE_ENV !== "production") {

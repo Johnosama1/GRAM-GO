@@ -24,8 +24,9 @@ function normalizeIp(raw: string): string {
 }
 
 // ── Single-query upsert init — fast path for returning users ─────────
-router.post("/init", softTelegramAuth, async (req, res) => {
-  const { id, username, first_name, last_name, photo_url } = req.body;
+router.post("/init", telegramAuth, async (req, res) => {
+  const { username, first_name, last_name, photo_url } = req.body;
+  const id = (req as any).telegramUserId || req.body.id;
   if (!id) { res.status(400).json({ error: "Missing id" }); return; }
 
   try {
