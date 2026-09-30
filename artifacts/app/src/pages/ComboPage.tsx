@@ -200,7 +200,7 @@ export default function ComboPage() {
             selectedIds.length === 3
               ? "1px solid rgba(0, 242, 254, 0.6)"
               : "1px solid rgba(255, 255, 255, 0.05)",
-          color: selectedIds.length === 3 ? "#040714" : "rgba(255, 255, 255, 0.4)",
+          color: selectedIds.length === 3 ? "#ffffff" : "rgba(255, 255, 255, 0.4)",
           fontWeight: 900,
           fontSize: "15px",
           letterSpacing: "0.5px",
@@ -443,14 +443,14 @@ export default function ComboPage() {
                         ? "rgba(34, 197, 94, 0.15)"
                         : "rgba(239, 68, 68, 0.15)")
                     : item
-                    ? "linear-gradient(145deg, rgba(168, 85, 247, 0.22), rgba(0, 242, 254, 0.18))"
+                    ? "rgba(8, 14, 32, 0.75)"
                     : "rgba(4, 7, 18, 0.8)",
                   border: status?.attempted && item
                     ? (status.isSuccess
                         ? "1.5px solid #4ade80"
                         : "1.5px solid #f87171")
                     : item
-                    ? "1.5px solid #00f2fe"
+                    ? "1.5px solid rgba(255, 255, 255, 0.2)"
                     : "1.5px dashed rgba(0, 242, 254, 0.35)",
                   display: "flex",
                   flexDirection: "column",
@@ -464,7 +464,7 @@ export default function ComboPage() {
                         ? "0 0 16px rgba(34, 197, 94, 0.3)"
                         : "0 0 16px rgba(239, 68, 68, 0.3)")
                     : item
-                    ? "0 0 16px rgba(0, 242, 254, 0.3)"
+                    ? "none"
                     : "none",
                   animation: item ? "popIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)" : "none",
                 }}
