@@ -238,7 +238,7 @@ export default function ComboPage() {
         justifyContent: "flex-start",
         color: "#ffffff",
         paddingTop: "calc(max(env(safe-area-inset-top, 0px), 12px) + 54px)",
-        paddingBottom: "85px",
+        paddingBottom: "140px",
         paddingLeft: "14px",
         paddingRight: "14px",
         boxSizing: "border-box",
@@ -769,7 +769,16 @@ export default function ComboPage() {
       </div>
 
       {/* ── Check Button Section ──────────────────────────────────────── */}
-      <div style={{ marginTop: "4px", marginBottom: "16px" }}>
+      <div style={{
+        position: "fixed",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: "16px",
+        paddingBottom: "max(16px, env(safe-area-inset-bottom, 16px))",
+        background: "linear-gradient(to top, rgba(4,7,18,1) 60%, rgba(4,7,18,0))",
+        zIndex: 100,
+      }}>
         {warningMsg && (
           <div
             style={{
