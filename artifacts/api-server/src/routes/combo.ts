@@ -128,8 +128,8 @@ router.post("/check", requireSession, verifyAccessMiddleware, async (req, res) =
 
   // Server-side check for active combo
   const correctCombo = await getOrCreateTodayCombo(todayStr);
-  const correctSet = new Set([correctCombo.item1, correctCombo.item2, correctCombo.item3]);
-  const isMatch = unique.every(id => correctSet.has(id));
+  const expectedArray = [correctCombo.item1, correctCombo.item2, correctCombo.item3];
+  const isMatch = unique.length === 3 && unique.every((id, index) => id === expectedArray[index]);
   const rewardFixed = isMatch ? "5.000000" : "0.000000";
 
   const tomorrow = new Date();
