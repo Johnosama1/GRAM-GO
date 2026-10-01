@@ -3,6 +3,11 @@ import { useLocation } from "wouter";
 import { useUser } from "../lib/userContext";
 import { apiCall } from "../lib/api";
 import { ChevronLeft, Trophy } from "lucide-react";
+import { AnimatedSticker } from "../components/AnimatedSticker";
+import leaderboardVideo from "../assets/stickers/leaderboard_video.webm";
+import leaderboard1 from "../assets/stickers/leaderboard_1.json";
+import leaderboard2 from "../assets/stickers/leaderboard_2.json";
+import leaderboard3 from "../assets/stickers/leaderboard_3.json";
 
 interface LeaderEntry {
   rank: number;
@@ -103,7 +108,7 @@ export default function LeaderboardPage() {
               gap: 8,
             }}
           >
-            <Trophy size={20} color="#fbbf24" />
+            <video src={leaderboardVideo} autoPlay loop muted playsInline style={{width: 24, height: 24}} />
             LEADERBOARD
           </h1>
           <p
@@ -184,21 +189,14 @@ export default function LeaderboardPage() {
                 <div
                   style={{
                     position: "absolute",
-                    top: -10,
-                    width: 22,
-                    height: 22,
-                    borderRadius: "50%",
-                    background: "linear-gradient(135deg, #e2e8f0, #94a3b8)",
+                    top: -24,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: 11,
-                    fontWeight: 900,
-                    color: "#0f172a",
-                    boxShadow: "0 0 10px rgba(148, 163, 184, 0.4)",
+                    filter: "drop-shadow(0 0 10px rgba(148, 163, 184, 0.4))",
                   }}
                 >
-                  2
+                  <AnimatedSticker animationData={leaderboard2} size={32} />
                 </div>
                 <div
                   style={{
@@ -251,19 +249,14 @@ export default function LeaderboardPage() {
                 <div
                   style={{
                     position: "absolute",
-                    top: -14,
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    background: "linear-gradient(135deg, #fde68a, #f59e0b)",
+                    top: -30,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: 14,
-                    boxShadow: "0 0 14px rgba(251, 191, 36, 0.6)",
+                    filter: "drop-shadow(0 0 14px rgba(251, 191, 36, 0.6))",
                   }}
                 >
-                  👑
+                  <AnimatedSticker animationData={leaderboard1} size={40} />
                 </div>
                 <div
                   style={{
@@ -315,21 +308,14 @@ export default function LeaderboardPage() {
                 <div
                   style={{
                     position: "absolute",
-                    top: -10,
-                    width: 22,
-                    height: 22,
-                    borderRadius: "50%",
-                    background: "linear-gradient(135deg, #f59e0b, #b45309)",
+                    top: -24,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
-                    fontSize: 11,
-                    fontWeight: 900,
-                    color: "#fff",
-                    boxShadow: "0 0 10px rgba(217, 119, 6, 0.4)",
+                    filter: "drop-shadow(0 0 10px rgba(217, 119, 6, 0.4))",
                   }}
                 >
-                  3
+                  <AnimatedSticker animationData={leaderboard3} size={32} />
                 </div>
                 <div
                   style={{

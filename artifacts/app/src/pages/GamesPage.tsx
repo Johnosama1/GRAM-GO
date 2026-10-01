@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { api, ComboStatus, ComboItem } from "../lib/api";
 import { useUser } from "../lib/userContext";
+import gamesVideo from "../assets/stickers/games_video.webm";
 import { useLanguage } from "../lib/i18nContext";
 import SwordAdventureGame from "../components/games/SwordAdventureGame";
 import { useLocation } from "wouter";
@@ -137,7 +138,7 @@ export default function GamesPage() {
             animation: "pulseGlow 3s infinite ease-in-out",
           }}
         >
-          <Gamepad2 size={28} color="#00f2fe" />
+          <video src={gamesVideo} autoPlay loop muted playsInline style={{width: 28, height: 28}} />
         </div>
 
         {/* Large Glowing Title: GAMES */}

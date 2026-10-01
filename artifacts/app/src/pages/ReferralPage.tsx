@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
+import leaderboardVideo from "../assets/stickers/leaderboard_video.webm";
 import { useUser } from "../lib/userContext";
 import { api, ReferralEntry, MilestoneItem } from "../lib/api";
 import {
@@ -409,7 +410,7 @@ export default function ReferralPage() {
                 boxShadow: "0 0 16px rgba(251, 191, 36, 0.25)",
               }}
             >
-              <Trophy size={28} color="#fbbf24" />
+              <video src={leaderboardVideo} autoPlay loop muted playsInline style={{width: 28, height: 28}} />
             </div>
             <div>
               <h2

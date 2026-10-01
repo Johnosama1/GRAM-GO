@@ -34,6 +34,16 @@ import {
 import { useLocation } from "wouter";
 import SwapModal from "../components/SwapModal";
 import { faqs } from "../constants/faq";
+import { AnimatedSticker } from "../components/AnimatedSticker";
+import walletSticker from "../assets/stickers/wallet.json";
+import supportInfo from "../assets/stickers/support_info.json";
+import settingsSticker from "../assets/stickers/settings.json";
+import walletSwap from "../assets/stickers/wallet_swap.json";
+import walletDeposit from "../assets/stickers/wallet_deposit.json";
+import walletWithdraw from "../assets/stickers/wallet_withdraw.json";
+import supportComplaint from "../assets/stickers/support_complaint.json";
+import supportFaq from "../assets/stickers/support_faq.json";
+import supportContactVideo from "../assets/stickers/support_contact.webm";
 
 function maskWallet(addr: string) {
   if (!addr || addr.length < 10) return addr;
@@ -712,7 +722,7 @@ export default function ProfilePage() {
                     color: "#38bdf8",
                   }}
                 >
-                  <Wallet size={20} />
+                  <AnimatedSticker animationData={walletSticker} size={24} />
                 </div>
                 <div>
                   <div
@@ -764,7 +774,7 @@ export default function ProfilePage() {
                     color: "#00f2fe",
                   }}
                 >
-                  <ArrowDownUp size={20} />
+                  <AnimatedSticker animationData={walletSwap} size={24} />
                 </div>
                 <div>
                   <div
@@ -816,7 +826,7 @@ export default function ProfilePage() {
                     color: "#a78bfa",
                   }}
                 >
-                  <SettingsIcon size={20} />
+                  <AnimatedSticker animationData={settingsSticker} size={24} />
                 </div>
                 <div>
                   <div
@@ -868,7 +878,7 @@ export default function ProfilePage() {
                     color: "#c084fc",
                   }}
                 >
-                  <Headphones size={20} />
+                  <AnimatedSticker animationData={supportInfo} size={24} />
                 </div>
                 <div>
                   <div
@@ -981,7 +991,7 @@ export default function ProfilePage() {
                 transition: "all 0.2s ease",
               }}
             >
-              <Download size={16} />
+              <AnimatedSticker animationData={walletDeposit} size={20} />
               Deposit
             </button>
             <button
@@ -1013,7 +1023,7 @@ export default function ProfilePage() {
                 transition: "all 0.2s ease",
               }}
             >
-              <Send size={15} />
+              <AnimatedSticker animationData={walletWithdraw} size={20} />
               Withdraw
             </button>
           </div>
@@ -2291,7 +2301,7 @@ export default function ProfilePage() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ fontSize: 20 }}>📝</span>
+                <AnimatedSticker animationData={supportComplaint} size={24} />
                 <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>
                   {language === "ar" ? "تقديم شكوى" : "Submit a Complaint"}
                 </span>
@@ -2316,7 +2326,7 @@ export default function ProfilePage() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ fontSize: 20 }}>❓</span>
+                <AnimatedSticker animationData={supportFaq} size={24} />
                 <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>
                   {language === "ar" ? "الأسئلة الشائعة" : "FAQ"}
                 </span>
@@ -2342,7 +2352,7 @@ export default function ProfilePage() {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <span style={{ fontSize: 20 }}>🎧</span>
+                <video src={supportContactVideo} autoPlay loop muted playsInline style={{width: 24, height: 24}} />
                 <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>
                   {language === "ar" ? "التواصل مع الدعم" : "Contact Support"}
                 </span>
