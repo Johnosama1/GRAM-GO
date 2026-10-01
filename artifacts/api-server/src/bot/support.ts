@@ -99,7 +99,8 @@ export async function handleComplaintSubmission(
   await clearAdminState(userId);
   await bot.sendMessage(
     msg.chat.id,
-    "👀 Your complaint has been received and sent to the support team.\n\nYour message will be reviewed and we will respond to you as soon as possible.\n\nThank you for contacting the GRAM GO team 💙"
+    "<tg-emoji emoji-id=\"5210956306952758910\">👀</tg-emoji> Your complaint has been received and sent to the support team.\n\nYour message will be reviewed and we will respond to you as soon as possible.\n\nThank you for contacting the GRAM GO team <tg-emoji emoji-id=\"6125457300715999026\">💙</tg-emoji>",
+    { parse_mode: "HTML" }
   );
 }
 
@@ -243,44 +244,60 @@ export async function deliverAdminReplyToComplaint(
   msg: TelegramBot.Message
 ): Promise<boolean> {
   try {
-    await bot.sendMessage(targetUserId, `💬 <b>Support Team Response:</b>\n\n`, {
-      parse_mode: "HTML",
-    });
+    const headerRawStr = "💬 Support Team Response:\n\n";
+    const headerLen = 27; // "💬".length (2) + " Support Team Response:\n\n".length (25)
+
+    const origEntities = msg.entities || msg.caption_entities || [];
+    const shiftedEntities = origEntities.map(e => ({
+      ...e,
+      offset: e.offset + headerLen
+    }));
+
+    const headerEntities: TelegramBot.MessageEntity[] = [
+      { type: "custom_emoji", offset: 0, length: 2, custom_emoji_id: "5443038326535759644" },
+      { type: "bold", offset: 3, length: 22 }
+    ];
+
+    const combinedEntities = [...headerEntities, ...shiftedEntities];
 
     const sendOpts = {
-      entities: msg.entities || msg.caption_entities,
+      entities: combinedEntities,
       reply_markup: {
         inline_keyboard: [
           [
             {
               text: "↩️ Reply",
               callback_data: `user_reply_complaint_${complaintId}`,
-            },
+              style: "primary",
+              icon_custom_emoji_id: "6059713884128808666",
+            } as any,
           ],
         ],
       }
     };
 
+    const mediaSendOpts = {
+      caption_entities: combinedEntities,
+      reply_markup: sendOpts.reply_markup
+    };
+
     if (msg.photo && msg.photo.length > 0) {
       await bot.sendPhoto(targetUserId, msg.photo[msg.photo.length - 1].file_id, {
-        caption: msg.caption || "",
-        caption_entities: msg.caption_entities,
-        ...sendOpts
+        caption: headerRawStr + (msg.caption || ""),
+        ...mediaSendOpts
       });
     } else if (msg.video) {
       await bot.sendVideo(targetUserId, msg.video.file_id, {
-        caption: msg.caption || "",
-        caption_entities: msg.caption_entities,
-        ...sendOpts
+        caption: headerRawStr + (msg.caption || ""),
+        ...mediaSendOpts
       });
     } else if (msg.document) {
       await bot.sendDocument(targetUserId, msg.document.file_id, {
-        caption: msg.caption || "",
-        caption_entities: msg.caption_entities,
-        ...sendOpts
+        caption: headerRawStr + (msg.caption || ""),
+        ...mediaSendOpts
       });
     } else {
-      await bot.sendMessage(targetUserId, msg.text || "", sendOpts);
+      await bot.sendMessage(targetUserId, headerRawStr + (msg.text || ""), sendOpts);
     }
 
     // Update DB

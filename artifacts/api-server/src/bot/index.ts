@@ -1164,7 +1164,7 @@ function setupBotHandlers() {
         if (refParam === "complaint") {
           await bot.sendMessage(
             chatId,
-            "📝 <b>Submit a complaint</b>\n\n" +
+            "<tg-emoji emoji-id=\"5803065566440726102\">✏️</tg-emoji> <b>Submit a complaint</b>\n\n" +
             "Do you want to file a complaint with the GRAM GO support team?\n\n" +
             "You can send your complaint and the support team will review it and contact you when needed.\n\n" +
             "Do you want to continue?",
@@ -1173,8 +1173,8 @@ function setupBotHandlers() {
               reply_markup: {
                 inline_keyboard: [
                   [
-                    { text: "✅ Yes", callback_data: "complaint_yes" },
-                    { text: "❌ No", callback_data: "complaint_no" },
+                    { text: "Yes", callback_data: "complaint_yes", style: "success", icon_custom_emoji_id: "5206607081334906820" } as any,
+                    { text: "No", callback_data: "complaint_no", style: "danger", icon_custom_emoji_id: "5210952531676504517" } as any,
                   ],
                 ],
               },
@@ -1511,10 +1511,10 @@ function setupBotHandlers() {
         await setAdminState(userId, "user_writing_complaint", {});
         await bot.sendMessage(
           userId,
-          "✍️ <b>Write your complaint now</b>\n\n" +
+          "<tg-emoji emoji-id=\"5458382591121964689\">✍️</tg-emoji> <b>Write your complaint now</b>\n\n" +
           "Please write your message in detail, and it will be sent directly to the support team.\n\n" +
           "You can explain the problem or inquiry you need help with.\n\n" +
-          "⏳ After sending the message, you will be notified that it has reached the support team.",
+          "<tg-emoji emoji-id=\"5339357992103983304\">⏳</tg-emoji> After sending the message, you will be notified that it has reached the support team.",
           { parse_mode: "HTML" }
         );
         return;
