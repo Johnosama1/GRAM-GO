@@ -17,7 +17,7 @@ import { isBotEnabled, setBotEnabled, clearBotEnabledCache } from "./control";
 import { clearAllSubCache } from "./subscription";
 import { invalidateSetting } from "../lib/settingsCache";
 
-export const OWNER_USERNAME = (process.env.OWNER_USERNAME || "J_O_H_N8").replace(/^@/, "");
+export const OWNER_USERNAME = (process.env.OWNER_USERNAME || "GRAMGOSupport1").replace(/^@/, "");
 
 type AdminPermission = "canUnban" | "canWarn" | "canReceiveWithdrawals" | "canEditWheel";
 
