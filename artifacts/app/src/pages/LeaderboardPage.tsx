@@ -3,11 +3,7 @@ import { useLocation } from "wouter";
 import { useUser } from "../lib/userContext";
 import { apiCall } from "../lib/api";
 import { ChevronLeft, Trophy } from "lucide-react";
-import { AnimatedSticker } from "../components/AnimatedSticker";
 import leaderboardVideo from "../assets/stickers/leaderboard_video.webm";
-import leaderboard1 from "../assets/stickers/leaderboard_1.json";
-import leaderboard2 from "../assets/stickers/leaderboard_2.json";
-import leaderboard3 from "../assets/stickers/leaderboard_3.json";
 
 interface LeaderEntry {
   rank: number;
@@ -196,7 +192,7 @@ export default function LeaderboardPage() {
                     filter: "drop-shadow(0 0 10px rgba(148, 163, 184, 0.4))",
                   }}
                 >
-                  <AnimatedSticker animationData={leaderboard2} size={32} />
+                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, #cbd5e1, #94a3b8)", border: "2px solid rgba(255, 255, 255, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 14 }}>2</div>
                 </div>
                 <div
                   style={{
@@ -256,7 +252,7 @@ export default function LeaderboardPage() {
                     filter: "drop-shadow(0 0 14px rgba(251, 191, 36, 0.6))",
                   }}
                 >
-                  <AnimatedSticker animationData={leaderboard1} size={40} />
+                  <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg, #fde047, #eab308)", border: "2px solid rgba(255, 255, 255, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 16 }}>1</div>
                 </div>
                 <div
                   style={{
@@ -315,7 +311,7 @@ export default function LeaderboardPage() {
                     filter: "drop-shadow(0 0 10px rgba(217, 119, 6, 0.4))",
                   }}
                 >
-                  <AnimatedSticker animationData={leaderboard3} size={32} />
+                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, #fdba74, #ea580c)", border: "2px solid rgba(255, 255, 255, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 14 }}>3</div>
                 </div>
                 <div
                   style={{
