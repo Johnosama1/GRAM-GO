@@ -2336,7 +2336,7 @@ export default function ProfilePage() {
 
             {/* 3. Contact Support */}
             <a
-              href="https://t.me/J_O_H_N8"
+              href="https://t.me/GRAMGOSupport1"
               target="_blank"
               rel="noreferrer"
               style={{

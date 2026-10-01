@@ -1509,14 +1509,18 @@ function setupBotHandlers() {
           );
         } catch {}
         await setAdminState(userId, "user_writing_complaint", {});
-        await bot.sendMessage(
-          userId,
-          "<tg-emoji emoji-id=\"5458382591121964689\">✍️</tg-emoji> <b>Write your complaint now</b>\n\n" +
+        const text = "✍️ Write your complaint now\n\n" +
           "Please write your message in detail, and it will be sent directly to the support team.\n\n" +
           "You can explain the problem or inquiry you need help with.\n\n" +
-          "<tg-emoji emoji-id=\"5339357992103983304\">⏳</tg-emoji> After sending the message, you will be notified that it has reached the support team.",
-          { parse_mode: "HTML" }
-        );
+          "⏳ After sending the message, you will be notified that it has reached the support team.";
+
+        await bot.sendMessage(userId, text, {
+          entities: [
+            { type: "custom_emoji", offset: 0, length: 2, custom_emoji_id: "5458382591121964689" },
+            { type: "bold", offset: 3, length: 24 },
+            { type: "custom_emoji", offset: 177, length: 1, custom_emoji_id: "5339357992103983304" }
+          ] as any
+        });
         return;
       }
       // ──────────────────────────────────────────────────────────────────────

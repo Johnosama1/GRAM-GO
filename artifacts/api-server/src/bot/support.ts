@@ -567,9 +567,11 @@ export async function handleUserReplyToComplaintMessage(
     } catch (err) {}
   }
 
-  await bot.sendMessage(
-    msg.chat.id,
-    "✅ <b>Your reply has been sent!</b>\nAn admin will review it as soon as possible.",
-    { parse_mode: "HTML" }
-  );
+  const replyText = "✅ Your reply has been sent!\nAn admin will review it as soon as possible.";
+  await bot.sendMessage(msg.chat.id, replyText, {
+    entities: [
+      { type: "custom_emoji", offset: 0, length: 1, custom_emoji_id: "6127223820764844602" },
+      { type: "bold", offset: 2, length: 25 }
+    ] as any
+  });
 }
