@@ -257,17 +257,6 @@ router.post("/:id/swap", requireSession, verifyAccessMiddleware, async (req, res
   const amt = parseFloat(String(isGram ? gramAmount : usdtAmount));
   if (isNaN(amt) || amt <= 0) { res.status(400).json({ error: "مبلغ غير صحيح" }); return; }
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
-
-  if (isGram) {
-    const userGram = parseFloat(user.gramBalance || "0");
-    if (userGram < amt) { res.status(400).json({ error: "رصيد الجرام غير كافٍ" }); return; }
-  } else {
-    const userBal = parseFloat(user.balance || user.goBalance || "0");
-    if (userBal < amt) { res.status(400).json({ error: "الرصيد غير كافٍ" }); return; }
-  }
-
   // Fetch live TON/USD price from CoinGecko
   let tonUsdPrice: number;
   try {
@@ -285,28 +274,68 @@ router.post("/:id/swap", requireSession, verifyAccessMiddleware, async (req, res
 
   const tonAmount = amt / tonUsdPrice;
 
-  // Claim unrecorded mining rewards before applying modifications to goBalance
-  await addGoBalanceAndClaim(db, id, 0);
+  try {
+    const result = await db.transaction(async (tx) => {
+      // Claim unrecorded mining rewards before checking balances
+      await addGoBalanceAndClaim(tx, id, 0);
 
-  if (isGram) {
-    await db.update(usersTable)
-      .set({
-        gramBalance: sql`GREATEST(gram_balance - ${String(amt)}, 0)`,
-        tonBalance: sql`ton_balance + ${String(tonAmount)}`,
-      })
-      .where(eq(usersTable.id, id));
-  } else {
-    await db.update(usersTable)
-      .set({
-        balance:    sql`GREATEST(balance - ${String(amt)}, 0)`,
-        goBalance:  sql`GREATEST(go_balance - ${String(amt)}, 0)`,
-        tonBalance: sql`ton_balance + ${String(tonAmount)}`,
-      })
-      .where(eq(usersTable.id, id));
+      const [user] = await tx.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
+      if (!user) { throw new Error("User not found"); }
+
+      if (isGram) {
+        const userGram = parseFloat(user.gramBalance || "0");
+        if (userGram < amt) { throw new Error("Insufficient Gram balance"); }
+      } else {
+        const userBal = parseFloat(user.balance || user.goBalance || "0");
+        if (userBal < amt) { throw new Error("Insufficient GO balance"); }
+      }
+
+      if (isGram) {
+        const updateResult = await tx.update(usersTable)
+          .set({
+            gramBalance: sql`GREATEST(gram_balance - ${String(amt)}, 0)`,
+            tonBalance: sql`ton_balance + ${String(tonAmount)}`,
+          })
+          .where(and(
+             eq(usersTable.id, id),
+             sql`CAST(COALESCE(gram_balance, '0') AS numeric) >= ${amt}`
+          )).returning();
+
+        if (updateResult.length === 0) {
+          throw new Error("Insufficient Gram balance");
+        }
+      } else {
+        const updateResult = await tx.update(usersTable)
+          .set({
+            balance:    sql`GREATEST(balance - ${String(amt)}, 0)`,
+            goBalance:  sql`GREATEST(go_balance - ${String(amt)}, 0)`,
+            tonBalance: sql`ton_balance + ${String(tonAmount)}`,
+          })
+          .where(and(
+             eq(usersTable.id, id),
+             sql`CAST(COALESCE(go_balance, '0') AS numeric) >= ${amt}`
+          )).returning();
+
+        if (updateResult.length === 0) {
+           throw new Error("Insufficient GO balance");
+        }
+      }
+
+      return await tx.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
+    });
+
+    res.json({ success: true, tonAmount: tonAmount.toFixed(6), tonPrice: tonUsdPrice, user: result[0] });
+  } catch (err: any) {
+    if (err.message === "User not found") {
+      res.status(404).json({ error: "User not found" });
+    } else if (err.message === "Insufficient Gram balance") {
+      res.status(400).json({ error: "رصيد الجرام غير كافٍ" });
+    } else if (err.message === "Insufficient GO balance") {
+      res.status(400).json({ error: "الرصيد غير كافٍ" });
+    } else {
+      res.status(500).json({ error: "Failed to process swap" });
+    }
   }
-
-  const [updated] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
-  res.json({ success: true, tonAmount: tonAmount.toFixed(6), tonPrice: tonUsdPrice, user: updated });
 });
 
 // ── Swap Gram balance → GO balance (Boost Mining Power) ───────────────────
@@ -322,37 +351,58 @@ router.post("/:id/swap-gram-to-go", requireSession, verifyAccessMiddleware, asyn
   const amt = parseFloat(String(gramAmount));
   if (isNaN(amt) || amt <= 0) { res.status(400).json({ error: "مبلغ غير صحيح" }); return; }
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
-
-  const userGram = parseFloat(user.gramBalance || "0");
-  if (userGram < amt) { res.status(400).json({ error: "رصيد الجرام غير كافٍ" }); return; }
-
   const rawRate = await getSetting("gram_to_go_rate").catch(() => null);
   const rate = rawRate ? Math.max(1, parseFloat(rawRate)) : 1000; // 1 GRAM = 1000 GO
 
   const goAmount = amt * rate;
 
-  // Claim unrecorded mining rewards before applying modifications to goBalance
-  await addGoBalanceAndClaim(db, id, 0);
+  try {
+    const result = await db.transaction(async (tx) => {
+      // Claim unrecorded mining rewards before applying modifications
+      await addGoBalanceAndClaim(tx, id, 0);
 
-  // Then update balance values
-  await db.update(usersTable)
-    .set({
-      gramBalance: sql`GREATEST(COALESCE(gram_balance, 0) - ${String(amt)}, 0)`,
-      goBalance:   sql`COALESCE(go_balance, 0) + ${String(goAmount)}`,
-      balance:     sql`COALESCE(balance, 0) + ${String(goAmount)}`,
-    })
-    .where(eq(usersTable.id, id));
+      const [user] = await tx.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
+      if (!user) { throw new Error("User not found"); }
 
-  const [updated] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
-  res.json({
-    success: true,
-    gramAmount: amt.toFixed(6),
-    goAmount: goAmount.toFixed(4),
-    rate,
-    user: updated,
-  });
+      const userGram = parseFloat(user.gramBalance || "0");
+      if (userGram < amt) { throw new Error("Insufficient Gram balance"); }
+
+      // Then update balance values
+      const updateResult = await tx.update(usersTable)
+        .set({
+          gramBalance: sql`GREATEST(COALESCE(gram_balance, 0) - ${String(amt)}, 0)`,
+          goBalance:   sql`COALESCE(go_balance, 0) + ${String(goAmount)}`,
+          balance:     sql`COALESCE(balance, 0) + ${String(goAmount)}`,
+        })
+        .where(and(
+          eq(usersTable.id, id),
+          sql`CAST(COALESCE(gram_balance, '0') AS numeric) >= ${amt}`
+        ))
+        .returning();
+
+      if (updateResult.length === 0) {
+        throw new Error("Insufficient Gram balance");
+      }
+
+      return await tx.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
+    });
+
+    res.json({
+      success: true,
+      gramAmount: amt.toFixed(6),
+      goAmount: goAmount.toFixed(4),
+      rate,
+      user: result[0],
+    });
+  } catch (err: any) {
+    if (err.message === "User not found") {
+      res.status(404).json({ error: "User not found" });
+    } else if (err.message === "Insufficient Gram balance") {
+      res.status(400).json({ error: "رصيد الجرام غير كافٍ" });
+    } else {
+      res.status(500).json({ error: "Failed to process swap" });
+    }
+  }
 });
 
 // ── Swap GO balance → Gram balance (Disabled: Gram to GO only) ──────────────

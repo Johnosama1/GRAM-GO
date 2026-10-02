@@ -23,7 +23,8 @@
     "@tailwindcss/oxide-win32-x64-msvc": "4.2.1",
     "lightningcss-win32-x64-msvc": "1.31.1",
     "prettier": "^3.8.1",
-    "typescript": "~5.9.2"
+    "typescript": "~5.9.2",
+    "vitest": "^5.0.3"
   },
   "description": "The following environment variables are required to ensure the correct functioning of the TON auto-withdrawal and deposit system:",
   "main": "index.js",

@@ -80,17 +80,6 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
     return;
   }
 
-  const existing = await db
-    .select()
-    .from(userTasksTable)
-    .where(and(eq(userTasksTable.userId, userId), eq(userTasksTable.taskId, taskId)))
-    .limit(1);
-
-  if (existing.length > 0) {
-    res.status(400).json({ error: "Already completed" });
-    return;
-  }
-
   // Task specific validations
   if (task.category === "referral") {
     const [userRefCheck] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
@@ -121,34 +110,54 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
     }
   }
 
-  await db.insert(userTasksTable).values({ userId, taskId });
+  try {
+    const result = await db.transaction(async (tx) => {
+      const existing = await tx
+        .select()
+        .from(userTasksTable)
+        .where(and(eq(userTasksTable.userId, userId), eq(userTasksTable.taskId, taskId)))
+        .limit(1);
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-  if (user) {
-    const newTasksCompleted = (user.tasksCompleted || 0) + 1;
+      if (existing.length > 0) {
+        throw new Error("Already completed");
+      }
 
-    const rewardAmountNum = parseFloat(task.rewardAmount || "0") || 0;
+      await tx.insert(userTasksTable).values({ userId, taskId });
 
-    if (task.rewardCurrency === "Gram") {
-      await addGoBalanceAndClaim(db, userId, 0); // harvest continuous mining first
-      await db.update(usersTable).set({
-        gramBalance: sql`gram_balance + ${rewardAmountNum}`,
-        tasksCompleted: newTasksCompleted,
-      }).where(eq(usersTable.id, userId));
+      const [user] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+      if (user) {
+        const newTasksCompleted = (user.tasksCompleted || 0) + 1;
+
+        const rewardAmountNum = parseFloat(task.rewardAmount || "0") || 0;
+
+        if (task.rewardCurrency === "Gram") {
+          await addGoBalanceAndClaim(tx, userId, 0); // harvest continuous mining first
+          await tx.update(usersTable).set({
+            gramBalance: sql`gram_balance + ${rewardAmountNum}`,
+            tasksCompleted: newTasksCompleted,
+          }).where(eq(usersTable.id, userId));
+        } else {
+          await addGoBalanceAndClaim(tx, userId, rewardAmountNum);
+          await tx.update(usersTable).set({
+            tasksCompleted: newTasksCompleted,
+          }).where(eq(usersTable.id, userId));
+        }
+
+        if (isChannelTask) {
+          await recordChannelReward(userId, 1);
+        }
+      }
+      return await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+    });
+
+    res.json({ success: true, user: result[0] });
+  } catch (err: any) {
+    if (err.message === "Already completed") {
+      res.status(400).json({ error: "Already completed" });
     } else {
-      await addGoBalanceAndClaim(db, userId, rewardAmountNum);
-      await db.update(usersTable).set({
-        tasksCompleted: newTasksCompleted,
-      }).where(eq(usersTable.id, userId));
-    }
-
-    if (isChannelTask) {
-      await recordChannelReward(userId, 1);
+      res.status(500).json({ error: "Failed to process task completion" });
     }
   }
-
-  const [updated] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-  res.json({ success: true, user: updated });
 });
 
 router.get("/:userId/completed", async (req, res) => {
