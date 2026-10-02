@@ -175,49 +175,49 @@ export default function LeaderboardPage() {
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  background: "linear-gradient(180deg, rgba(148, 163, 184, 0.15), rgba(8, 12, 30, 0.6))",
-                  border: "1px solid rgba(148, 163, 184, 0.35)",
-                  borderRadius: 16,
-                  padding: "12px 6px 10px",
                   position: "relative",
                 }}
               >
-                <div
-                  style={{
-                    position: "absolute",
-                    top: -24,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    filter: "drop-shadow(0 0 10px rgba(148, 163, 184, 0.4))",
-                  }}
-                >
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, #cbd5e1, #94a3b8)", border: "2px solid rgba(255, 255, 255, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 14 }}>2</div>
+                <div style={{ position: "relative" }}>
+                  <div
+                    style={{
+                      width: 68,
+                      height: 68,
+                      borderRadius: "50%",
+                      background: "linear-gradient(135deg, #64748b, #475569)",
+                      border: "3px solid #cbd5e1",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      overflow: "hidden",
+                      fontWeight: 900,
+                      color: "#fff",
+                      fontSize: 16,
+                      boxShadow: "0 0 16px rgba(203, 213, 225, 0.4)",
+                    }}
+                  >
+                    {top2.photoUrl ? (
+                      <img src={top2.photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                    ) : (
+                      getInitial(getDisplayName(top2))
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: -10,
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      filter: "drop-shadow(0 0 10px rgba(148, 163, 184, 0.4))",
+                    }}
+                  >
+                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, #cbd5e1, #94a3b8)", border: "2px solid rgba(255, 255, 255, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 14 }}>2</div>
+                  </div>
                 </div>
-                <div
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: "50%",
-                    background: "linear-gradient(135deg, #64748b, #475569)",
-                    border: "2px solid #cbd5e1",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    overflow: "hidden",
-                    fontWeight: 900,
-                    color: "#fff",
-                    fontSize: 16,
-                    marginTop: 4,
-                  }}
-                >
-                  {top2.photoUrl ? (
-                    <img src={top2.photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                  ) : (
-                    getInitial(getDisplayName(top2))
-                  )}
-                </div>
-                <span style={{ color: "#fff", fontSize: 11, fontWeight: 800, marginTop: 6, maxWidth: 85, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{ color: "#fff", fontSize: 11, fontWeight: 800, marginTop: 16, maxWidth: 85, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {getDisplayName(top2)}
                 </span>
                 <span style={{ color: "rgba(0, 242, 254, 0.8)", fontSize: 9.5, fontWeight: 700 }}>
@@ -233,52 +233,50 @@ export default function LeaderboardPage() {
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  background: "linear-gradient(180deg, rgba(251, 191, 36, 0.22), rgba(8, 12, 30, 0.75))",
-                  border: "1.5px solid rgba(251, 191, 36, 0.6)",
-                  borderRadius: 18,
-                  padding: "16px 8px 12px",
                   position: "relative",
-                  boxShadow: "0 0 24px rgba(251, 191, 36, 0.25)",
                   transform: "translateY(-8px)",
                 }}
               >
-                <div
-                  style={{
-                    position: "absolute",
-                    top: -30,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    filter: "drop-shadow(0 0 14px rgba(251, 191, 36, 0.6))",
-                  }}
-                >
-                  <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg, #fde047, #eab308)", border: "2px solid rgba(255, 255, 255, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 16 }}>1</div>
+                <div style={{ position: "relative" }}>
+                  <div
+                    style={{
+                      width: 88,
+                      height: 88,
+                      borderRadius: "50%",
+                      background: "linear-gradient(135deg, #d97706, #b45309)",
+                      border: "3px solid #fbbf24",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      overflow: "hidden",
+                      fontWeight: 900,
+                      color: "#fff",
+                      fontSize: 18,
+                      boxShadow: "0 0 24px rgba(251, 191, 36, 0.6)",
+                    }}
+                  >
+                    {top1.photoUrl ? (
+                      <img src={top1.photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                    ) : (
+                      getInitial(getDisplayName(top1))
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: -12,
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      filter: "drop-shadow(0 0 14px rgba(251, 191, 36, 0.6))",
+                    }}
+                  >
+                    <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg, #fde047, #eab308)", border: "2px solid rgba(255, 255, 255, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 16 }}>1</div>
+                  </div>
                 </div>
-                <div
-                  style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: "50%",
-                    background: "linear-gradient(135deg, #d97706, #b45309)",
-                    border: "2.5px solid #fbbf24",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    overflow: "hidden",
-                    fontWeight: 900,
-                    color: "#fff",
-                    fontSize: 18,
-                    marginTop: 4,
-                    boxShadow: "0 0 16px rgba(251, 191, 36, 0.4)",
-                  }}
-                >
-                  {top1.photoUrl ? (
-                    <img src={top1.photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                  ) : (
-                    getInitial(getDisplayName(top1))
-                  )}
-                </div>
-                <span style={{ color: "#fbbf24", fontSize: 12, fontWeight: 900, marginTop: 6, maxWidth: 95, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{ color: "#fbbf24", fontSize: 12, fontWeight: 900, marginTop: 20, maxWidth: 95, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {getDisplayName(top1)}
                 </span>
                 <span style={{ color: "rgba(255, 255, 255, 0.75)", fontSize: 10, fontWeight: 700 }}>
@@ -294,49 +292,49 @@ export default function LeaderboardPage() {
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  background: "linear-gradient(180deg, rgba(217, 119, 6, 0.15), rgba(8, 12, 30, 0.6))",
-                  border: "1px solid rgba(217, 119, 6, 0.35)",
-                  borderRadius: 16,
-                  padding: "12px 6px 10px",
                   position: "relative",
                 }}
               >
-                <div
-                  style={{
-                    position: "absolute",
-                    top: -24,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    filter: "drop-shadow(0 0 10px rgba(217, 119, 6, 0.4))",
-                  }}
-                >
-                  <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, #fdba74, #ea580c)", border: "2px solid rgba(255, 255, 255, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 14 }}>3</div>
+                <div style={{ position: "relative" }}>
+                  <div
+                    style={{
+                      width: 68,
+                      height: 68,
+                      borderRadius: "50%",
+                      background: "linear-gradient(135deg, #9a3412, #7c2d12)",
+                      border: "3px solid #ea580c",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      overflow: "hidden",
+                      fontWeight: 900,
+                      color: "#fff",
+                      fontSize: 16,
+                      boxShadow: "0 0 16px rgba(234, 88, 12, 0.4)",
+                    }}
+                  >
+                    {top3.photoUrl ? (
+                      <img src={top3.photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                    ) : (
+                      getInitial(getDisplayName(top3))
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: -10,
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      filter: "drop-shadow(0 0 10px rgba(217, 119, 6, 0.4))",
+                    }}
+                  >
+                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, #fdba74, #ea580c)", border: "2px solid rgba(255, 255, 255, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 14 }}>3</div>
+                  </div>
                 </div>
-                <div
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: "50%",
-                    background: "linear-gradient(135deg, #9a3412, #7c2d12)",
-                    border: "2px solid #ea580c",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    overflow: "hidden",
-                    fontWeight: 900,
-                    color: "#fff",
-                    fontSize: 16,
-                    marginTop: 4,
-                  }}
-                >
-                  {top3.photoUrl ? (
-                    <img src={top3.photoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                  ) : (
-                    getInitial(getDisplayName(top3))
-                  )}
-                </div>
-                <span style={{ color: "#fff", fontSize: 11, fontWeight: 800, marginTop: 6, maxWidth: 85, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <span style={{ color: "#fff", fontSize: 11, fontWeight: 800, marginTop: 16, maxWidth: 85, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {getDisplayName(top3)}
                 </span>
                 <span style={{ color: "rgba(0, 242, 254, 0.8)", fontSize: 9.5, fontWeight: 700 }}>
