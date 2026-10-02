@@ -4,6 +4,10 @@ import { useUser } from "../lib/userContext";
 import { apiCall } from "../lib/api";
 import { ChevronLeft, Trophy } from "lucide-react";
 import leaderboardVideo from "../assets/stickers/leaderboard_video.webm";
+import { AnimatedSticker } from "../components/AnimatedSticker";
+import leaderboard1Sticker from "../assets/stickers/leaderboard_1.json";
+import leaderboard2Sticker from "../assets/stickers/leaderboard_2.json";
+import leaderboard3Sticker from "../assets/stickers/leaderboard_3.json";
 
 interface LeaderEntry {
   rank: number;
@@ -178,8 +182,22 @@ export default function LeaderboardPage() {
                   position: "relative",
                 }}
               >
-                <div style={{ position: "relative" }}>
-                  <div
+<div style={{ position: "relative" }}>
+<div
+                    style={{
+                      position: "absolute",
+                      top: -14,
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      filter: "drop-shadow(0 0 10px rgba(148, 163, 184, 0.4))",
+                    }}
+                  >
+<div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, #cbd5e1, #94a3b8)", border: "2px solid rgba(255, 255, 255, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 14 }}>2</div>
+</div>
+<div
                     style={{
                       width: 68,
                       height: 68,
@@ -202,21 +220,11 @@ export default function LeaderboardPage() {
                       getInitial(getDisplayName(top2))
                     )}
                   </div>
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: -10,
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      filter: "drop-shadow(0 0 10px rgba(148, 163, 184, 0.4))",
-                    }}
-                  >
-                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, #cbd5e1, #94a3b8)", border: "2px solid rgba(255, 255, 255, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 14 }}>2</div>
+
+                  <div style={{ position: "absolute", bottom: "40px", left: "50%", transform: "translateX(-50%)", zIndex: 10, pointerEvents: "none" }}>
+                    <AnimatedSticker animationData={leaderboard2Sticker} size={90} />
                   </div>
-                </div>
+</div>
                 <span style={{ color: "#fff", fontSize: 11, fontWeight: 800, marginTop: 16, maxWidth: 85, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {getDisplayName(top2)}
                 </span>
@@ -237,8 +245,22 @@ export default function LeaderboardPage() {
                   transform: "translateY(-8px)",
                 }}
               >
-                <div style={{ position: "relative" }}>
-                  <div
+<div style={{ position: "relative" }}>
+<div
+                    style={{
+                      position: "absolute",
+                      top: -17,
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      filter: "drop-shadow(0 0 14px rgba(251, 191, 36, 0.6))",
+                    }}
+                  >
+<div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg, #fde047, #eab308)", border: "2px solid rgba(255, 255, 255, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 16 }}>1</div>
+</div>
+<div
                     style={{
                       width: 88,
                       height: 88,
@@ -261,21 +283,11 @@ export default function LeaderboardPage() {
                       getInitial(getDisplayName(top1))
                     )}
                   </div>
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: -12,
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      filter: "drop-shadow(0 0 14px rgba(251, 191, 36, 0.6))",
-                    }}
-                  >
-                    <div style={{ width: 34, height: 34, borderRadius: "50%", background: "linear-gradient(135deg, #fde047, #eab308)", border: "2px solid rgba(255, 255, 255, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 16 }}>1</div>
+
+                  <div style={{ position: "absolute", bottom: "50px", left: "50%", transform: "translateX(-50%)", zIndex: 10, pointerEvents: "none" }}>
+                    <AnimatedSticker animationData={leaderboard1Sticker} size={120} />
                   </div>
-                </div>
+</div>
                 <span style={{ color: "#fbbf24", fontSize: 12, fontWeight: 900, marginTop: 20, maxWidth: 95, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {getDisplayName(top1)}
                 </span>
@@ -295,8 +307,22 @@ export default function LeaderboardPage() {
                   position: "relative",
                 }}
               >
-                <div style={{ position: "relative" }}>
-                  <div
+<div style={{ position: "relative" }}>
+<div
+                    style={{
+                      position: "absolute",
+                      top: -14,
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      filter: "drop-shadow(0 0 10px rgba(217, 119, 6, 0.4))",
+                    }}
+                  >
+<div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, #fdba74, #ea580c)", border: "2px solid rgba(255, 255, 255, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 14 }}>3</div>
+</div>
+<div
                     style={{
                       width: 68,
                       height: 68,
@@ -319,21 +345,11 @@ export default function LeaderboardPage() {
                       getInitial(getDisplayName(top3))
                     )}
                   </div>
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: -10,
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      filter: "drop-shadow(0 0 10px rgba(217, 119, 6, 0.4))",
-                    }}
-                  >
-                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: "linear-gradient(135deg, #fdba74, #ea580c)", border: "2px solid rgba(255, 255, 255, 0.5)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 900, fontSize: 14 }}>3</div>
+
+                  <div style={{ position: "absolute", bottom: "40px", left: "50%", transform: "translateX(-50%)", zIndex: 10, pointerEvents: "none" }}>
+                    <AnimatedSticker animationData={leaderboard3Sticker} size={90} />
                   </div>
-                </div>
+</div>
                 <span style={{ color: "#fff", fontSize: 11, fontWeight: 800, marginTop: 16, maxWidth: 85, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {getDisplayName(top3)}
                 </span>
