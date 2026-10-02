@@ -121,7 +121,6 @@ router.post("/sword-adventure/finish", requireSession, verifyAccessMiddleware, a
   }
 
   const killed = Math.max(0, Math.min(50, Math.floor(Number(enemiesDefeated) || 0)));
-  const reportedDuration = Math.max(1, Number(durationSeconds) || 1);
   const actualElapsedSec = Math.max(1, (Date.now() - session.startedAt) / 1000);
 
   // Anti-cheat validation rules:
@@ -135,20 +134,30 @@ router.post("/sword-adventure/finish", requireSession, verifyAccessMiddleware, a
     }
   }
 
+  // Mark session as finished to prevent concurrent submissions
+  session.finished = true;
+  lastFinishTimes.set(userId, Date.now());
+
   // Calculate reward (0.05 GO per enemy)
   const reward = Math.round(killed * 0.05 * 1000) / 1000;
   const rewardStr = reward.toFixed(6);
 
-  // Mark session as finished
-  session.finished = true;
-  lastFinishTimes.set(userId, Date.now());
-
   try {
     let updatedGoBalance = "0";
 
-    if (reward > 0) {
-      // Atomic transaction: update user balance & create transaction record
-      await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
+      // Re-verify the user is still active in a transaction
+      const [user] = await tx
+        .select({ id: usersTable.id, isVisible: usersTable.isVisible })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
+
+      if (!user || user.isVisible === false) {
+        throw new Error("Account suspended or not found");
+      }
+
+      if (reward > 0) {
         await addGoBalanceAndClaim(tx, userId, reward);
 
         await tx.insert(transactionsTable).values({
@@ -161,20 +170,17 @@ router.post("/sword-adventure/finish", requireSession, verifyAccessMiddleware, a
             durationSeconds: Math.round(actualElapsedSec),
             sessionToken,
           },
-        }).catch((err) => {
-          console.warn("[SwordAdventure] Non-fatal transaction log error:", err);
         });
-      });
-    }
+      }
 
-    // Fetch updated balance
-    const [user] = await db
-      .select({ goBalance: usersTable.goBalance, balance: usersTable.balance })
-      .from(usersTable)
-      .where(eq(usersTable.id, userId))
-      .limit(1);
+      return await tx
+        .select({ goBalance: usersTable.goBalance, balance: usersTable.balance })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
+    });
 
-    updatedGoBalance = user?.goBalance ?? "0";
+    updatedGoBalance = result[0]?.goBalance ?? "0";
 
     // Clean up session token
     activeSessions.delete(sessionToken);
@@ -189,9 +195,18 @@ router.post("/sword-adventure/finish", requireSession, verifyAccessMiddleware, a
       goBalance: updatedGoBalance,
       message: reward > 0 ? `🎉 Victory! You defeated ${killed} enemies and earned +${reward} GO!` : "Good try! Defeat enemies to earn GO.",
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error("[SwordAdventure] Error finalizing game reward:", err);
-    res.status(500).json({ error: "Failed to credit game reward. Please try again." });
+    // Unmark as finished if transaction fails entirely due to server errors and not ban
+    if (err.message !== "Account suspended or not found") {
+       session.finished = false;
+    }
+
+    if (err.message === "Account suspended or not found") {
+      res.status(403).json({ error: "Account suspended or not found" });
+    } else {
+      res.status(500).json({ error: "Failed to credit game reward. Please try again." });
+    }
   }
 });
 

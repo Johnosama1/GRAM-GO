@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable, botSettingsTable } from "@workspace/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import { requireSession } from "../middlewares/requireSession";
 import { verifyAccessMiddleware } from "../middlewares/verifyAccess";
 
@@ -122,49 +122,71 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
     const globalRate = rawRate ? parseFloat(rawRate) : 0.03;
     const startMinerVisible = startMinerVisibleStr !== "false";
 
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
-    if (!user) {
-      res.status(404).json({ error: "User not found" });
-      return;
-    }
-    if (user.isVisible === false) {
-      res.status(403).json({ error: "محظور", banned: true });
-      return;
-    }
+    const result = await db.transaction(async (tx) => {
+      const [user] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+      if (!user) {
+        throw new Error("User not found");
+      }
+      if (user.isVisible === false) {
+        throw new Error("محظور");
+      }
 
-    const calc = calculateUserMining(user, globalRate, startMinerVisible);
-    if (calc.unclaimedGram < 0.000001) {
-      res.status(400).json({ error: "لا توجد أرباح كافية للتجميع حالياً" });
-      return;
-    }
+      const calc = calculateUserMining(user, globalRate, startMinerVisible);
+      if (calc.unclaimedGram < 0.000001) {
+        throw new Error("لا توجد أرباح كافية للتجميع حالياً");
+      }
 
-    const claimed = calc.unclaimedGram;
-    const claimedStr = claimed.toFixed(6);
+      const claimed = calc.unclaimedGram;
+      const claimedStr = claimed.toFixed(6);
+      const exactLastMiningAt = user.lastMiningAt;
 
-    // Atomically credit Gram to user's gramBalance
-    await db
-      .update(usersTable)
-      .set({
-        gramBalance: sql`COALESCE(gram_balance, 0) + ${sql.raw(claimedStr)}`,
-        lastMiningAt: new Date(),
-      })
-      .where(eq(usersTable.id, userId));
+      // Atomically credit Gram to user's gramBalance using optimistic locking
+      // The WHERE clause checks lastMiningAt to avoid race condition where two requests
+      // read the same lastMiningAt and claim the same period twice.
+      let updateCondition = eq(usersTable.id, userId);
+      if (exactLastMiningAt) {
+         updateCondition = and(eq(usersTable.id, userId), eq(usersTable.lastMiningAt, exactLastMiningAt)) as any;
+      } else {
+         updateCondition = and(eq(usersTable.id, userId), sql`last_mining_at IS NULL`) as any;
+      }
 
-    const [updatedUser] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+      const updateResult = await tx
+        .update(usersTable)
+        .set({
+          gramBalance: sql`COALESCE(gram_balance, 0) + ${sql.raw(claimedStr)}`,
+          lastMiningAt: new Date(),
+        })
+        .where(updateCondition)
+        .returning();
+
+      if (updateResult.length === 0) {
+        throw new Error("Conflict: already claimed");
+      }
+
+      return { claimedStr, updatedUser: updateResult[0] };
+    });
 
     res.json({
       success: true,
-      claimedAmount: claimedStr,
-      gramBalance: updatedUser.gramBalance,
-      goBalance: updatedUser.goBalance,
+      claimedAmount: result.claimedStr,
+      gramBalance: result.updatedUser.gramBalance,
+      goBalance: result.updatedUser.goBalance,
       remainingSeconds: 86400,
       user: {
-        ...updatedUser,
-        isVerified: updatedUser.ipVerifiedAt != null,
+        ...result.updatedUser,
+        isVerified: result.updatedUser.ipVerifiedAt != null,
       },
     });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to claim mining rewards" });
+  } catch (err: any) {
+    if (err.message === "User not found") {
+      res.status(404).json({ error: "User not found" });
+    } else if (err.message === "محظور") {
+      res.status(403).json({ error: "محظور", banned: true });
+    } else if (err.message === "لا توجد أرباح كافية للتجميع حالياً" || err.message === "Conflict: already claimed") {
+      res.status(400).json({ error: "لا توجد أرباح كافية للتجميع حالياً" });
+    } else {
+      res.status(500).json({ error: "Failed to claim mining rewards" });
+    }
   }
 });
 

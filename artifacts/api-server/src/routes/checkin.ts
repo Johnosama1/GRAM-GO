@@ -144,86 +144,114 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
     return;
   }
 
-  const [user] = await db
-    .select()
-    .from(usersTable)
-    .where(eq(usersTable.id, userId))
-    .limit(1);
+  try {
+    const result = await db.transaction(async (tx) => {
+      const [user] = await tx
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
 
-  if (!user) {
-    res.status(404).json({ error: "User not found" });
-    return;
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      if (user.isVisible === false) {
+        throw new Error("محظور");
+      }
+
+      const todayStr = getTodayDateString();
+      const yesterdayStr = getYesterdayDateString();
+
+      const lastClaimDateStr = user.lastDailyClaimAt
+        ? new Date(user.lastDailyClaimAt).toISOString().split("T")[0]
+        : null;
+
+      if (lastClaimDateStr === todayStr) {
+        throw new Error("Already claimed today");
+      }
+
+      let streak = user.dailyStreak || 0;
+      if (!lastClaimDateStr || lastClaimDateStr === yesterdayStr) {
+        streak = (streak % 10) + 1;
+      } else {
+        // Missed a day -> reset to Day 1
+        streak = 1;
+      }
+
+      const rewardsMap = await getDynamicRewardsMap();
+      const rewardAmount = rewardsMap[streak] || 2;
+
+      // Ensure uniqueness to avoid race conditions inserting multiple daily checkins
+      const [existingCheckin] = await tx
+        .select()
+        .from(dailyCheckinsTable)
+        .where(and(eq(dailyCheckinsTable.userId, userId), eq(dailyCheckinsTable.claimDate, todayStr)))
+        .limit(1);
+
+      if (existingCheckin) {
+        throw new Error("Already claimed today");
+      }
+
+      await tx.insert(dailyCheckinsTable).values({
+        userId,
+        day: streak,
+        rewardAmount: String(rewardAmount),
+        claimDate: todayStr,
+        claimedAt: new Date(),
+      });
+
+      // Atomic update
+      await tx
+        .update(usersTable)
+        .set({
+          dailyStreak: streak,
+          lastDailyClaimAt: new Date(),
+          goBalance: sql`go_balance + ${rewardAmount}`,
+          balance: sql`balance + ${rewardAmount}`,
+        })
+        .where(eq(usersTable.id, userId));
+
+      await tx.insert(transactionsTable).values({
+        userId,
+        type: "daily_checkin",
+        amount: String(rewardAmount),
+        currency: "GO",
+        details: { day: streak, claimDate: todayStr },
+      });
+
+      const [updatedUser] = await tx
+        .select()
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
+
+      return {
+        streak,
+        rewardAmount,
+        updatedUser
+      };
+    });
+
+    res.json({
+      ok: true,
+      success: true,
+      day: result.streak,
+      rewardAmount: result.rewardAmount,
+      goBalance: result.updatedUser.goBalance,
+      message: `🎉 تم استلام مكافأة اليوم ${result.streak} (+${result.rewardAmount} GO) بنجاح!`,
+    });
+  } catch (err: any) {
+    if (err.message === "Already claimed today") {
+      res.status(400).json({ error: "لقد قمت بتسجيل الدخول اليوم بالفعل", alreadyClaimed: true });
+    } else if (err.message === "محظور") {
+      res.status(403).json({ error: "محظور", banned: true });
+    } else if (err.message === "User not found") {
+      res.status(404).json({ error: "User not found" });
+    } else {
+      res.status(500).json({ error: "Failed to process check-in claim" });
+    }
   }
-
-  if (user.isVisible === false) {
-    res.status(403).json({ error: "محظور", banned: true });
-    return;
-  }
-
-  const todayStr = getTodayDateString();
-  const yesterdayStr = getYesterdayDateString();
-
-  const lastClaimDateStr = user.lastDailyClaimAt
-    ? new Date(user.lastDailyClaimAt).toISOString().split("T")[0]
-    : null;
-
-  if (lastClaimDateStr === todayStr) {
-    res.status(400).json({ error: "لقد قمت بتسجيل الدخول اليوم بالفعل", alreadyClaimed: true });
-    return;
-  }
-
-  let streak = user.dailyStreak || 0;
-  if (!lastClaimDateStr || lastClaimDateStr === yesterdayStr) {
-    streak = (streak % 10) + 1;
-  } else {
-    // Missed a day -> reset to Day 1
-    streak = 1;
-  }
-
-  const rewardsMap = await getDynamicRewardsMap();
-  const rewardAmount = rewardsMap[streak] || 2;
-
-  // Atomic update
-  await db
-    .update(usersTable)
-    .set({
-      dailyStreak: streak,
-      lastDailyClaimAt: new Date(),
-      goBalance: sql`go_balance + ${rewardAmount}`,
-      balance: sql`balance + ${rewardAmount}`,
-    })
-    .where(eq(usersTable.id, userId));
-
-  await db.insert(dailyCheckinsTable).values({
-    userId,
-    day: streak,
-    rewardAmount: String(rewardAmount),
-    claimDate: todayStr,
-    claimedAt: new Date(),
-  }).catch(() => {});
-
-  await db.insert(transactionsTable).values({
-    userId,
-    type: "daily_checkin",
-    amount: String(rewardAmount),
-    currency: "GO",
-    details: { day: streak, claimDate: todayStr },
-  }).catch(() => {});
-
-  const [updatedUser] = await db
-    .select()
-    .from(usersTable)
-    .where(eq(usersTable.id, userId))
-    .limit(1);
-
-  res.json({
-    ok: true,
-    success: true,
-    day: streak,
-    rewardAmount,
-    goBalance: updatedUser.goBalance,
-    message: `🎉 تم استلام مكافأة اليوم ${streak} (+${rewardAmount} GO) بنجاح!`,
-  });
 });
 
 export default router;
