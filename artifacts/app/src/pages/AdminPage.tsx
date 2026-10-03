@@ -387,6 +387,7 @@ export default function AdminPage() {
     icon: "",
     url: "",
     seatsLimit: "50",
+    isUnlimited: false,
     channelPhotoUrl: "",
   });
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -464,7 +465,7 @@ export default function AdminPage() {
         api.adminGetWithdrawals().catch(() => []),
         api.adminGetDeposits().catch(() => []),
         api.adminGetLimits().catch(() => null),
-        api.adminGetTasks().catch(() => []),
+        api.adminGetTasks().catch(() => null),
         api.adminGetContests().catch(() => []),
         api.adminGetComboStats().catch(() => null),
         api
@@ -502,7 +503,7 @@ export default function AdminPage() {
       if (wds) setWithdrawals(wds);
       if (deps) setDeposits(deps);
       if (lms) setLimits((prev) => ({ ...prev, ...lms }));
-      if (ts) setTasks(ts);
+      if (ts && Array.isArray(ts)) setTasks(ts);
       if (cs) setContests(cs);
       if (cb) {
         setComboStats(cb);
@@ -536,9 +537,26 @@ export default function AdminPage() {
     }
   }, []);
 
+  const loadTasks = useCallback(async () => {
+    try {
+      const ts = await api.adminGetTasks();
+      if (Array.isArray(ts)) {
+        setTasks(ts);
+      }
+    } catch (err) {
+      console.error("Failed to load admin tasks:", err);
+    }
+  }, []);
+
   useEffect(() => {
     loadAllData();
   }, [loadAllData]);
+
+  useEffect(() => {
+    if (activeTab === "tasks") {
+      loadTasks();
+    }
+  }, [activeTab, loadTasks]);
 
   // ── Actions ──
   const handleCreatePromoCode = async () => {
@@ -832,6 +850,15 @@ export default function AdminPage() {
 
     if (!taskForm.title.trim() && taskForm.category !== "daily")
       return showToast("يرجى إدخال عنوان المهمة", "err");
+
+    let maxClaimsVal: number | null = null;
+    if (!taskForm.isUnlimited && taskForm.seatsLimit.trim()) {
+      const parsed = parseInt(taskForm.seatsLimit, 10);
+      if (!isNaN(parsed) && parsed > 0) {
+        maxClaimsVal = parsed;
+      }
+    }
+
     try {
       await api.adminCreateTask({
         category: taskForm.category,
@@ -847,7 +874,7 @@ export default function AdminPage() {
         botLink: taskForm.botLink.trim() || undefined,
         requiredReferrals: taskForm.requiredReferrals ? parseInt(taskForm.requiredReferrals) : undefined,
         verificationType: taskForm.verificationType,
-        maxClaims: parseInt(taskForm.seatsLimit) || null,
+        maxClaims: maxClaimsVal,
         isActive: true,
       });
       showToast("تم إنشاء المهمة بنجاح 📋");
@@ -865,9 +892,10 @@ export default function AdminPage() {
         icon: "",
         url: "",
         seatsLimit: "50",
+        isUnlimited: false,
         channelPhotoUrl: "",
       });
-      loadAllData();
+      await loadTasks();
     } catch (err: unknown) {
       showToast((err as Error)?.message || "فشل إنشاء المهمة", "err");
     }
@@ -879,6 +907,7 @@ export default function AdminPage() {
       await api.adminDeleteTask(id);
       showToast("تم حذف المهمة 🗑️");
       setTasks((prev) => prev.filter((t) => t.id !== id));
+      loadTasks();
     } catch {
       showToast("فشل حذف المهمة", "err");
     }
@@ -3500,36 +3529,92 @@ export default function AdminPage() {
                     )}
                   </div>
 
-                  {/* Seats limit chips */}
-                  <div style={{ fontSize: 10, color: "#8A8F98", marginBottom: 4 }}>
-                    عدد المقاعد:
-                  </div>
-                  <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-                    {["50", "100", "500", "1000"].map((s) => (
+                  {/* Seats limit & Unlimited Controls */}
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                      <div style={{ fontSize: 10, color: "#8A8F98", fontWeight: 700 }}>
+                        عدد المقاعد / المشاركين:
+                      </div>
+                      <div style={{ fontSize: 10, color: taskForm.isUnlimited ? "#10B981" : "#11ABEC", fontWeight: 800 }}>
+                        {taskForm.isUnlimited ? "∞ غير محدود" : `${taskForm.seatsLimit || 0} مقعد`}
+                      </div>
+                    </div>
+
+                    {/* Quick selection chips */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 6, marginBottom: 8 }}>
+                      {["50", "100", "500", "1000"].map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setTaskForm(prev => ({ ...prev, seatsLimit: s, isUnlimited: false }))}
+                          style={{
+                            background:
+                              !taskForm.isUnlimited && taskForm.seatsLimit === s
+                                ? "rgba(17, 171, 236, 0.25)"
+                                : "rgba(255,255,255,0.04)",
+                            border:
+                              !taskForm.isUnlimited && taskForm.seatsLimit === s
+                                ? "1px solid #11ABEC"
+                                : "1px solid rgba(255,255,255,0.06)",
+                            borderRadius: 8,
+                            padding: "6px 0",
+                            color: !taskForm.isUnlimited && taskForm.seatsLimit === s ? "#11ABEC" : "#8A8F98",
+                            fontSize: 10,
+                            fontWeight: 800,
+                            cursor: "pointer",
+                          }}
+                        >
+                          {s}
+                        </button>
+                      ))}
                       <button
-                        key={s}
-                        onClick={() => setTaskForm({ ...taskForm, seatsLimit: s })}
+                        type="button"
+                        onClick={() => setTaskForm(prev => ({ ...prev, isUnlimited: true, seatsLimit: "" }))}
                         style={{
-                          flex: 1,
                           background:
-                            taskForm.seatsLimit === s
-                              ? "rgba(17, 171, 236, 0.2)"
+                            taskForm.isUnlimited
+                              ? "rgba(16, 185, 129, 0.25)"
                               : "rgba(255,255,255,0.04)",
                           border:
-                            taskForm.seatsLimit === s
-                              ? "1px solid #11ABEC"
+                            taskForm.isUnlimited
+                              ? "1px solid #10B981"
                               : "1px solid rgba(255,255,255,0.06)",
                           borderRadius: 8,
-                          padding: "4px 0",
-                          color: taskForm.seatsLimit === s ? "#11ABEC" : "#8A8F98",
+                          padding: "6px 0",
+                          color: taskForm.isUnlimited ? "#10B981" : "#8A8F98",
                           fontSize: 10,
                           fontWeight: 800,
                           cursor: "pointer",
                         }}
                       >
-                        {s}
+                        ∞ غير محدود
                       </button>
-                    ))}
+                    </div>
+
+                    {/* Custom numeric input */}
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="أو أدخل عدد مقاعد مخصص (مثال: 1, 7, 25, 73, 250, 1500)..."
+                      value={taskForm.isUnlimited ? "" : taskForm.seatsLimit}
+                      disabled={taskForm.isUnlimited}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/[^0-9]/g, "");
+                        setTaskForm(prev => ({ ...prev, seatsLimit: val, isUnlimited: false }));
+                      }}
+                      style={{
+                        width: "100%",
+                        background: taskForm.isUnlimited ? "rgba(255,255,255,0.02)" : "#080b10",
+                        border: !taskForm.isUnlimited && taskForm.seatsLimit && !["50", "100", "500", "1000"].includes(taskForm.seatsLimit)
+                          ? "1px solid #11ABEC"
+                          : "1px solid rgba(255,255,255,0.08)",
+                        borderRadius: 8,
+                        padding: "8px 10px",
+                        color: taskForm.isUnlimited ? "#666" : "#fff",
+                        fontSize: 11,
+                        boxSizing: "border-box",
+                      }}
+                    />
                   </div>
                 </>
               )}
@@ -3599,66 +3684,101 @@ export default function AdminPage() {
                 display: "flex",
                 flexDirection: "column",
                 gap: 6,
-                maxHeight: 240,
+                maxHeight: 280,
                 overflowY: "auto",
               }}
             >
-              {tasks.map((t) => (
-                <div
-                  key={t.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    background: "rgba(0,0,0,0.3)",
-                    padding: "8px 12px",
-                    borderRadius: 10,
-                    gap: 10,
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
-                    {t.channelPhotoUrl ? (
-                      <img
-                        src={resolveImageUrl(t.channelPhotoUrl)}
-                        alt={t.title}
-                        style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", flexShrink: 0 }}
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                      />
-                    ) : (
-                      <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
-                        {t.icon || "⭐"}
-                      </div>
-                    )}
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div
-                        style={{ fontSize: 12, fontWeight: 800, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                      >
-                        {t.title}
-                      </div>
-                      <div
-                        style={{ fontSize: 10, color: "#11ABEC", marginTop: 2 }}
-                      >
-                        +{t.rewardAmount || "0.5"} {t.rewardCurrency || "GO"}{" "}
-                        {t.maxClaims ? `• مقاعد: ${t.maxClaims}` : ""}
-                      </div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleDeleteTask(t.id)}
-                    style={{
-                      background: "rgba(229,72,77,0.15)",
-                      border: "none",
-                      borderRadius: 6,
-                      padding: "6px 8px",
-                      color: "#E5484D",
-                      cursor: "pointer",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <Trash2 size={13} />
-                  </button>
+              {tasks.length === 0 ? (
+                <div style={{ textAlign: "center", color: "#8A8F98", fontSize: 11, padding: 16 }}>
+                  لا توجد مهام حالياً
                 </div>
-              ))}
+              ) : (
+                tasks.map((t) => {
+                  const isFinite = t.maxClaims !== null && t.maxClaims !== undefined && t.maxClaims > 0;
+                  const claims = t.claimedCount ?? 0;
+                  const isFull = isFinite && claims >= (t.maxClaims ?? 0);
+
+                  return (
+                    <div
+                      key={t.id}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        background: isFull ? "rgba(229,72,77,0.08)" : "rgba(0,0,0,0.3)",
+                        border: isFull ? "1px solid rgba(229,72,77,0.25)" : "1px solid rgba(255,255,255,0.04)",
+                        padding: "8px 12px",
+                        borderRadius: 10,
+                        gap: 10,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+                        {t.channelPhotoUrl ? (
+                          <img
+                            src={resolveImageUrl(t.channelPhotoUrl)}
+                            alt={t.title}
+                            style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", flexShrink: 0 }}
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                          />
+                        ) : (
+                          <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
+                            {t.icon || "⭐"}
+                          </div>
+                        )}
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span
+                              style={{ fontSize: 12, fontWeight: 800, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                            >
+                              {t.title}
+                            </span>
+                            <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 4, background: "rgba(255,255,255,0.08)", color: "#11ABEC", flexShrink: 0 }}>
+                              {t.category || "normal"}
+                            </span>
+                          </div>
+                          <div
+                            style={{ fontSize: 10, color: "#8A8F98", marginTop: 2, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}
+                          >
+                            <span style={{ color: "#11ABEC", fontWeight: 700 }}>
+                              +{t.rewardAmount || "0.5"} {t.rewardCurrency || "GO"}
+                            </span>
+                            <span>•</span>
+                            {isFinite ? (
+                              <span style={{ color: isFull ? "#E5484D" : "#10B981", fontWeight: 700 }}>
+                                {claims}/{t.maxClaims} مقاعد {isFull ? "(مكتملة الحد الأقصى)" : ""}
+                              </span>
+                            ) : (
+                              <span style={{ color: "#10B981", fontWeight: 700 }}>
+                                ∞ غير محدود ({claims} مكتمل)
+                              </span>
+                            )}
+                            {t.channelUsername && (
+                              <>
+                                <span>•</span>
+                                <span style={{ color: "#fff" }}>@{t.channelUsername}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteTask(t.id)}
+                        style={{
+                          background: "rgba(229,72,77,0.15)",
+                          border: "none",
+                          borderRadius: 6,
+                          padding: "6px 8px",
+                          color: "#E5484D",
+                          cursor: "pointer",
+                          flexShrink: 0,
+                        }}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </AdminAccordionSection>
 

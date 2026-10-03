@@ -53,8 +53,8 @@ export async function getBoostStatus(): Promise<BoostStatus> {
 }
 
 let _tasksCache: Promise<Task[]> | null = null;
-export function getTasksOnce(): Promise<Task[]> {
-  if (!_tasksCache) {
+export function getTasksOnce(options?: { force?: boolean }): Promise<Task[]> {
+  if (options?.force || !_tasksCache) {
     _tasksCache = apiCall<Task[]>("/tasks").catch((err) => {
       _tasksCache = null;
       throw err;
@@ -64,8 +64,8 @@ export function getTasksOnce(): Promise<Task[]> {
 }
 
 const _completedCache = new Map<number, Promise<number[]>>();
-export function getCompletedTasksOnce(userId: number): Promise<number[]> {
-  if (!_completedCache.has(userId))
+export function getCompletedTasksOnce(userId: number, options?: { force?: boolean }): Promise<number[]> {
+  if (options?.force || !_completedCache.has(userId))
     _completedCache.set(userId, apiCall<number[]>(`/tasks/${userId}/completed`));
   return _completedCache.get(userId)!;
 }
@@ -119,10 +119,16 @@ export function getDepositsOnce(userId: number): Promise<Deposit[]> {
   return _depositsCache.get(userId)!;
 }
 
-export function invalidateUserCaches(userId: number) {
-  _completedCache.delete(userId);
-  _withdrawalsCache.delete(userId);
-  _depositsCache.delete(userId);
+export function invalidateUserCaches(userId?: number) {
+  if (userId) {
+    _completedCache.delete(userId);
+    _withdrawalsCache.delete(userId);
+    _depositsCache.delete(userId);
+  } else {
+    _completedCache.clear();
+    _withdrawalsCache.clear();
+    _depositsCache.clear();
+  }
   _tasksCache = null;
 }
 
@@ -539,6 +545,7 @@ export interface Task {
   rewardAmount?: string;
   rewardCurrency?: string;
   maxClaims?: number | null;
+  claimedCount?: number;
   isActive: boolean;
   expiresAt: string | null;
   createdAt: string;

@@ -14,7 +14,6 @@ const router = Router();
 
 // ── In-memory cache for active tasks list ───────────────────────────
 let _tasksCache: { data: unknown; ts: number } | null = null;
-const TASKS_TTL = 30_000; // 30 seconds
 
 export function invalidateTasksCache() {
   _tasksCache = null;
@@ -27,20 +26,47 @@ function extractChannelUsername(url: string | null): string | null {
 }
 
 router.get("/", async (_req, res) => {
-  const now = Date.now();
-
-  // if (_tasksCache && now - _tasksCache.ts < TASKS_TTL) {
-  //   res.setHeader("Cache-Control", "public, max-age=30");
-  //   res.json(_tasksCache.data);
-  //   return;
-  // }
-
   const nowDate = new Date();
-  const tasks = await db.select().from(tasksTable).where(eq(tasksTable.isActive, true));
-  const active = tasks.filter((t) => !t.expiresAt || t.expiresAt > nowDate);
 
-  _tasksCache = { data: active, ts: now };
-  res.setHeader("Cache-Control", "public, max-age=30");
+  // Always query database directly with aggregated claimed count
+  const tasksWithClaims = await db
+    .select({
+      id: tasksTable.id,
+      title: tasksTable.title,
+      description: tasksTable.description,
+      url: tasksTable.url,
+      icon: tasksTable.icon,
+      channelPhotoUrl: tasksTable.channelPhotoUrl,
+      rewardAmount: tasksTable.rewardAmount,
+      rewardCurrency: tasksTable.rewardCurrency,
+      maxClaims: tasksTable.maxClaims,
+      isActive: tasksTable.isActive,
+      category: tasksTable.category,
+      channelUsername: tasksTable.channelUsername,
+      botUsername: tasksTable.botUsername,
+      botLink: tasksTable.botLink,
+      requiredReferrals: tasksTable.requiredReferrals,
+      verificationType: tasksTable.verificationType,
+      expiresAt: tasksTable.expiresAt,
+      createdAt: tasksTable.createdAt,
+      claimedCount: sql<number>`COALESCE(COUNT(${userTasksTable.id})::int, 0)`,
+    })
+    .from(tasksTable)
+    .leftJoin(userTasksTable, eq(tasksTable.id, userTasksTable.taskId))
+    .where(eq(tasksTable.isActive, true))
+    .groupBy(tasksTable.id)
+    .orderBy(sql`${tasksTable.createdAt} DESC`);
+
+  // Filter out expired tasks and finite tasks that reached seats limit
+  const active = tasksWithClaims.filter((t) => {
+    if (t.expiresAt && new Date(t.expiresAt) <= nowDate) return false;
+    if (t.maxClaims !== null && t.maxClaims !== undefined && t.maxClaims > 0) {
+      if (t.claimedCount >= t.maxClaims) return false;
+    }
+    return true;
+  });
+
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
   res.json(active);
 });
 
@@ -75,7 +101,7 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
     return;
   }
 
-  if (task.expiresAt && task.expiresAt < new Date()) {
+  if (task.expiresAt && new Date(task.expiresAt) < new Date()) {
     res.status(400).json({ error: "Task expired" });
     return;
   }
@@ -112,6 +138,7 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
 
   try {
     const result = await db.transaction(async (tx) => {
+      // 1. Check if this user already completed
       const existing = await tx
         .select()
         .from(userTasksTable)
@@ -122,15 +149,45 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
         throw new Error("Already completed");
       }
 
+      // 2. Lock the task row to serialize concurrent completions
+      const [lockedTask] = await tx
+        .select()
+        .from(tasksTable)
+        .where(eq(tasksTable.id, taskId))
+        .for("update")
+        .limit(1);
+
+      if (!lockedTask || !lockedTask.isActive) {
+        throw new Error("Task not found or inactive");
+      }
+
+      if (lockedTask.expiresAt && new Date(lockedTask.expiresAt) < new Date()) {
+        throw new Error("Task expired");
+      }
+
+      // 3. Atomically check finite maxClaims limit
+      if (lockedTask.maxClaims !== null && lockedTask.maxClaims !== undefined && lockedTask.maxClaims > 0) {
+        const claimsCountRes = await tx
+          .select({ count: sql<number>`COUNT(*)::int` })
+          .from(userTasksTable)
+          .where(eq(userTasksTable.taskId, taskId));
+
+        const currentClaims = claimsCountRes[0]?.count || 0;
+        if (currentClaims >= lockedTask.maxClaims) {
+          throw new Error("Task seats limit reached");
+        }
+      }
+
+      // 4. Record completion
       await tx.insert(userTasksTable).values({ userId, taskId });
 
+      // 5. Grant reward
       const [user] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
       if (user) {
         const newTasksCompleted = (user.tasksCompleted || 0) + 1;
+        const rewardAmountNum = parseFloat(lockedTask.rewardAmount || "0") || 0;
 
-        const rewardAmountNum = parseFloat(task.rewardAmount || "0") || 0;
-
-        if (task.rewardCurrency === "Gram") {
+        if (lockedTask.rewardCurrency === "Gram") {
           await addGoBalanceAndClaim(tx, userId, 0); // harvest continuous mining first
           await tx.update(usersTable).set({
             gramBalance: sql`gram_balance + ${rewardAmountNum}`,
@@ -154,15 +211,17 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
   } catch (err: any) {
     if (err.message === "Already completed") {
       res.status(400).json({ error: "Already completed" });
+    } else if (err.message === "Task seats limit reached") {
+      res.status(400).json({ error: "تم اكتمال العدد المتاح لهذه المهمة" });
     } else {
-      res.status(500).json({ error: "Failed to process task completion" });
+      res.status(500).json({ error: err.message || "Failed to process task completion" });
     }
   }
 });
 
 router.get("/:userId/completed", async (req, res) => {
   const userId = parseInt(req.params.userId);
-  res.setHeader("Cache-Control", "private, max-age=10");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
   const completed = await db
     .select()
     .from(userTasksTable)

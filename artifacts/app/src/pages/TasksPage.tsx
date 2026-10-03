@@ -125,6 +125,23 @@ export default function TasksPage() {
       .catch(err => console.error("Failed to load ads status:", err));
   };
 
+  const loadUserTasks = (showLoading = false) => {
+    if (!user) return;
+    if (showLoading) setLoading(true);
+    Promise.all([
+      getTasksOnce({ force: true }),
+      getCompletedTasksOnce(user.id, { force: true }),
+    ])
+      .then(([t, c]) => {
+        setTasks(t);
+        setCompleted(c);
+      })
+      .catch((err) => console.error("Failed to load tasks:", err))
+      .finally(() => {
+        if (showLoading) setLoading(false);
+      });
+  };
+
   useEffect(() => {
     if (!initialized) return;
     if (!user) {
@@ -133,13 +150,7 @@ export default function TasksPage() {
     }
     loadCheckin();
     loadAdsStatus();
-    Promise.all([getTasksOnce(), getCompletedTasksOnce(user.id)])
-      .then(([t, c]) => {
-        setTasks(t);
-        setCompleted(c);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    loadUserTasks(true);
   }, [user, initialized]);
 
   const handleOpenUrl = (task: Task) => {
@@ -156,10 +167,11 @@ export default function TasksPage() {
       setCompleted((prev) => [...prev, task.id]);
       setMessage({
         taskId: task.id,
-        text: "✅ تم إنجاز المهمة! حصلت على +5 عملات Go لزيادة سرعة التعدين!",
+        text: "✅ تم إنجاز المهمة! حصلت على المكافأة بنجاح!",
         type: "success",
       });
       await refresh();
+      loadUserTasks(false);
     } catch (e: unknown) {
       setMessage({
         taskId: task.id,

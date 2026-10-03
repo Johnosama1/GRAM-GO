@@ -398,8 +398,34 @@ router.put("/welcome-message", requireAdminPerm("canManageSettings"), async (req
 
 // ── 10. TASKS & TASK SUBMISSIONS ────────────────────────────────────────────
 router.get("/tasks", async (_req: AdminRequest, res: Response) => {
-  res.setHeader("Cache-Control", "no-store, max-age=0");
-  const tasks = await db.select().from(tasksTable).orderBy(desc(tasksTable.createdAt));
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+  const tasks = await db
+    .select({
+      id: tasksTable.id,
+      title: tasksTable.title,
+      description: tasksTable.description,
+      url: tasksTable.url,
+      icon: tasksTable.icon,
+      channelPhotoUrl: tasksTable.channelPhotoUrl,
+      rewardAmount: tasksTable.rewardAmount,
+      rewardCurrency: tasksTable.rewardCurrency,
+      maxClaims: tasksTable.maxClaims,
+      isActive: tasksTable.isActive,
+      category: tasksTable.category,
+      channelUsername: tasksTable.channelUsername,
+      botUsername: tasksTable.botUsername,
+      botLink: tasksTable.botLink,
+      requiredReferrals: tasksTable.requiredReferrals,
+      verificationType: tasksTable.verificationType,
+      expiresAt: tasksTable.expiresAt,
+      createdAt: tasksTable.createdAt,
+      claimedCount: sql<number>`COALESCE(COUNT(${userTasksTable.id})::int, 0)`,
+    })
+    .from(tasksTable)
+    .leftJoin(userTasksTable, eq(tasksTable.id, userTasksTable.taskId))
+    .groupBy(tasksTable.id)
+    .orderBy(sql`${tasksTable.createdAt} DESC`);
+
   res.json(tasks);
 });
 
@@ -531,15 +557,32 @@ router.post("/upload-image", express.json({ limit: "15mb" }), requireAdminPerm("
 router.post("/upload", express.json({ limit: "15mb" }), requireAdminPerm("canManageTasks"), handleAdminUpload);
 
 router.post("/tasks", requireAdminPerm("canManageTasks"), async (req: AdminRequest, res: Response) => {
-  const { category, title, description, url, icon, rewardAmount, rewardCurrency, maxClaims, isActive, channelPhotoUrl, channelUsername, botUsername, botLink, requiredReferrals, verificationType } = req.body;
-  if (!title) {
+  const {
+    category,
+    title,
+    description,
+    url,
+    icon,
+    rewardAmount,
+    rewardCurrency,
+    maxClaims,
+    isActive,
+    channelPhotoUrl,
+    channelUsername,
+    botUsername,
+    botLink,
+    requiredReferrals,
+    verificationType,
+  } = req.body;
+
+  if (!title || typeof title !== "string" || !title.trim()) {
     res.status(400).json({ error: "Title is required" });
     return;
   }
 
   const parsedCategory = category || "normal";
 
-  if (parsedCategory === "referral" && (!requiredReferrals || requiredReferrals <= 0)) {
+  if (parsedCategory === "referral" && (!requiredReferrals || Number(requiredReferrals) <= 0)) {
     res.status(400).json({ error: "Required referrals must be > 0" });
     return;
   }
@@ -554,21 +597,29 @@ router.post("/tasks", requireAdminPerm("canManageTasks"), async (req: AdminReque
     return;
   }
 
+  let parsedMaxClaims: number | null = null;
+  if (maxClaims !== undefined && maxClaims !== null && maxClaims !== "" && maxClaims !== "unlimited") {
+    const n = parseInt(String(maxClaims), 10);
+    if (!isNaN(n) && n > 0) {
+      parsedMaxClaims = n;
+    }
+  }
+
   const [newTask] = await db
     .insert(tasksTable)
     .values({
       category: parsedCategory,
-      title,
-      description,
-      url,
+      title: title.trim(),
+      description: description ? String(description).trim() : null,
+      url: url ? String(url).trim() : null,
       icon: icon || "⭐",
-      rewardAmount: String(rewardAmount),
+      rewardAmount: String(rewardAmount || "0.5"),
       rewardCurrency: rewardCurrency || "GO",
-      maxClaims: maxClaims ? parseInt(String(maxClaims)) : null,
+      maxClaims: parsedMaxClaims,
       channelPhotoUrl: channelPhotoUrl || null,
-      channelUsername: channelUsername || null,
-      botUsername: botUsername || null,
-      botLink: botLink || null,
+      channelUsername: channelUsername ? String(channelUsername).trim().replace(/^@/, "") : null,
+      botUsername: botUsername ? String(botUsername).trim().replace(/^@/, "") : null,
+      botLink: botLink ? String(botLink).trim() : null,
       requiredReferrals: requiredReferrals ? parseInt(String(requiredReferrals)) : null,
       verificationType: verificationType || "manual",
       isActive: isActive !== false,
@@ -576,35 +627,60 @@ router.post("/tasks", requireAdminPerm("canManageTasks"), async (req: AdminReque
     .returning();
 
   invalidateTasksCache();
-  await logAdminAudit(req.adminId!, "create_task", { taskId: newTask.id, title });
-  res.json(newTask);
+  await logAdminAudit(req.adminId!, "create_task", { taskId: newTask.id, title: newTask.title, maxClaims: parsedMaxClaims });
+  res.json({ ...newTask, claimedCount: 0 });
 });
 
 router.put("/tasks/:id", requireAdminPerm("canManageTasks"), async (req: AdminRequest, res: Response) => {
   const taskId = parseInt(String(req.params.id));
-  const { category, title, description, url, icon, rewardAmount, rewardCurrency, maxClaims, isActive, channelPhotoUrl, channelUsername, botUsername, botLink, requiredReferrals, verificationType } = req.body;
-  if (!title) {
+  const {
+    category,
+    title,
+    description,
+    url,
+    icon,
+    rewardAmount,
+    rewardCurrency,
+    maxClaims,
+    isActive,
+    channelPhotoUrl,
+    channelUsername,
+    botUsername,
+    botLink,
+    requiredReferrals,
+    verificationType,
+  } = req.body;
+
+  if (!title || typeof title !== "string" || !title.trim()) {
     res.status(400).json({ error: "Title is required" });
     return;
   }
 
   const parsedCategory = category || "normal";
 
+  let parsedMaxClaims: number | null = null;
+  if (maxClaims !== undefined && maxClaims !== null && maxClaims !== "" && maxClaims !== "unlimited") {
+    const n = parseInt(String(maxClaims), 10);
+    if (!isNaN(n) && n > 0) {
+      parsedMaxClaims = n;
+    }
+  }
+
   const [updatedTask] = await db
     .update(tasksTable)
     .set({
       category: parsedCategory,
-      title,
-      description,
-      url,
+      title: title.trim(),
+      description: description ? String(description).trim() : null,
+      url: url ? String(url).trim() : null,
       icon: icon || "⭐",
-      rewardAmount: String(rewardAmount),
+      rewardAmount: String(rewardAmount || "0.5"),
       rewardCurrency: rewardCurrency || "GO",
-      maxClaims: maxClaims ? parseInt(String(maxClaims)) : null,
+      maxClaims: parsedMaxClaims,
       channelPhotoUrl: channelPhotoUrl || null,
-      channelUsername: channelUsername || null,
-      botUsername: botUsername || null,
-      botLink: botLink || null,
+      channelUsername: channelUsername ? String(channelUsername).trim().replace(/^@/, "") : null,
+      botUsername: botUsername ? String(botUsername).trim().replace(/^@/, "") : null,
+      botLink: botLink ? String(botLink).trim() : null,
       requiredReferrals: requiredReferrals ? parseInt(String(requiredReferrals)) : null,
       verificationType: verificationType || "manual",
       isActive: isActive !== false,
@@ -613,12 +689,13 @@ router.put("/tasks/:id", requireAdminPerm("canManageTasks"), async (req: AdminRe
     .returning();
 
   invalidateTasksCache();
-  await logAdminAudit(req.adminId!, "update_task", { taskId, title });
+  await logAdminAudit(req.adminId!, "update_task", { taskId, title: updatedTask.title, maxClaims: parsedMaxClaims });
   res.json(updatedTask);
 });
 
 router.delete("/tasks/:id", requireAdminPerm("canManageTasks"), async (req: AdminRequest, res: Response) => {
   const taskId = parseInt(String(req.params.id));
+  await db.delete(userTasksTable).where(eq(userTasksTable.taskId, taskId));
   await db.delete(tasksTable).where(eq(tasksTable.id, taskId));
   invalidateTasksCache();
   await logAdminAudit(req.adminId!, "delete_task", { taskId });
