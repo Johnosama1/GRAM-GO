@@ -1,0 +1,53 @@
+--- ./artifacts/app/src/pages/GamesPage.tsx
++++ ./artifacts/app/src/pages/GamesPage.tsx
+@@ -621,4 +621,4 @@
+                 border: "1px solid rgba(34, 197, 94, 0.3)",
+                 borderRadius: "12px",
+                 padding: "3px 8px",
+-                color: "#4ade80",
++                color: SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "#9ca3af" : "#4ade80",
+                 fontSize: "10.5px",
+@@ -628,5 +628,5 @@
+                   width: 6,
+                   height: 6,
+                   borderRadius: "50%",
+-                  background: "#4ade80",
+-                  boxShadow: "0 0 6px #4ade80",
++                  background: SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "#9ca3af" : "#4ade80",
++                  boxShadow: SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "0 0 6px #9ca3af" : "0 0 6px #4ade80",
+                 }}
+               />
+-              <span>PLAYABLE NOW</span>
++              <span>{SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "COMING SOON" : "PLAYABLE NOW"}</span>
+             </div>
+           </div>
+@@ -732,3 +732,3 @@
+             <button
+-              onClick={() => setIsSwordGameOpen(true)}
++              onClick={() => { if (!(SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin)) setIsSwordGameOpen(true); }}
+               style={{
+-                background: "linear-gradient(135deg, #a855f7 0%, #7c3aed 50%, #00f2fe 100%)",
+-                border: "1px solid rgba(168, 85, 247, 0.6)",
+-                color: "#ffffff",
++                background: SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "rgba(255, 255, 255, 0.05)" : "linear-gradient(135deg, #a855f7 0%, #7c3aed 50%, #00f2fe 100%)",
++                border: SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(168, 85, 247, 0.6)",
++                color: SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "rgba(255, 255, 255, 0.4)" : "#ffffff",
+                 fontWeight: 900,
+@@ -737,4 +737,4 @@
+                 padding: "8px 18px",
+                 borderRadius: "12px",
+-                cursor: "pointer",
++                cursor: SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "not-allowed" : "pointer",
+                 display: "inline-flex",
+@@ -742,4 +742,4 @@
+                 gap: "5px",
+-                boxShadow: "0 0 20px rgba(168, 85, 247, 0.5)",
++                boxShadow: SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "none" : "0 0 20px rgba(168, 85, 247, 0.5)",
+                 transition: "all 0.2s ease",
+               }}
+@@ -747,4 +747,4 @@
+-              <span>PLAY NOW</span>
+-              <ArrowRight size={14} />
++              <span>{SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "COMING SOON" : "PLAY NOW"}</span>
++              {!(SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin) && <ArrowRight size={14} />}
+             </button>

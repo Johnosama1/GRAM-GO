@@ -1,0 +1,12 @@
+--- ./artifacts/app/src/pages/GamesPage.tsx
++++ ./artifacts/app/src/pages/GamesPage.tsx
+@@ -19,7 +19,9 @@
+ } from "lucide-react";
+
++const SWORD_ADVENTURE_ADMIN_ONLY = true;
++
+ export default function GamesPage() {
+-  const { user, refresh } = useUser();
++  const { user, refresh, isAdmin } = useUser();
+   const { isRtl } = useLanguage();
+   const [, setLocation] = useLocation();

@@ -6,9 +6,6 @@ import { eq, sql } from "drizzle-orm";
 import { requireSession, type SessionRequest } from "../middlewares/requireSession";
 import { verifyAccessMiddleware } from "../middlewares/verifyAccess";
 import crypto from "crypto";
-import { getAdminAuth } from "../lib/adminSecurity";
-
-const SWORD_ADVENTURE_ADMIN_ONLY = true;
 
 const router = Router();
 
@@ -43,12 +40,6 @@ router.post("/sword-adventure/start", requireSession, verifyAccessMiddleware, as
 
   if (!userId) {
     res.status(401).json({ error: "Session required" });
-    return;
-  }
-
-  const { isAdmin } = await getAdminAuth(userId);
-  if (SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin) {
-    res.status(403).json({ error: "Game is temporarily unavailable" });
     return;
   }
 
@@ -99,12 +90,6 @@ router.post("/sword-adventure/finish", requireSession, verifyAccessMiddleware, a
 
   if (!userId) {
     res.status(401).json({ error: "Session required" });
-    return;
-  }
-
-  const { isAdmin } = await getAdminAuth(userId);
-  if (SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin) {
-    res.status(403).json({ error: "Game is temporarily unavailable" });
     return;
   }
 
