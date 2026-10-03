@@ -28,10 +28,12 @@ import {
   adminLoginAttemptsTable,
   comboItems,
   AdminPermission,
+  uploadsTable,
 } from "@workspace/db/schema";
 import { eq, count, sql, and, or, ilike, desc, asc, sum, gte } from "drizzle-orm";
 import { addGoBalanceAndClaim } from "../lib/miningUtils";
 import { invalidateTasksCache } from "./tasks";
+import { uploadsMemoryCache, getNextFallbackId } from "./uploads";
 import { getBot } from "../bot";
 import { getChannelPhotoUrl } from "../bot/admin";
 import { setBotEnabled, clearBotEnabledCache, isBotEnabled } from "../bot/control";
@@ -444,47 +446,89 @@ router.post("/combo", requireAdminPerm("canManageTasks"), async (req: AdminReque
 
 
 
-router.post("/upload-image", express.json({ limit: "5mb" }), requireAdminPerm("canManageTasks"), async (req: AdminRequest, res: Response) => {
+const handleAdminUpload = async (req: AdminRequest, res: Response): Promise<void> => {
   try {
-    const { base64, filename } = req.body;
-    if (!base64 || !filename) {
-      res.status(400).json({ error: "Missing base64 data or filename" });
+    const { base64, filename, data, mimeType } = req.body;
+    const rawData = base64 || data;
+    if (!rawData || typeof rawData !== "string") {
+      res.status(400).json({ error: "Missing image data" });
       return;
     }
 
-    if (!process.env.BLOB_READ_WRITE_TOKEN) {
-      res.status(500).json({ error: "BLOB_READ_WRITE_TOKEN is not configured" });
+    let detectedMime = mimeType || "image/png";
+    if (rawData.startsWith("data:")) {
+      const match = rawData.match(/^data:([^;]+);base64,/);
+      if (match) {
+        detectedMime = match[1];
+      }
+    }
+
+    const cleanBase64 = rawData.includes(",") ? rawData.split(",")[1] : rawData;
+    const buffer = Buffer.from(cleanBase64, "base64");
+
+    if (buffer.length > 10 * 1024 * 1024) {
+      res.status(400).json({ error: "Image too large (max 10MB)" });
       return;
     }
 
-    // Validate mime type loosely from base64
-    if (!base64.startsWith("data:image/")) {
-      res.status(400).json({ error: "Invalid image format" });
-      return;
+    let imageUrl = "";
+
+    // 1. Try Vercel Blob if token is configured
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        const blob = await put(`tasks/${Date.now()}-${filename || "task-image"}`, buffer, {
+          access: "public",
+        });
+        if (blob?.url) {
+          imageUrl = blob.url;
+        }
+      } catch (blobErr) {
+        logger.warn({ blobErr }, "Vercel Blob put failed, falling back to database storage");
+      }
     }
 
-    // Extract buffer from base64
-    const base64Data = base64.replace(/^data:image\/\w+;base64,/, "");
-    const buffer = Buffer.from(base64Data, "base64");
+    // 2. If Blob is not available or failed, store in PostgreSQL & memory cache
+    if (!imageUrl) {
+      const cleanFilename = (filename || `task-image-${Date.now()}`).substring(0, 100);
+      let savedId: number;
 
-    // Optional: Max 2MB buffer check
-    if (buffer.length > 2 * 1024 * 1024) {
-      res.status(400).json({ error: "Image too large (max 2MB)" });
-      return;
+      try {
+        const [newUpload] = await db
+          .insert(uploadsTable)
+          .values({
+            filename: cleanFilename,
+            mimeType: detectedMime,
+            data: rawData,
+            size: buffer.length,
+          })
+          .returning();
+        savedId = newUpload.id;
+      } catch (dbErr) {
+        logger.warn({ dbErr }, "Database upload insert failed, using memory storage");
+        savedId = getNextFallbackId();
+      }
+
+      uploadsMemoryCache.set(savedId, {
+        id: savedId,
+        filename: cleanFilename,
+        mimeType: detectedMime,
+        data: rawData,
+        size: buffer.length,
+      });
+
+      imageUrl = `/api/uploads/${savedId}`;
     }
 
-    // Upload to Vercel Blob
-    const blob = await put(`tasks/${Date.now()}-${filename}`, buffer, {
-      access: "public",
-    });
-
-    await logAdminAudit(req.adminId!, "upload_task_image", { url: blob.url });
-    res.json({ url: blob.url });
+    await logAdminAudit(req.adminId!, "upload_task_image", { url: imageUrl });
+    res.json({ ok: true, url: imageUrl });
   } catch (error: any) {
-    console.error("[upload-image] Error:", error);
+    logger.error({ error }, "[upload-image] Error");
     res.status(500).json({ error: "Failed to upload image" });
   }
-});
+};
+
+router.post("/upload-image", express.json({ limit: "15mb" }), requireAdminPerm("canManageTasks"), handleAdminUpload);
+router.post("/upload", express.json({ limit: "15mb" }), requireAdminPerm("canManageTasks"), handleAdminUpload);
 
 router.post("/tasks", requireAdminPerm("canManageTasks"), async (req: AdminRequest, res: Response) => {
   const { category, title, description, url, icon, rewardAmount, rewardCurrency, maxClaims, isActive, channelPhotoUrl, channelUsername, botUsername, botLink, requiredReferrals, verificationType } = req.body;

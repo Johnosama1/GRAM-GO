@@ -99,6 +99,23 @@ async function runStartupMigrations() {
     console.warn("[startup] referrals table migration skipped:", e instanceof Error ? e.message : e);
   }
 
+  // ── Create uploads table if missing (Task Images) ─────────────────
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS uploads (
+        id         SERIAL PRIMARY KEY,
+        filename   TEXT NOT NULL,
+        mime_type  TEXT NOT NULL,
+        data       TEXT NOT NULL,
+        size       INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    console.log("[startup] uploads table OK");
+  } catch (e) {
+    console.warn("[startup] uploads table migration skipped:", e instanceof Error ? e.message : e);
+  }
+
   // ── Backfill referral_count ─────────────────────────────────────────
   // referral_count should equal the number of users who joined via this user's link.
   // Historical accounts have referral_count=0 even though referred_by is set.

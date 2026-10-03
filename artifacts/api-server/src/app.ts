@@ -39,7 +39,7 @@ app.use(cors({
     cb(null, ok);
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "x-telegram-init-data", "x-user-id", "x-session-token"],
+  allowedHeaders: ["Content-Type", "x-telegram-init-data", "x-user-id", "x-session-token", "x-admin-token", "x-admin-id"],
   exposedHeaders: ["X-Sticker-Format"],
   credentials: false,
 }));
@@ -65,9 +65,9 @@ export const authLimiter = rateLimit({
   skip: () => process.env.NODE_ENV !== "production",
 });
 
-// ── Request size limit ────────────────────────────────────────────────
-app.use(express.json({ limit: "5mb" }));
-app.use(express.urlencoded({ extended: true, limit: "16kb" }));
+// ── Request size limit (15mb for image uploads) ──────────────────────
+app.use(express.json({ limit: "15mb" }));
+app.use(express.urlencoded({ extended: true, limit: "15mb" }));
 
 // ── Logging (production only — reduces dev I/O overhead) ─────────────
 if (process.env.NODE_ENV === "production") {

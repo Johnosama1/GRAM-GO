@@ -26,6 +26,16 @@ const server = app.listen(port, (err?: Error) => {
   // DB warm-up and bot start run in parallel — neither blocks the server
   const tBot = Date.now();
   db.execute(sql`SELECT 1`).catch(() => {});
+  db.execute(sql`
+    CREATE TABLE IF NOT EXISTS uploads (
+      id         SERIAL PRIMARY KEY,
+      filename   TEXT NOT NULL,
+      mime_type  TEXT NOT NULL,
+      data       TEXT NOT NULL,
+      size       INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `).catch(() => {});
 
   if (process.env.DISABLE_BOT !== "true") {
     // Prefer explicit env var; fall back to Replit production domain auto-detection

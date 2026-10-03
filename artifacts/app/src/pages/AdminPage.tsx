@@ -16,6 +16,7 @@ import {
   AdminUser,
   UserDetailResult,
   AdminPermission,
+  resolveImageUrl,
 } from "../lib/api";
 import {
   Shield,
@@ -3348,7 +3349,7 @@ export default function AdminPage() {
                           overflow: "hidden",
                           position: "relative"
                         }}>
-                          <img src={taskForm.channelPhotoUrl} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          <img src={resolveImageUrl(taskForm.channelPhotoUrl)} alt="Preview" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                           {isUploadingImage && (
                             <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                               <div style={{ width: 16, height: 16, border: "2px solid #11ABEC", borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite" }} />
@@ -3612,19 +3613,34 @@ export default function AdminPage() {
                     background: "rgba(0,0,0,0.3)",
                     padding: "8px 12px",
                     borderRadius: 10,
+                    gap: 10,
                   }}
                 >
-                  <div>
-                    <div
-                      style={{ fontSize: 12, fontWeight: 800, color: "#fff" }}
-                    >
-                      {t.title}
-                    </div>
-                    <div
-                      style={{ fontSize: 10, color: "#11ABEC", marginTop: 2 }}
-                    >
-                      +{t.rewardAmount || "0.5"} {t.rewardCurrency || "GO"}{" "}
-                      {t.maxClaims ? `• مقاعد: ${t.maxClaims}` : ""}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+                    {t.channelPhotoUrl ? (
+                      <img
+                        src={resolveImageUrl(t.channelPhotoUrl)}
+                        alt={t.title}
+                        style={{ width: 36, height: 36, borderRadius: 8, objectFit: "cover", flexShrink: 0 }}
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                      />
+                    ) : (
+                      <div style={{ width: 36, height: 36, borderRadius: 8, background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
+                        {t.icon || "⭐"}
+                      </div>
+                    )}
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div
+                        style={{ fontSize: 12, fontWeight: 800, color: "#fff", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                      >
+                        {t.title}
+                      </div>
+                      <div
+                        style={{ fontSize: 10, color: "#11ABEC", marginTop: 2 }}
+                      >
+                        +{t.rewardAmount || "0.5"} {t.rewardCurrency || "GO"}{" "}
+                        {t.maxClaims ? `• مقاعد: ${t.maxClaims}` : ""}
+                      </div>
                     </div>
                   </div>
                   <button
@@ -3636,6 +3652,7 @@ export default function AdminPage() {
                       padding: "6px 8px",
                       color: "#E5484D",
                       cursor: "pointer",
+                      flexShrink: 0,
                     }}
                   >
                     <Trash2 size={13} />

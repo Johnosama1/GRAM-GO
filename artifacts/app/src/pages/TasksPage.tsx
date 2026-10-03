@@ -7,6 +7,7 @@ import {
   getTasksOnce,
   getCompletedTasksOnce,
   invalidateUserCaches,
+  resolveImageUrl,
 } from "../lib/api";
 import { CheckCircle, ExternalLink, Clock, Zap, Calendar } from "lucide-react";
 import { ActiveAdsTaskCard, DisabledAdsTaskCard } from "../components/ads/AdsCards";
@@ -785,7 +786,7 @@ export default function TasksPage() {
                       {task.channelPhotoUrl ? (
                         <>
                           <img
-                            src={task.channelPhotoUrl}
+                            src={resolveImageUrl(task.channelPhotoUrl)}
                             alt={task.title}
                             style={{
                               width: "100%",

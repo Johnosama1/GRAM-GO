@@ -18,6 +18,7 @@ import avatarRouter from "./avatar";
 import comboRouter from "./combo";
 import checkinRouter from "./checkin";
 import gamesRouter from "./games";
+import uploadsRouter from "./uploads";
 
 const router: IRouter = Router();
 
@@ -34,6 +35,7 @@ router.use("/wheel", wheelRouter);
 router.use("/withdrawals", withdrawalsRouter);
 router.use("/admin", adminRouter);
 router.use("/sticker", stickerRouter);
+router.use("/uploads", uploadsRouter);
 router.use(verifyRouter);
 router.use(botRouter);
 router.use(leaderboardRouter);

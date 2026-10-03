@@ -172,6 +172,18 @@ export async function apiCall<T>(path: string, options?: RequestInit): Promise<T
   return res.json();
 }
 
+export function resolveImageUrl(url?: string | null): string {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:") || url.startsWith("blob:")) {
+    return url;
+  }
+  const apiBase = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "");
+  if (url.startsWith("/")) {
+    return `${apiBase}${url}`;
+  }
+  return `${apiBase}/${url}`;
+}
+
 export const api = {
   getConfig: () => apiCall<{
     botUsername: string;
