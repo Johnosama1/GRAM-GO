@@ -804,7 +804,7 @@ export default function AdminPage() {
 
           const dataUrl = canvas.toDataURL('image/webp', 0.9);
           const res = await api.adminUploadImage(dataUrl, file.name);
-          setTaskForm({ ...taskForm, channelPhotoUrl: res.url });
+          setTaskForm(prev => ({ ...prev, channelPhotoUrl: res.url }));
           showToast("تم رفع الصورة بنجاح");
         } catch (error) {
           showToast("فشل رفع الصورة", "err");
@@ -3360,7 +3360,7 @@ export default function AdminPage() {
                             {isUploadingImage ? "جاري الرفع..." : "تغيير الصورة"}
                             <input type="file" accept="image/png, image/jpeg, image/webp" style={{ display: "none" }} onChange={handleImageUpload} disabled={isUploadingImage} />
                           </label>
-                          <button onClick={() => setTaskForm({ ...taskForm, channelPhotoUrl: "" })} style={{ fontSize: 10, color: "#EF4444", background: "rgba(239,68,68,0.1)", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" }} disabled={isUploadingImage}>
+                          <button onClick={() => setTaskForm(prev => ({ ...prev, channelPhotoUrl: "" }))} style={{ fontSize: 10, color: "#EF4444", background: "rgba(239,68,68,0.1)", border: "none", padding: "4px 8px", borderRadius: 4, cursor: "pointer" }} disabled={isUploadingImage}>
                             إزالة
                           </button>
                         </div>

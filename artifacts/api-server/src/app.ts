@@ -66,7 +66,7 @@ export const authLimiter = rateLimit({
 });
 
 // ── Request size limit ────────────────────────────────────────────────
-app.use(express.json({ limit: "16kb" }));
+app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true, limit: "16kb" }));
 
 // ── Logging (production only — reduces dev I/O overhead) ─────────────
