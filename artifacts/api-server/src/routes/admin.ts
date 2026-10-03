@@ -396,9 +396,53 @@ router.put("/welcome-message", requireAdminPerm("canManageSettings"), async (req
 
 // ── 10. TASKS & TASK SUBMISSIONS ────────────────────────────────────────────
 router.get("/tasks", async (_req: AdminRequest, res: Response) => {
+  res.setHeader("Cache-Control", "no-store, max-age=0");
   const tasks = await db.select().from(tasksTable).orderBy(desc(tasksTable.createdAt));
   res.json(tasks);
 });
+
+router.get("/combo/stats", async (req: AdminRequest, res: Response) => {
+  const todayStr = getTodayDateString();
+  const combo = await getOrCreateTodayCombo(todayStr);
+
+  const comboData = {
+    item1: comboItems.find(i => i.id === combo.item1),
+    item2: comboItems.find(i => i.id === combo.item2),
+    item3: comboItems.find(i => i.id === combo.item3),
+  };
+
+  const stats = await db
+    .select({
+      totalAttempts: count(userComboAttemptsTable.id),
+      totalSuccess: count(sql`CASE WHEN is_success = true THEN 1 END`),
+    })
+    .from(userComboAttemptsTable)
+    .where(eq(userComboAttemptsTable.comboDate, todayStr));
+
+  res.json({ combo: comboData, stats: stats[0] });
+});
+
+router.post("/combo", requireAdminPerm("canManageTasks"), async (req: AdminRequest, res: Response) => {
+  const { items } = req.body;
+  if (!Array.isArray(items) || items.length !== 3) {
+    res.status(400).json({ error: "Invalid items" });
+    return;
+  }
+
+  const todayStr = getTodayDateString();
+  await db
+    .update(dailyCombosTable)
+    .set({
+      item1: items[0],
+      item2: items[1],
+      item3: items[2],
+    })
+    .where(eq(dailyCombosTable.comboDate, todayStr));
+
+  res.json({ ok: true });
+});
+
+
 
 router.post("/upload-image", express.json({ limit: "5mb" }), requireAdminPerm("canManageTasks"), async (req: AdminRequest, res: Response) => {
   try {
@@ -474,7 +518,7 @@ router.post("/tasks", requireAdminPerm("canManageTasks"), async (req: AdminReque
       description,
       url,
       icon: icon || "⭐",
-      rewardAmount: String(rewardAmount || "5"),
+      rewardAmount: String(rewardAmount),
       rewardCurrency: rewardCurrency || "GO",
       maxClaims: maxClaims ? parseInt(String(maxClaims)) : null,
       channelPhotoUrl: channelPhotoUrl || null,
@@ -510,7 +554,7 @@ router.put("/tasks/:id", requireAdminPerm("canManageTasks"), async (req: AdminRe
       description,
       url,
       icon: icon || "⭐",
-      rewardAmount: String(rewardAmount || "5"),
+      rewardAmount: String(rewardAmount),
       rewardCurrency: rewardCurrency || "GO",
       maxClaims: maxClaims ? parseInt(String(maxClaims)) : null,
       channelPhotoUrl: channelPhotoUrl || null,

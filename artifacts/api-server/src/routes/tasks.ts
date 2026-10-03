@@ -29,11 +29,11 @@ function extractChannelUsername(url: string | null): string | null {
 router.get("/", async (_req, res) => {
   const now = Date.now();
 
-  if (_tasksCache && now - _tasksCache.ts < TASKS_TTL) {
-    res.setHeader("Cache-Control", "public, max-age=30");
-    res.json(_tasksCache.data);
-    return;
-  }
+  // if (_tasksCache && now - _tasksCache.ts < TASKS_TTL) {
+  //   res.setHeader("Cache-Control", "public, max-age=30");
+  //   res.json(_tasksCache.data);
+  //   return;
+  // }
 
   const nowDate = new Date();
   const tasks = await db.select().from(tasksTable).where(eq(tasksTable.isActive, true));

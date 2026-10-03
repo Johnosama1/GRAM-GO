@@ -140,7 +140,8 @@ router.post("/check", requireSession, verifyAccessMiddleware, async (req, res) =
   // Server-side check for active combo
   const correctCombo = await getOrCreateTodayCombo(todayStr);
   const expectedArray = [correctCombo.item1, correctCombo.item2, correctCombo.item3];
-  const isMatch = validItems.every((id, index) => id === expectedArray[index]);
+  // Order agnostic check. If exact 3 elements exist in the expected list
+  const isMatch = validItems.slice().sort().every((id, index) => id === expectedArray.slice().sort()[index]);
   const rewardFixed = isMatch ? "5.000000" : "0.000000";
 
   const tomorrow = new Date();
