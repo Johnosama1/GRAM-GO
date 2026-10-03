@@ -71,17 +71,31 @@ export default function LeaderboardPage() {
         flexDirection: "column",
         flex: 1,
         minHeight: 0,
-        overflow: "hidden",
+        overflowY: "auto",
+        WebkitOverflowScrolling: "touch",
         position: "relative",
         zIndex: 3,
         padding: "calc(max(env(safe-area-inset-top, 0px), 10px) + 12px) 14px calc(86px + env(safe-area-inset-bottom, 0px))",
       }}
     >
       {/* HEADER */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, paddingBottom: 16 }}>
+      <div style={{
+        position: "relative",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        width: "100%",
+        paddingBottom: 24,
+        paddingTop: 8
+      }}>
         <div
           onClick={() => setLocation("/referral")}
           style={{
+            position: "absolute",
+            left: 0,
+            top: "50%",
+            transform: "translateY(-50%)",
             width: 40,
             height: 40,
             borderRadius: 14,
@@ -95,7 +109,7 @@ export default function LeaderboardPage() {
         >
           <ChevronLeft size={24} color="#ffffff" />
         </div>
-        <div>
+        <div style={{ textAlign: "center" }}>
           <h1
             style={{
               color: "#ffffff",
@@ -105,6 +119,7 @@ export default function LeaderboardPage() {
               margin: 0,
               display: "flex",
               alignItems: "center",
+              justifyContent: "center",
               gap: 8,
             }}
           >
@@ -127,8 +142,7 @@ export default function LeaderboardPage() {
       <div
         style={{
           flex: 1,
-          overflowY: "auto",
-          WebkitOverflowScrolling: "touch",
+          overflow: "visible",
           display: "flex",
           flexDirection: "column",
           gap: 16,
@@ -224,8 +238,8 @@ export default function LeaderboardPage() {
                   </div>
 
                   {/* Sticker Above Avatar */}
-                  <div style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", zIndex: 10, pointerEvents: "none", marginBottom: "-20px" }}>
-                    <AnimatedSticker animationData={leaderboard2Sticker} size={70} />
+                  <div style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", zIndex: 10, pointerEvents: "none", marginBottom: "-5px" }}>
+                    <AnimatedSticker animationData={leaderboard2Sticker} size={36} />
                   </div>
                 </div>
 
@@ -296,8 +310,8 @@ export default function LeaderboardPage() {
                   </div>
 
                   {/* Sticker Above Avatar */}
-                  <div style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", zIndex: 10, pointerEvents: "none", marginBottom: "-24px" }}>
-                    <AnimatedSticker animationData={leaderboard1Sticker} size={90} />
+                  <div style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", zIndex: 10, pointerEvents: "none", marginBottom: "-5px" }}>
+                    <AnimatedSticker animationData={leaderboard1Sticker} size={44} />
                   </div>
                 </div>
 
@@ -367,8 +381,8 @@ export default function LeaderboardPage() {
                   </div>
 
                   {/* Sticker Above Avatar */}
-                  <div style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", zIndex: 10, pointerEvents: "none", marginBottom: "-20px" }}>
-                    <AnimatedSticker animationData={leaderboard3Sticker} size={70} />
+                  <div style={{ position: "absolute", bottom: "100%", left: "50%", transform: "translateX(-50%)", zIndex: 10, pointerEvents: "none", marginBottom: "-5px" }}>
+                    <AnimatedSticker animationData={leaderboard3Sticker} size={36} />
                   </div>
                 </div>
 
