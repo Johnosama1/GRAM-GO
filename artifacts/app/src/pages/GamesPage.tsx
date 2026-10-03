@@ -46,9 +46,23 @@ export default function GamesPage() {
     }
   };
 
+
   useEffect(() => {
     loadComboStatus();
   }, []);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      loadComboStatus();
+    };
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("visibilitychange", handleFocus);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("visibilitychange", handleFocus);
+    };
+  }, []);
+
 
   // Update countdown
   useEffect(() => {
@@ -203,8 +217,8 @@ export default function GamesPage() {
         ══════════════════════════════════════════════════════════════════ */}
         <div
           style={{
-            background: "linear-gradient(145deg, rgba(8, 16, 42, 0.88), rgba(4, 8, 24, 0.95))",
-            border: "1.5px solid rgba(0, 242, 254, 0.35)",
+            background: status?.attempted ? (status.isSuccess ? "rgba(34, 197, 94, 0.15)" : "rgba(239, 68, 68, 0.15)") : "linear-gradient(145deg, rgba(8, 16, 42, 0.88), rgba(4, 8, 24, 0.95))",
+            border: status?.attempted ? (status.isSuccess ? "1.5px solid #4ade80" : "1.5px solid #f87171") : "1.5px solid rgba(0, 242, 254, 0.35)",
             borderRadius: "22px",
             padding: "16px 14px",
             boxShadow: "0 8px 32px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 242, 254, 0.15)",

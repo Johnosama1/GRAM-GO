@@ -83,6 +83,16 @@ router.get("/status", requireSession, async (req, res) => {
   const tomorrow = new Date();
   tomorrow.setUTCHours(24, 0, 0, 0);
 
+
+  let parsedSelectedItems: number[] = [];
+  if (attempt?.selectedItems) {
+    if (typeof attempt.selectedItems === "string") {
+      try { parsedSelectedItems = JSON.parse(attempt.selectedItems); } catch (e) {}
+    } else if (Array.isArray(attempt.selectedItems)) {
+      parsedSelectedItems = attempt.selectedItems;
+    }
+  }
+
   res.json({
     items: comboItems.map(item => ({
       id: item.id,
@@ -93,7 +103,7 @@ router.get("/status", requireSession, async (req, res) => {
     attempted: !!attempt,
     isSuccess: attempt?.isSuccess ?? false,
     rewardClaimed: attempt?.rewardClaimed ?? false,
-    selectedItems: attempt?.selectedItems ?? [],
+    selectedItems: parsedSelectedItems,
     rewardAmount: 5,
     nextComboAt: tomorrow.toISOString(),
     serverTime: new Date().toISOString(),
@@ -118,8 +128,9 @@ router.post("/check", requireSession, verifyAccessMiddleware, async (req, res) =
     return;
   }
 
-  const unique = Array.from(new Set(selectedItems)).filter(id => id >= 1 && id <= 5);
-  if (unique.length !== 3) {
+  const validItems = selectedItems.filter(id => typeof id === "number" && id >= 1 && id <= 5);
+  const isUnique = new Set(validItems).size === 3;
+  if (validItems.length !== 3 || !isUnique) {
     res.status(400).json({ error: "Selected items must be 3 unique valid item IDs (1-5)." });
     return;
   }
@@ -129,7 +140,7 @@ router.post("/check", requireSession, verifyAccessMiddleware, async (req, res) =
   // Server-side check for active combo
   const correctCombo = await getOrCreateTodayCombo(todayStr);
   const expectedArray = [correctCombo.item1, correctCombo.item2, correctCombo.item3];
-  const isMatch = unique.length === 3 && unique.every((id, index) => id === expectedArray[index]);
+  const isMatch = validItems.every((id, index) => id === expectedArray[index]);
   const rewardFixed = isMatch ? "5.000000" : "0.000000";
 
   const tomorrow = new Date();
@@ -163,7 +174,7 @@ router.post("/check", requireSession, verifyAccessMiddleware, async (req, res) =
       await tx.insert(userComboAttemptsTable).values({
         userId,
         comboDate: todayStr,
-        selectedItems: unique,
+        selectedItems: validItems,
         isSuccess: isMatch,
         rewardClaimed: isMatch,
         rewardAmount: rewardFixed,
@@ -184,7 +195,7 @@ router.post("/check", requireSession, verifyAccessMiddleware, async (req, res) =
           type: "daily_combo",
           amount: "5.000000",
           currency: "GO",
-          details: { comboDate: todayStr, selectedItems: unique },
+          details: { comboDate: todayStr, selectedItems: validItems },
         }).catch(() => {});
       }
 
@@ -207,7 +218,7 @@ router.post("/check", requireSession, verifyAccessMiddleware, async (req, res) =
       ok: true,
       isSuccess: isMatch,
       reward: isMatch ? 5 : 0,
-      selectedItems: unique,
+      selectedItems: validItems,
       nextComboAt: tomorrow.toISOString(),
       message: isMatch
         ? "🎉 Combo Completed! You earned: +5 GO"
