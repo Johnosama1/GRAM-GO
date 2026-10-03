@@ -3744,14 +3744,14 @@ export default function AdminPage() {
             onToggle={() => toggleSection("tasks_combo")}
           >
             <div style={{ fontSize: 11, color: "#8A8F98", marginBottom: 8 }}>
-              اختر 3 عناصر لكومبو اليوم ({selectedComboItems.length}/3):
+              عناصر كومبو اليوم الرسمية:
             </div>
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(5, 1fr)",
-                gap: 6,
-                marginBottom: 12,
+                display: "flex",
+                gap: 8,
+                marginBottom: 16,
+                justifyContent: "center",
               }}
             >
               {[
@@ -3760,38 +3760,23 @@ export default function AdminPage() {
                 { id: 3, name: "GRAM Coins", image: "/combo/combo_3.png" },
                 { id: 4, name: "GRAM Flag", image: "/combo/combo_4.png" },
                 { id: 5, name: "GRAM Pickaxe", image: "/combo/combo_5.png" },
-              ].map((item) => {
-                const isSel = selectedComboItems.includes(item.id);
+              ].filter(item => selectedComboItems.includes(item.id)).map((item) => {
                 return (
-                  <button
+                  <div
                     key={item.id}
-                    onClick={() => {
-                      if (isSel) {
-                        setSelectedComboItems(
-                          selectedComboItems.filter((x) => x !== item.id),
-                        );
-                      } else if (selectedComboItems.length < 3) {
-                        setSelectedComboItems([...selectedComboItems, item.id]);
-                      }
-                    }}
                     style={{
                       display: "flex",
                       flexDirection: "column",
                       alignItems: "center",
                       justifyContent: "center",
-                      background: isSel
-                        ? "rgba(17, 171, 236, 0.25)"
-                        : "rgba(255,255,255,0.04)",
-                      border: isSel
-                        ? "2px solid #11ABEC"
-                        : "1px solid rgba(255,255,255,0.08)",
-                      borderRadius: 8,
-                      padding: "8px 2px",
-                      color: isSel ? "#11ABEC" : "#fff",
+                      gap: 4,
+                      padding: "8px 4px",
+                      borderRadius: 12,
+                      border: "2px solid #10B981",
+                      background: "rgba(16, 185, 129, 0.1)",
+                      color: "#fff",
                       fontSize: 10,
-                      fontWeight: 800,
-                      cursor: "pointer",
-                      gap: "4px",
+                      width: "80px",
                     }}
                   >
                     <img
@@ -3802,59 +3787,9 @@ export default function AdminPage() {
                     <span style={{ textAlign: "center", lineHeight: "1.2" }}>
                       {item.name}
                     </span>
-                  </button>
+                  </div>
                 );
               })}
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={() => {
-                  const items = [1, 2, 3, 4, 5];
-                  const shuffled = items.sort(() => 0.5 - Math.random());
-                  setSelectedComboItems(shuffled.slice(0, 3));
-                  showToast("تم اختيار 3 عناصر عشوائياً 🎲");
-                }}
-                style={{
-                  flex: 1,
-                  height: 42,
-                  background: "rgba(17, 171, 236, 0.2)",
-                  border: "1px solid #11ABEC",
-                  borderRadius: 12,
-                  color: "#11ABEC",
-                  fontWeight: 900,
-                  fontSize: 12,
-                  cursor: "pointer",
-                }}
-              >
-                تحديد عشوائي 🎲
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    const res = await api.adminSetCombo(selectedComboItems);
-                    if (res.ok) {
-                      showToast("تم حفظ عناصر كومبو اليوم بنجاح ✅");
-                    } else {
-                      showToast("حدث خطأ أثناء الحفظ", "err");
-                    }
-                  } catch {
-                    showToast("حدث خطأ أثناء الحفظ", "err");
-                  }
-                }}
-                style={{
-                  flex: 2,
-                  height: 42,
-                  background: "linear-gradient(135deg, #0FA0D6, #11ABEC)",
-                  border: "none",
-                  borderRadius: 12,
-                  color: "#fff",
-                  fontWeight: 900,
-                  fontSize: 12,
-                  cursor: "pointer",
-                }}
-              >
-                حفظ كومبو اليوم
-              </button>
             </div>
           </AdminAccordionSection>
 
