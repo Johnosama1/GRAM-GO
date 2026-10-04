@@ -1,62 +1,62 @@
 export const faqs = [
   {
-    question: "كيف أقوم بالإيداع؟",
-    answer: "يمكنك الإيداع عن طريق ربط محفظتك والضغط على 'إيداع' (Deposit) من صفحة المحفظة. سيتم تحويل عملات TON إلى GRAM."
+    question: "How do I deposit?",
+    answer: "You can deposit by connecting your wallet and clicking 'Deposit' on the Wallet page. TON will be converted into GRAM."
   },
   {
-    question: "كيف أقوم بالسحب؟",
-    answer: "اذهب إلى صفحة المحفظة، اختر 'سحب' (Withdraw)، أدخل المبلغ المطلوب وعنوان محفظتك، ثم قم بالتأكيد."
+    question: "How do I withdraw?",
+    answer: "Go to the Wallet page, choose 'Withdraw', enter the desired amount and your wallet address, then confirm."
   },
   {
-    question: "كم يستغرق السحب؟",
-    answer: "عادةً ما يتم معالجة عمليات السحب خلال دقائق، ولكن في بعض الأحيان قد تستغرق ما يصل إلى 24 ساعة حسب شبكة TON."
+    question: "How long does a withdrawal take?",
+    answer: "Withdrawals are usually processed within minutes, but sometimes can take up to 24 hours depending on the TON network."
   },
   {
-    question: "كيف أقوم بعمل الكومبو؟",
-    answer: "لعمل الكومبو، اذهب إلى قسم المهام اليومية ونفذ الترتيب الصحيح أو المهام المطلوبة لتحصل على المكافأة المخصصة."
+    question: "How do I complete the Daily Combo?",
+    answer: "To complete the Combo, go to the daily tasks section and arrange the correct sequence or tasks to claim the reward."
   },
   {
-    question: "ما المطلوب لاحتساب الإحالة؟",
-    answer: "يجب على الشخص الذي قمت بدعوته تسجيل الدخول إلى البوت والبدء في استخدامه حتى يتم احتساب الإحالة وإضافة المكافأة لحسابك."
+    question: "What is required for a referral to count?",
+    answer: "The invited user must log into the bot and start using it for the referral to be counted and rewarded."
   },
   {
-    question: "ما هو GRAM GO؟",
-    answer: "جرام جو هو تطبيق يتيح لك ربح العملات الرقمية من خلال إنجاز المهام، لعب الألعاب، ودعوة الأصدقاء."
+    question: "What is GRAM GO?",
+    answer: "GRAM GO is an app that lets you earn digital currency by completing tasks, playing games, and inviting friends."
   },
   {
-    question: "كيف أربط محفظتي؟",
-    answer: "من الصفحة الرئيسية أو صفحة المحفظة، اضغط على 'ربط المحفظة' (Connect Wallet) واختر المحفظة التي تستخدمها مثل Tonkeeper."
+    question: "How do I connect my wallet?",
+    answer: "From the home or wallet page, click 'Connect Wallet' and select your wallet provider (such as Tonkeeper)."
   },
   {
-    question: "ماذا يحدث إذا قمت بفصل محفظتي؟",
-    answer: "رصيدك وإنجازاتك محفوظة بأمان. يمكنك إعادة ربط محفظتك في أي وقت للاستمرار من حيث توقفت."
+    question: "What happens if I disconnect my wallet?",
+    answer: "Your balance and achievements remain safe. You can reconnect your wallet at any time to continue where you left off."
   },
   {
-    question: "كيف أكسب المزيد من عملات GO؟",
-    answer: "يمكنك زيادة أرباحك عن طريق التعدين اليومي، إكمال المهام، دعوة الأصدقاء، ولعب الألعاب المتوفرة في التطبيق."
+    question: "How do I earn more GO coins?",
+    answer: "You can increase your earnings through daily mining, completing tasks, inviting friends, and playing games in the app."
   },
   {
-    question: "هل يمكنني امتلاك حسابات متعددة؟",
-    answer: "لا، استخدام حسابات متعددة مخالف للقوانين وقد يؤدي إلى حظر حسابك وفقدان الأرصدة."
+    question: "Can I have multiple accounts?",
+    answer: "No, using multiple accounts is against the rules and may result in an account ban and loss of funds."
   },
   {
-    question: "لماذا تم رفض السحب الخاص بي؟",
-    answer: "قد يتم رفض السحب إذا كان العنوان خاطئاً، أو إذا كان الرصيد غير كافٍ، أو لوجود نشاط مشبوه. تواصل مع الدعم للمزيد من التفاصيل."
+    question: "Why was my withdrawal rejected?",
+    answer: "A withdrawal may be rejected if the address was incorrect, the balance was insufficient, or due to suspicious activity. Contact support for more details."
   },
   {
-    question: "هل هناك رسوم على السحب؟",
-    answer: "نعم، يتم خصم رسوم شبكة صغيرة من كل عملية سحب لضمان إتمام المعاملة على شبكة TON."
+    question: "Are there withdrawal fees?",
+    answer: "Yes, a small network fee is deducted from each withdrawal to cover TON blockchain transactions."
   },
   {
-    question: "كيف ألعب الألعاب؟",
-    answer: "اذهب إلى قسم 'الألعاب' (Games) واختر اللعبة التي تريدها. يمكنك كسب عملات إضافية بناءً على أدائك في اللعبة."
+    question: "How do I play games?",
+    answer: "Go to the 'Games' tab and select the game you want. You can earn extra tokens based on your performance."
   },
   {
-    question: "متى سيكون التوزيع المجاني (Airdrop)؟",
-    answer: "سيتم الإعلان عن موعد التوزيع المجاني الرسمي في قنواتنا على تيليجرام. تأكد من متابعتنا لتصلك أحدث الأخبار."
+    question: "When will the Airdrop take place?",
+    answer: "The official Airdrop date will be announced in our Telegram channels. Make sure to follow our announcements."
   },
   {
-    question: "هل جرام جو مجاني؟",
-    answer: "نعم، الانضمام واللعب مجاني تماماً. يمكنك البدء في جمع العملات دون الحاجة لأي استثمار مبدئي."
+    question: "Is GRAM GO free to use?",
+    answer: "Yes, joining and playing is completely free. You can start collecting coins without any upfront investment."
   }
 ];

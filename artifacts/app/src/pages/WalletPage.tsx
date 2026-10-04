@@ -161,8 +161,8 @@ export default function WalletPage() {
     setSwapError(""); setSwapResult(null);
     const available = gramBalance > 0 ? gramBalance : usdtBalance;
     const amt = swapAmtNum || available;
-    if (amt <= 0) { setSwapError("أدخل مبلغاً"); return; }
-    if (amt > available) { setSwapError("الرصيد غير كافٍ"); return; }
+    if (amt <= 0) { setSwapError("Please enter an amount"); return; }
+    if (amt > available) { setSwapError("Insufficient balance"); return; }
     setSwapping(true);
     try {
       const res = gramBalance > 0
@@ -174,7 +174,7 @@ export default function WalletPage() {
       setSwapAmount("");
       getWithdrawalsOnce(user.id).then(setHistory).catch(() => {});
     } catch (e: unknown) {
-      setSwapError(e instanceof Error ? e.message : "فشل التحويل");
+      setSwapError(e instanceof Error ? e.message : "Swap failed");
     } finally { setSwapping(false); }
   };
 
@@ -246,8 +246,8 @@ export default function WalletPage() {
             <ChevronLeft size={17} color="#fff" />
           </button>
           <div>
-            <div style={{ color: "#fff", fontSize: 19, fontWeight: 900, fontStyle: "italic", letterSpacing: -0.3 }}>المحفظة والتبديل</div>
-            <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, marginTop: 1 }}>تبديل الجرام وسحب الأرباح</div>
+            <div style={{ color: "#fff", fontSize: 19, fontWeight: 900, fontStyle: "italic", letterSpacing: -0.3 }}>Wallet & Swap</div>
+            <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, marginTop: 1 }}>Swap Gram and withdraw earnings</div>
           </div>
         </div>
 
@@ -269,7 +269,7 @@ export default function WalletPage() {
               <div style={{ color: "#fbbf24", fontWeight: 900, fontSize: 20, letterSpacing: -0.5, lineHeight: 1 }}>{gramBalance.toFixed(4)}</div>
             </div>
             <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 9, marginTop: 4 }}>
-              {tonPrice ? `≈ ${(gramBalance / tonPrice).toFixed(3)} TON` : "عملات مُعدّنة"}
+              {tonPrice ? `≈ ${(gramBalance / tonPrice).toFixed(3)} TON` : "Mined Coins"}
             </div>
           </div>
 
@@ -287,7 +287,7 @@ export default function WalletPage() {
             </div>
             <div style={{ color: "#fff", fontWeight: 900, fontSize: 20, letterSpacing: -0.5, lineHeight: 1 }}>{tonBalance.toFixed(4)}</div>
             <div style={{ color: "rgba(255,255,255,0.30)", fontSize: 9, marginTop: 4 }}>
-              {tonPrice ? `≈ $${(tonBalance * tonPrice).toFixed(2)} USD` : "جاهز للسحب"}
+              {tonPrice ? `≈ $${(tonBalance * tonPrice).toFixed(2)} USD` : "Ready to withdraw"}
             </div>
           </div>
         </div>
@@ -314,7 +314,7 @@ export default function WalletPage() {
               display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
             }}>
               {t === "swap" ? <ArrowDownUp size={13} /> : <Send size={13} />}
-              {t === "swap" ? "تبديل الجرام إلى TON" : "سحب Gram"}
+              {t === "swap" ? "Swap Gram to TON" : "Withdraw Gram"}
             </button>
           ))}
         </div>
@@ -342,12 +342,12 @@ export default function WalletPage() {
               {/* You send */}
               <div style={{ padding: "16px 16px 12px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5 }}>المراد تبديله</span>
+                  <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5 }}>YOU SEND</span>
                   <span style={{
                     background: "rgba(251,191,36,0.15)", border: "1px solid rgba(251,191,36,0.28)",
                     borderRadius: 8, padding: "2px 8px",
                     color: "#fbbf24", fontSize: 9, fontWeight: 800,
-                  }}>رصيدك: {gramBalance.toFixed(4)} Gram</span>
+                  }}>Balance: {gramBalance.toFixed(4)} Gram</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <input
@@ -392,7 +392,7 @@ export default function WalletPage() {
               {/* You receive */}
               <div style={{ padding: "12px 16px 16px" }}>
                 <div style={{ marginBottom: 10 }}>
-                  <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5 }}>المستلم بـ TON</span>
+                  <span style={{ color: "rgba(255,255,255,0.35)", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5 }}>YOU RECEIVE (ESTIMATED TON)</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div style={{
@@ -440,7 +440,7 @@ export default function WalletPage() {
                       opacity: disabled ? 0.32 : 1,
                       boxShadow: isSelected ? "0 2px 10px rgba(251,191,36,0.35)" : "none",
                     }}>
-                    {isMax ? "الكل" : p}
+                    {isMax ? "MAX" : p}
                   </button>
                 );
               })}

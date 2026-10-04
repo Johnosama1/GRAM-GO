@@ -128,14 +128,14 @@ export default function TasksPage() {
       } else {
         setMessage({
           taskId: "promo",
-          text: res.error || "خطأ غير معروف",
+          text: res.error || "Unknown error",
           type: "error",
         });
       }
     } catch (err: any) {
       setMessage({
         taskId: "promo",
-        text: err.message || "حدث خطأ أثناء الاتصال بالخادم",
+        text: err.message || "Failed to connect to the server",
         type: "error",
       });
     } finally {
@@ -193,7 +193,7 @@ export default function TasksPage() {
     if (!targetUrl) {
       setMessage({
         taskId: task.id,
-        text: "رابط المهمة غير متوفر",
+        text: "Task URL is not available",
         type: "error",
       });
       return;
@@ -211,7 +211,7 @@ export default function TasksPage() {
       setCompleted((prev) => (prev.includes(task.id) ? prev : [...prev, task.id]));
       setMessage({
         taskId: task.id,
-        text: "✅ تم إنجاز المهمة! حصلت على المكافأة بنجاح!",
+        text: "✅ Task completed! You received your reward!",
         type: "success",
       });
       await refresh();
@@ -219,7 +219,7 @@ export default function TasksPage() {
     } catch (e: unknown) {
       setMessage({
         taskId: task.id,
-        text: e instanceof Error ? e.message : "فشل التحقق من المهمة",
+        text: e instanceof Error ? e.message : "Task verification failed",
         type: "error",
       });
     } finally {
@@ -362,7 +362,7 @@ export default function TasksPage() {
 
 
 {/* ══════════════════════════════════════════════════════════════════
-          1. DAILY CHECK-IN CARD (التسجيل اليومي)
+          1. DAILY CHECK-IN CARD
       ══════════════════════════════════════════════════════════════════ */}
         {checkin && (selectedCategory === "daily" || selectedCategory === "all") && (
           <div
@@ -408,16 +408,6 @@ export default function TasksPage() {
                     style={{ color: "#ffffff", fontWeight: 900, fontSize: 14 }}
                   >
                     Daily Check-in
-                  </span>
-                  <span
-                    style={{
-                      color: "rgba(255,255,255,0.45)",
-                      fontSize: 11,
-                      marginRight: 6,
-                      marginLeft: 6,
-                    }}
-                  >
-                    • التسجيل اليومي
                   </span>
                 </div>
               </div>
@@ -975,7 +965,7 @@ export default function TasksPage() {
                           }}
                         >
                           <CheckCircle size={14} color="#34d399" />
-                          <span>مكتملة</span>
+                          <span>Completed</span>
                         </div>
                       ) : (
                         <button

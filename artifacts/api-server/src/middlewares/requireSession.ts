@@ -83,5 +83,5 @@ export function requireSession(
     }
   }
 
-  res.status(401).json({ error: "session_required", message: "يجب فتح التطبيق من تيليجرام" });
+  res.status(401).json({ error: "session_required", message: "Session required: please open app from Telegram" });
 }

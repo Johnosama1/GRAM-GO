@@ -131,13 +131,13 @@ export async function resolveActiveWallet(client: TonClient): Promise<ResolvedWa
   const secret = await getEffectiveMnemonic();
   if (!secret) {
     throw new Error(
-      "محفظة البوت غير مهيأة: يرجى وضع الكلمات السرية في متغير OWNER_SECRET_KEY (TON_WALLET_MNEMONIC not configured)",
+      "Bot wallet is not configured: please set OWNER_SECRET_KEY / TON_WALLET_MNEMONIC in environment variables",
     );
   }
 
   const keyCandidates = await getAllCandidateKeyPairs(secret);
   if (keyCandidates.length === 0) {
-    throw new Error("فشل فك تشفير الكلمات السرية أو المفتاح السري لمحفظة البوت");
+    throw new Error("Failed to decrypt bot wallet secret key or mnemonic");
   }
 
   // Build all contract variations for all key derivation paths
@@ -302,9 +302,8 @@ export async function sendTon(
       const formattedBalance = (Number(currentBalance) / 1e9).toFixed(4);
       throw new Error(
         `Insufficient wallet balance: ${formattedBalance} TON.\n` +
-        `رصيد محفظة السحب غير كافٍ (${formattedBalance} TON).\n` +
         `Required: withdrawal amount (${amountTon} TON) + transaction fees (0.01 TON).\n` +
-        `يرجى شحن المحفظة بـ TON لتغطية مبلغ السحب والرسوم على العنوان:\n${fromStr}`
+        `Send TON to: ${fromStr}`
       );
     }
 

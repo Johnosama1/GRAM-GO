@@ -58,7 +58,7 @@ router.post("/init", telegramAuth, async (req, res) => {
       .returning();
 
     if (user.isVisible === false) {
-      res.status(403).json({ error: "محظور", banned: true });
+      res.status(403).json({ error: "banned", banned: true });
       return;
     }
 
@@ -188,7 +188,7 @@ router.post("/:id/spin", requireSession, spinRateLimit, verifyAccessMiddleware, 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
 
   if (!user) { res.status(404).json({ error: "User not found" }); return; }
-  if (user.isVisible === false) { res.status(403).json({ error: "محظور", banned: true }); return; }
+  if (user.isVisible === false) { res.status(403).json({ error: "banned", banned: true }); return; }
   if (user.spins <= 0) { res.status(400).json({ error: "No spins available" }); return; }
 
   const slots = await db.select().from(wheelSlotsTable).orderBy(wheelSlotsTable.displayOrder);
@@ -255,7 +255,7 @@ router.post("/:id/swap", requireSession, verifyAccessMiddleware, async (req, res
   const { usdtAmount, gramAmount } = req.body;
   const isGram = gramAmount !== undefined && gramAmount !== null;
   const amt = parseFloat(String(isGram ? gramAmount : usdtAmount));
-  if (isNaN(amt) || amt <= 0) { res.status(400).json({ error: "مبلغ غير صحيح" }); return; }
+  if (isNaN(amt) || amt <= 0) { res.status(400).json({ error: "Invalid amount" }); return; }
 
   // Fetch live TON/USD price from CoinGecko
   let tonUsdPrice: number;
@@ -329,9 +329,9 @@ router.post("/:id/swap", requireSession, verifyAccessMiddleware, async (req, res
     if (err.message === "User not found") {
       res.status(404).json({ error: "User not found" });
     } else if (err.message === "Insufficient Gram balance") {
-      res.status(400).json({ error: "رصيد الجرام غير كافٍ" });
+      res.status(400).json({ error: "Insufficient Gram balance" });
     } else if (err.message === "Insufficient GO balance") {
-      res.status(400).json({ error: "الرصيد غير كافٍ" });
+      res.status(400).json({ error: "Insufficient balance" });
     } else {
       res.status(500).json({ error: "Failed to process swap" });
     }
@@ -349,7 +349,7 @@ router.post("/:id/swap-gram-to-go", requireSession, verifyAccessMiddleware, asyn
 
   const { gramAmount } = req.body;
   const amt = parseFloat(String(gramAmount));
-  if (isNaN(amt) || amt <= 0) { res.status(400).json({ error: "مبلغ غير صحيح" }); return; }
+  if (isNaN(amt) || amt <= 0) { res.status(400).json({ error: "Invalid amount" }); return; }
 
   const rawRate = await getSetting("gram_to_go_rate").catch(() => null);
   const rate = rawRate ? Math.max(1, parseFloat(rawRate)) : 1000; // 1 GRAM = 1000 GO
@@ -398,7 +398,7 @@ router.post("/:id/swap-gram-to-go", requireSession, verifyAccessMiddleware, asyn
     if (err.message === "User not found") {
       res.status(404).json({ error: "User not found" });
     } else if (err.message === "Insufficient Gram balance") {
-      res.status(400).json({ error: "رصيد الجرام غير كافٍ" });
+      res.status(400).json({ error: "Insufficient Gram balance" });
     } else {
       res.status(500).json({ error: "Failed to process swap" });
     }
@@ -407,7 +407,7 @@ router.post("/:id/swap-gram-to-go", requireSession, verifyAccessMiddleware, asyn
 
 // ── Swap GO balance → Gram balance (Disabled: Gram to GO only) ──────────────
 router.post("/:id/swap-go-to-gram", requireSession, verifyAccessMiddleware, async (req, res) => {
-  res.status(400).json({ error: "التبديل متاح من Gram إلى GO فقط" });
+  res.status(400).json({ error: "Swapping is only available from Gram to GO" });
 });
 
 // ── Save / update wallet address ────────────────────────────────────
@@ -430,7 +430,7 @@ router.put("/:id/wallet", requireSession, verifyAccessMiddleware, async (req, re
   if (!clear) {
     clean = String(walletAddress).trim();
     if (!TON_ADDRESS_RE.test(clean)) {
-      res.status(400).json({ error: "عنوان محفظة TON غير صحيح." });
+      res.status(400).json({ error: "Invalid TON wallet address." });
       return;
     }
   }

@@ -68,12 +68,12 @@ export default function SwapModal({ isOpen, onClose, onSuccess }: SwapModalProps
     setSuccessResult(null);
 
     if (inputAmt <= 0) {
-      setError("يرجى إدخال كمية صحيحة من Gram.");
+      setError("Please enter a valid Gram amount.");
       return;
     }
 
     if (inputAmt > gramBalance) {
-      setError("رصيد Gram غير كافٍ لإتمام التبديل.");
+      setError("Insufficient Gram balance to complete swap.");
       return;
     }
 
@@ -90,7 +90,7 @@ export default function SwapModal({ isOpen, onClose, onSuccess }: SwapModalProps
         onSuccess?.();
       }
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "فشل التبديل. يرجى المحاولة لاحقاً.");
+      setError(e instanceof Error ? e.message : "Swap failed. Please try again later.");
     } finally {
       setSwapping(false);
     }
@@ -402,7 +402,7 @@ export default function SwapModal({ isOpen, onClose, onSuccess }: SwapModalProps
           >
             <CheckCircle2 size={16} color="#4ade80" />
             <span style={{ color: "#4ade80", fontSize: 12, fontWeight: 800 }}>
-              تم تبديل {successResult.gramAmount} Gram → +{successResult.goAmount} GO بنجاح!
+              Successfully swapped {successResult.gramAmount} Gram → +{successResult.goAmount} GO!
             </span>
           </div>
         )}
@@ -452,12 +452,12 @@ export default function SwapModal({ isOpen, onClose, onSuccess }: SwapModalProps
           {swapping ? (
             <>
               <Loader2 size={16} style={{ animation: "spinSlow 1s linear infinite" }} />
-              <span>جاري التبديل...</span>
+              <span>Swapping...</span>
             </>
           ) : (
             <>
               <Zap size={16} />
-              <span>تبديل Gram إلى GO</span>
+              <span>Swap Gram to GO</span>
             </>
           )}
         </button>

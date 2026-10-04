@@ -91,7 +91,7 @@ export async function requireAdminAuth(
   }
 
   if (!userId || isNaN(userId) || userId <= 0) {
-    res.status(401).json({ error: "unauthorized", message: "جلسة تليجرام غير صالحة" });
+    res.status(401).json({ error: "unauthorized", message: "Invalid Telegram admin session" });
     return;
   }
 
@@ -99,7 +99,7 @@ export async function requireAdminAuth(
   const adminAuth = await getAdminAuth(userId);
   if (!adminAuth.isAdmin) {
     logger.warn({ userId, ip: req.ip }, "Unauthorized attempt to access admin endpoints");
-    res.status(403).json({ error: "forbidden", message: "هذا الحساب ليس لديه صلاحيات الأدمن" });
+    res.status(403).json({ error: "forbidden", message: "This account does not have admin privileges" });
     return;
   }
 
@@ -115,7 +115,7 @@ export function requireAdminPerm(_perm?: import("@workspace/db/schema").AdminPer
   return (req: AdminRequest, res: Response, next: NextFunction): void => {
     const admin = req.adminUser;
     if (!admin || !admin.isAdmin) {
-      res.status(403).json({ error: "forbidden", message: "صلاحيات غير كافية" });
+      res.status(403).json({ error: "forbidden", message: "Insufficient permissions" });
       return;
     }
 

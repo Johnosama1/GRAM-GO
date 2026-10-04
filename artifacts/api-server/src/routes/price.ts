@@ -36,7 +36,7 @@ router.get("/price/ton", async (_req, res) => {
     if (cachedPrice) {
       res.json({ usd: cachedPrice, cached: true, stale: true });
     } else {
-      res.status(502).json({ error: "تعذّر جلب سعر TON" });
+      res.status(502).json({ error: "Failed to fetch TON price" });
     }
   }
 });

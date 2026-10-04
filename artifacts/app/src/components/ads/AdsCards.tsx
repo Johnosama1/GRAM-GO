@@ -43,7 +43,7 @@ export function ActiveAdsTaskCard({
           });
           setMessage({
             taskId: "ad",
-            text: `✅ إعلان مكتمل! حصلت على +${res.rewardAmount} GO`,
+            text: `✅ Ad completed! You received +${res.rewardAmount} GO`,
             type: "success",
           });
           refresh();
@@ -51,7 +51,7 @@ export function ActiveAdsTaskCard({
       }).catch(err => {
         setMessage({
           taskId: "ad",
-          text: err.message || "حدث خطأ.",
+          text: err.message || "An error occurred.",
           type: "error",
         });
       }).finally(() => {

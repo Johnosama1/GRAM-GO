@@ -128,12 +128,12 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
         throw new Error("User not found");
       }
       if (user.isVisible === false) {
-        throw new Error("محظور");
+        throw new Error("banned");
       }
 
       const calc = calculateUserMining(user, globalRate, startMinerVisible);
       if (calc.unclaimedGram < 0.000001) {
-        throw new Error("لا توجد أرباح كافية للتجميع حالياً");
+        throw new Error("Not enough mining rewards to collect at this time");
       }
 
       const claimed = calc.unclaimedGram;
@@ -180,10 +180,10 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
   } catch (err: any) {
     if (err.message === "User not found") {
       res.status(404).json({ error: "User not found" });
-    } else if (err.message === "محظور") {
-      res.status(403).json({ error: "محظور", banned: true });
-    } else if (err.message === "لا توجد أرباح كافية للتجميع حالياً" || err.message === "Conflict: already claimed") {
-      res.status(400).json({ error: "لا توجد أرباح كافية للتجميع حالياً" });
+    } else if (err.message === "banned" || err.message === "محظور") {
+      res.status(403).json({ error: "banned", banned: true });
+    } else if (err.message === "Not enough mining rewards to collect at this time" || err.message === "لا توجد أرباح كافية للتجميع حالياً" || err.message === "Conflict: already claimed") {
+      res.status(400).json({ error: "Not enough mining rewards to collect at this time" });
     } else {
       res.status(500).json({ error: "Failed to claim mining rewards" });
     }

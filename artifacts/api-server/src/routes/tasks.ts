@@ -126,7 +126,7 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
     const userReferralsCount = userRefCheck?.referralCount || 0;
     const reqReferrals = task.requiredReferrals || 0;
     if (userReferralsCount < reqReferrals) {
-      res.status(400).json({ error: "لم تصل لعدد الإحالات المطلوب" });
+      res.status(400).json({ error: "Required referral count not reached" });
       return;
     }
   }
@@ -137,14 +137,14 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
 
   if (isChannelTask) {
     if (!channelIdentifier) {
-      res.status(400).json({ error: "بيانات القناة غير مكتملة للتحقق من العضوية" });
+      res.status(400).json({ error: "Incomplete channel data for membership verification" });
       return;
     }
 
     const memResult = await verifyUserChannelMembership(userId, channelIdentifier);
     if (!memResult.isMember) {
       res.status(400).json({
-        error: memResult.error || "يرجى الانضمام للقناة أولاً ثم الضغط على تحقق",
+        error: memResult.error || "Please join the channel first, then click verify",
       });
       return;
     }
@@ -228,7 +228,7 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
     if (err.message === "Already completed") {
       res.status(400).json({ error: "Already completed" });
     } else if (err.message === "Task seats limit reached") {
-      res.status(400).json({ error: "تم اكتمال العدد المتاح لهذه المهمة" });
+      res.status(400).json({ error: "The available slots for this task have been filled" });
     } else {
       res.status(500).json({ error: err.message || "Failed to process task completion" });
     }
@@ -402,7 +402,7 @@ router.post("/promo/redeem", requireSession, verifyAccessMiddleware, async (req,
 
   const { code } = req.body;
   if (!code || typeof code !== "string" || code.trim() === "") {
-    res.status(400).json({ error: "الرجاء إدخال كود صحيح" });
+    res.status(400).json({ error: "Please enter a valid code" });
     return;
   }
 
@@ -418,15 +418,15 @@ router.post("/promo/redeem", requireSession, verifyAccessMiddleware, async (req,
         .limit(1);
 
       if (!promo) {
-        throw new Error("الكود غير صحيح أو غير موجود");
+        throw new Error("Invalid or non-existent code");
       }
 
       if (promo.isActive !== "true") {
-        throw new Error("هذا الكود غير نشط حالياً");
+        throw new Error("This code is currently inactive");
       }
 
       if (promo.expiresAt && new Date(promo.expiresAt) < new Date()) {
-        throw new Error("هذا الكود منتهي الصلاحية");
+        throw new Error("This code has expired");
       }
 
       // 2. Claim the code (this will throw if already claimed due to unique constraint)
@@ -437,7 +437,7 @@ router.post("/promo/redeem", requireSession, verifyAccessMiddleware, async (req,
         });
       } catch (insertError: any) {
         if (insertError.code === "23505" || insertError.message.includes("unique constraint")) {
-          throw new Error("لقد قمت باستخدام هذا الكود مسبقاً");
+          throw new Error("You have already redeemed this code");
         }
         throw insertError;
       }
@@ -460,7 +460,7 @@ router.post("/promo/redeem", requireSession, verifyAccessMiddleware, async (req,
         .returning();
 
       if (updateResult.length === 0) {
-        throw new Error("تم الوصول للحد الأقصى لاستخدام هذا الكود");
+        throw new Error("Maximum uses reached for this code");
       }
 
       // 5. Grant Reward
@@ -468,7 +468,7 @@ router.post("/promo/redeem", requireSession, verifyAccessMiddleware, async (req,
       let message = "";
       if (promo.rewardType === "GO") {
         await addGoBalanceAndClaim(tx, userId, amount);
-        message = `تم تفعيل الكود بنجاح وحصلت على ${amount} GO`;
+        message = `Code redeemed successfully! You received ${amount} GO`;
       } else {
         // Gram or TON
         const [user] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
@@ -480,7 +480,7 @@ router.post("/promo/redeem", requireSession, verifyAccessMiddleware, async (req,
             .set({ gramBalance: sql`COALESCE(gram_balance, 0) + ${amount}` })
             .where(eq(usersTable.id, userId));
         }
-        message = `تم تفعيل الكود بنجاح وحصلت على ${amount} Gram`;
+        message = `Code redeemed successfully! You received ${amount} Gram`;
       }
 
       return { success: true, message, amount, currency: promo.rewardType };
@@ -488,7 +488,7 @@ router.post("/promo/redeem", requireSession, verifyAccessMiddleware, async (req,
 
     res.json(result);
   } catch (err: any) {
-    res.status(400).json({ error: err.message || "حدث خطأ أثناء تفعيل الكود" });
+    res.status(400).json({ error: err.message || "An error occurred while redeeming the code" });
   }
 });
 

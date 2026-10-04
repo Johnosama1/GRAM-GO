@@ -50,7 +50,7 @@ const globalLimiter = rateLimit({
   max: 120,               // max 120 requests per IP per minute
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "طلبات كثيرة، حاول لاحقاً" },
+  message: { error: "Too many requests, please try again later" },
   skip: () => process.env.NODE_ENV !== "production",
 });
 app.use(globalLimiter);
@@ -61,7 +61,7 @@ export const authLimiter = rateLimit({
   max: 30,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "محاولات كثيرة، انتظر دقيقة" },
+  message: { error: "Too many attempts, please wait a minute" },
   skip: () => process.env.NODE_ENV !== "production",
 });
 

@@ -137,7 +137,7 @@ router.get("/verify-access", async (req, res) => {
       res.json({
         allowed: false,
         enforced: true,
-        message: "يجب إعادة الانضمام للقنوات المطلوبة للمتابعة",
+        message: "You must rejoin the required channels to continue",
         missingChannels: result.missingChannels,
         requiredChannels: result.requiredChannels,
       });

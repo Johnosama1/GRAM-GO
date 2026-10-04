@@ -89,7 +89,7 @@ export function verifyAccessMiddleware(
       if (!result.allowed) {
         res.status(403).json({
           error: "subscription_blocked",
-          message: "يجب إعادة الانضمام للقنوات المطلوبة للمتابعة",
+          message: "You must rejoin the required channels to continue",
           missingChannels: result.missingChannels,
           requiredChannels: result.requiredChannels,
         });

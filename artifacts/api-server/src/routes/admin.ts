@@ -84,7 +84,7 @@ const adminLimiter = rateLimit({
   max: 180,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "طلبات كثيرة على لوحة الإدارة" },
+  message: { error: "Too many requests to admin panel" },
   skip: () => process.env.NODE_ENV !== "production",
 });
 router.use(adminLimiter);
@@ -238,13 +238,13 @@ router.get("/broadcast/progress", requireAdminPerm("canBroadcast"), async (req: 
 router.post("/broadcast", requireAdminPerm("canBroadcast"), async (req: AdminRequest, res: Response) => {
   const { message, entities, pin } = req.body;
   if (!message || typeof message !== "string" || !message.trim()) {
-    res.status(400).json({ error: "نص الرسالة مطلوب" });
+    res.status(400).json({ error: "Message text is required" });
     return;
   }
 
   const bot = getBot();
   if (!bot) {
-    res.status(500).json({ error: "بوت تليجرام غير متصل حالياً" });
+    res.status(500).json({ error: "Telegram bot is currently offline" });
     return;
   }
 
@@ -272,7 +272,7 @@ router.get("/maintenance", async (_req: AdminRequest, res: Response) => {
   res.json({
     maintenanceMode: !enabled,
     botEnabled: enabled,
-    message: customText || "البوت تحت الصيانة حالياً",
+    message: customText || "The bot is currently under maintenance",
   });
 });
 
@@ -303,13 +303,13 @@ router.post("/transfer", requireAdminPerm("canManageWallet"), async (req: AdminR
   const amountNum = parseFloat(String(amount));
 
   if (isNaN(targetId) || targetId <= 0 || isNaN(amountNum) || amountNum <= 0) {
-    res.status(400).json({ error: "الآيدي والمبلغ يجب أن يكونا صحيحين" });
+    res.status(400).json({ error: "User ID and amount must be valid" });
     return;
   }
 
   const [targetUser] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
   if (!targetUser) {
-    res.status(404).json({ error: "المستخدم غير موجود" });
+    res.status(404).json({ error: "User not found" });
     return;
   }
 
@@ -602,14 +602,14 @@ router.post("/tasks", requireAdminPerm("canManageTasks"), async (req: AdminReque
   if (parsedCategory === "channel") {
     const channelTarget = resolvedChatId || channelUsername || url;
     if (!channelTarget) {
-      res.status(400).json({ error: "معرف القناة أو رابطها مطلوب" });
+      res.status(400).json({ error: "Channel identifier or link is required" });
       return;
     }
 
     const adminCheck = await checkBotChannelAdmin(String(channelTarget));
     if (!adminCheck.isAdmin) {
       res.status(400).json({
-        error: adminCheck.error || "البوت ليس مشرفاً في القناة. يرجى إضافة بوت GRAM GO كمشرف في القناة أولاً.",
+        error: adminCheck.error || "Bot is not an administrator in the channel. Please add GRAM GO bot as an administrator in the channel first.",
       });
       return;
     }
@@ -698,7 +698,7 @@ router.put("/tasks/:id", requireAdminPerm("canManageTasks"), async (req: AdminRe
       const adminCheck = await checkBotChannelAdmin(String(channelTarget));
       if (!adminCheck.isAdmin) {
         res.status(400).json({
-          error: adminCheck.error || "البوت ليس مشرفاً في القناة. يرجى إضافة بوت GRAM GO كمشرف في القناة أولاً.",
+          error: adminCheck.error || "Bot is not an administrator in the channel. Please add GRAM GO bot as an administrator in the channel first.",
         });
         return;
       }
@@ -945,7 +945,7 @@ router.get("/users/:id", requireAdminPerm("canManageUsers"), async (req: AdminRe
 
 router.post("/users/:id/ban", requireAdminPerm("canBanUsers"), async (req: AdminRequest, res: Response) => {
   const targetId = parseInt(String(req.params.id));
-  const reason = req.body?.reason ? String(req.body.reason).trim() : "مخالفة الشروط والاحتيال";
+  const reason = req.body?.reason ? String(req.body.reason).trim() : "Terms of service violation and fraud";
   await db.update(usersTable).set({ isVisible: false }).where(eq(usersTable.id, targetId));
   await db.insert(bansTable).values({
     userId: targetId,
@@ -1013,13 +1013,13 @@ router.post("/users/:id/balance", requireAdminPerm("canManageUsers"), async (req
 
   const amountNum = parseFloat(String(amount));
   if (isNaN(amountNum) || amountNum < 0 || !["add", "deduct", "correct"].includes(type)) {
-    res.status(400).json({ error: "بيانات غير صالحة" });
+    res.status(400).json({ error: "Invalid data" });
     return;
   }
 
   const [target] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
   if (!target) {
-    res.status(404).json({ error: "المستخدم غير موجود" });
+    res.status(404).json({ error: "User not found" });
     return;
   }
 
@@ -1041,7 +1041,7 @@ router.post("/users/:id/balance", requireAdminPerm("canManageUsers"), async (req
     type: `admin_${type}`,
     amount: String(Math.abs(newBalance - previousBalance)),
     currency,
-    details: { reason: reason || "تعديل إداري", adminId: req.adminId! },
+    details: { reason: reason || "Administrative adjustment", adminId: req.adminId! },
   });
   await logAdminAudit(req.adminId!, "adjust_balance", { type, currency, amount: amountNum, previousBalance, newBalance, reason }, targetId);
 
@@ -1059,17 +1059,17 @@ router.post("/users/:id/message", requireAdminPerm("canManageUsers"), async (req
   const targetId = parseInt(String(req.params.id));
   const { message, isWarning } = req.body as { message: string; isWarning?: boolean };
   if (!message || !message.trim()) {
-    res.status(400).json({ error: "نص الرسالة مطلوب" });
+    res.status(400).json({ error: "Message text is required" });
     return;
   }
 
   const bot = getBot();
-  const prefix = isWarning ? "⚠️ <b>تنبيه من الإدارة</b>\n\n" : "📩 <b>رسالة من الإدارة</b>\n\n";
+  const prefix = isWarning ? "⚠️ <b>Warning from Administration</b>\n\n" : "📩 <b>Message from Administration</b>\n\n";
   try {
     await bot.sendMessage(targetId, prefix + message.trim(), { parse_mode: "HTML" });
   } catch (err) {
     logger.error({ err, targetId }, "Failed to send admin message to user");
-    res.status(502).json({ error: "فشل إرسال الرسالة، ربما المستخدم حظر البوت" });
+    res.status(502).json({ error: "Failed to send message, user may have blocked the bot" });
     return;
   }
 
@@ -1317,7 +1317,7 @@ router.post("/mining/rate", requireAdminPerm("canManageSettings"), async (req: A
   const num = parseFloat(String(rate));
 
   if (isNaN(num) || num <= 0 || num > 1) {
-    res.status(400).json({ error: "النسبة يجب أن تكون رقم بين 0.0001 (0.01%) و 1.0 (100%)" });
+    res.status(400).json({ error: "Rate must be a number between 0.0001 (0.01%) and 1.0 (100%)" });
     return;
   }
 

@@ -232,8 +232,8 @@ export async function executeAutoWithdrawal(
       try {
         await bot.sendMessage(
           userId,
-          `❌ فشل إرسال ${parseFloat(amount).toFixed(4)} Gram.\n` +
-            `تم إعادة المبلغ لرصيدك. حاول مرة أخرى لاحقاً.`,
+          `❌ Failed to send ${parseFloat(amount).toFixed(4)} Gram.\n` +
+            `The amount has been refunded to your balance. Please try again later.`,
         );
       } catch {
         /* ignore */

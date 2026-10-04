@@ -168,10 +168,10 @@ function BannedScreen() {
         boxShadow: "0 12px 36px rgba(0,0,0,0.6)",
       }}>
         <h2 style={{ color: "#f87171", fontWeight: 800, fontSize: 22, margin: "0 0 14px", letterSpacing: "0.3px" }}>
-          الحساب معطل
+          Account Suspended
         </h2>
         <p style={{ color: "rgba(231,236,242,0.85)", fontSize: 14, margin: 0, lineHeight: 1.7 }}>
-          تم حظر هذا الحساب لمخالفة شروط وسياسات الاستخدام.
+          This account has been suspended for violating terms and policies of use.
         </p>
       </div>
     </div>
@@ -245,11 +245,11 @@ function MaintenanceScreen() {
         </div>
 
         <h2 style={{ color: "#fef3c7", fontWeight: 900, fontSize: 22, margin: "0 0 14px", lineHeight: 1.3 }}>
-          🚧 البوت تحت الصيانة
+          🚧 Under Maintenance
         </h2>
-        <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, margin: "0 0 24px", lineHeight: 1.8, direction: "rtl" }}>
-          نحن نعمل على تحديث وتحسين التطبيق.
-          <br />سيعود قريباً إن شاء الله! ⚡
+        <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, margin: "0 0 24px", lineHeight: 1.8 }}>
+          We are currently updating and improving the app.
+          <br />We will be back shortly! ⚡
         </p>
 
         <div style={{
@@ -257,8 +257,8 @@ function MaintenanceScreen() {
           padding: "14px 16px",
           border: "1px solid rgba(255,255,255,0.06)",
         }}>
-          <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, margin: 0, lineHeight: 1.7, direction: "rtl" }}>
-            يرجى إغلاق التطبيق والمحاولة مرة أخرى بعد قليل
+          <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 12, margin: 0, lineHeight: 1.7 }}>
+            Please close the app and check back in a few moments.
           </p>
         </div>
       </div>

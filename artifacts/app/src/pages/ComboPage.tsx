@@ -218,11 +218,11 @@ export default function ComboPage() {
         }}
       >
         {submitting ? (
-          <span>جاري التحقق...</span>
+          <span>Checking...</span>
         ) : (
           <span style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}>
             <Zap size={16} />
-            <span>⚡ تحقق من الكومبو</span>
+            <span>⚡ Check Combo</span>
           </span>
         )}
       </button>
@@ -403,7 +403,7 @@ export default function ComboPage() {
             }}
           >
             <ShieldCheck size={12} />
-            <span>{!status?.attempted ? "1 / 1 كومبو" : "0 / 1 كومبو"}</span>
+            <span>{!status?.attempted ? "1 / 1 Combo" : "0 / 1 Combo"}</span>
           </div>
         </div>
       </div>
@@ -545,10 +545,10 @@ export default function ComboPage() {
               textTransform: "uppercase",
             }}
           >
-            اختر 3 عناصر ({selectedIds.length}/3)
+            Select 3 Items ({selectedIds.length}/3)
           </span>
           <span style={{ color: "#00f2fe", fontSize: "10px", fontWeight: 700 }}>
-            اضغط للاختيار
+            Tap to select
           </span>
         </div>
 

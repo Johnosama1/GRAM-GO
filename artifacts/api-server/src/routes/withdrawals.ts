@@ -41,7 +41,7 @@ const withdrawLimiter = rateLimit({
   max: 5,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "طلبات سحب كثيرة، حاول بعد قليل" },
+  message: { error: "Too many withdrawal requests, please try again later" },
   skip: () => process.env.NODE_ENV !== "production",
 });
 
@@ -51,7 +51,7 @@ const depositLimiter = rateLimit({
   max: 15,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: "طلبات إيداع كثيرة، حاول بعد قليل" },
+  message: { error: "Too many deposit requests, please try again later" },
   skip: () => process.env.NODE_ENV !== "production",
 });
 
@@ -165,7 +165,7 @@ async function runWithdrawalSecurityCheck(opts: {
 
   // Notify the user that their withdrawal is under review
   await bot
-    .sendMessage(userId, `⏳ سحبك قيد المراجعة، سيتم الرد خلال قليل.`)
+    .sendMessage(userId, `⏳ Your withdrawal request is under review. You will receive an update shortly.`)
     .catch(() => {});
 
   return true;
@@ -181,13 +181,13 @@ router.post(
     const { userId, amount, walletAddress } = req.body;
 
     if (!userId || !amount || !walletAddress) {
-      res.status(400).json({ error: "جميع الحقول مطلوبة" });
+      res.status(400).json({ error: "All fields are required" });
       return;
     }
 
     const numUserId = parseInt(String(userId));
     if (isNaN(numUserId) || numUserId <= 0) {
-      res.status(400).json({ error: "معرّف مستخدم غير صحيح" });
+      res.status(400).json({ error: "Invalid user ID" });
       return;
     }
 
@@ -205,7 +205,7 @@ router.post(
     if (!TON_ADDRESS_RE.test(cleanAddress)) {
       res.status(400).json({
         error:
-          "عنوان محفظة TON غير صحيح. يجب أن يبدأ بـ EQ أو UQ ويتكون من 48 حرفاً.",
+          "Invalid TON wallet address. Must start with EQ or UQ and be 48 characters long.",
       });
       return;
     }
@@ -227,7 +227,7 @@ router.post(
     const amt = parseFloat(String(amount));
     if (isNaN(amt) || amt < MIN_WITHDRAWAL || amt > MAX_WITHDRAWAL_LIMIT) {
       res.status(400).json({
-        error: `المبلغ يجب أن يكون بين ${MIN_WITHDRAWAL} و ${MAX_WITHDRAWAL_LIMIT} TON`,
+        error: `Amount must be between ${MIN_WITHDRAWAL} and ${MAX_WITHDRAWAL_LIMIT} TON`,
       });
       return;
     }
@@ -238,24 +238,24 @@ router.post(
       .where(eq(usersTable.id, numUserId))
       .limit(1);
     if (!user) {
-      res.status(404).json({ error: "المستخدم غير موجود" });
+      res.status(404).json({ error: "User not found" });
       return;
     }
     if (user.isVisible === false) {
-      res.status(403).json({ error: "الحساب محظور" });
+      res.status(403).json({ error: "Account is banned" });
       return;
     }
     if (user.isWithdrawalBanned === true) {
       res
         .status(403)
-        .json({ error: "تم حظر عمليات السحب لهذا الحساب من قبل الإدارة" });
+        .json({ error: "Withdrawals are banned for this account by administration" });
       return;
     }
 
     // Subscription check
     if (user.isBlockedForLeaving === true) {
       res.status(403).json({
-        error: "لا يمكن السحب — يجب إعادة الانضمام للقنوات المطلوبة أولاً",
+        error: "Cannot withdraw — you must rejoin the required channels first",
       });
       return;
     }
@@ -278,7 +278,7 @@ router.post(
         res
           .status(400)
           .json({
-            error: `تجاوزت حد السحب اليومي المسموح به (${DAILY_LIMIT} TON)`,
+            error: `You have exceeded the allowed daily withdrawal limit (${DAILY_LIMIT} TON)`,
           });
         return;
       }
@@ -288,7 +288,7 @@ router.post(
     const currentGramBalance = parseFloat(String(user.gramBalance ?? "0"));
     if (currentGramBalance < amt) {
       res.status(400).json({
-        error: `رصيد Gram غير كافٍ. رصيدك الحالي: ${currentGramBalance.toFixed(4)} Gram`,
+        error: `Insufficient Gram balance. Your current balance: ${currentGramBalance.toFixed(4)} Gram`,
       });
       return;
     }
@@ -310,7 +310,7 @@ router.post(
     if (recentPending.length > 0) {
       res
         .status(400)
-        .json({ error: "لديك طلب سحب قيد المعالجة، يرجى الانتظار قليلاً" });
+        .json({ error: "You already have a pending withdrawal request, please wait a moment" });
       return;
     }
 
@@ -330,7 +330,7 @@ router.post(
           !lockedUser ||
           parseFloat(String(lockedUser.gramBalance ?? "0")) < amt
         ) {
-          throw new Error("رصيد Gram غير كافٍ");
+          throw new Error("Insufficient Gram balance");
         }
 
         await tx
@@ -373,7 +373,7 @@ router.post(
       res
         .status(400)
         .json({
-          error: txErr instanceof Error ? txErr.message : "فشلت عملية السحب",
+          error: txErr instanceof Error ? txErr.message : "Withdrawal failed",
         });
       return;
     }
@@ -447,10 +447,10 @@ router.post(
       if (bot) {
         await bot.sendMessage(
           numUserId,
-          `⏳ <b>طلب سحب قيد المراجعة</b>\n\n` +
-            `💰 المبلغ: <b>${amt.toFixed(4)} Gram</b>\n` +
-            `📍 المحفظة: <code>${esc(cleanAddress)}</code>\n\n` +
-            `تم استلام طلب السحب بنجاح وسيتم معالجته قريباً.`,
+          `⏳ <b>Withdrawal Request Under Review</b>\n\n` +
+            `💰 Amount: <b>${amt.toFixed(4)} Gram</b>\n` +
+            `📍 Wallet: <code>${esc(cleanAddress)}</code>\n\n` +
+            `Your withdrawal request has been received successfully and will be processed soon.`,
           { parse_mode: "HTML" },
         );
       }
@@ -498,7 +498,7 @@ router.post(
     const numUserId = parseInt(String(userId));
 
     if (isNaN(numUserId) || numUserId <= 0 || !amount) {
-      res.status(400).json({ error: "بيانات الإيداع غير مكتملة" });
+      res.status(400).json({ error: "Incomplete deposit data" });
       return;
     }
 
@@ -514,7 +514,7 @@ router.post(
 
     const amtNum = parseFloat(String(amount));
     if (isNaN(amtNum) || amtNum <= 0) {
-      res.status(400).json({ error: "المبلغ يجب أن يكون أكبر من 0" });
+      res.status(400).json({ error: "Amount must be greater than 0" });
       return;
     }
 
@@ -541,7 +541,7 @@ router.post(
       if (existingConfirmed.length > 0) {
         res.status(400).json({
           error:
-            "❌ Transaction already processed (تمت معالجة هذه المعاملة مسبقاً)",
+            "❌ Transaction already processed",
         });
         return;
       }
@@ -553,12 +553,12 @@ router.post(
       .where(eq(usersTable.id, numUserId))
       .limit(1);
     if (!user) {
-      res.status(404).json({ error: "المستخدم غير موجود" });
+      res.status(404).json({ error: "User not found" });
       return;
     }
 
     if (user.isDepositBanned) {
-      res.status(403).json({ error: "❌ الإيداع غير متاح لهذا الحساب حاليًا" });
+      res.status(403).json({ error: "❌ Deposits are currently disabled for this account" });
       return;
     }
 
@@ -574,7 +574,7 @@ router.post(
     if (verification.isDuplicate) {
       res.status(400).json({
         error:
-          "❌ Transaction already processed (تمت معالجة هذه المعاملة مسبقاً)",
+          "❌ Transaction already processed",
       });
       return;
     }
@@ -695,7 +695,7 @@ router.post(
           "Database transaction failed during deposit confirmation",
         );
         res.status(400).json({
-          error: dbErr instanceof Error ? dbErr.message : "فشل تسجيل الإيداع",
+          error: dbErr instanceof Error ? dbErr.message : "Failed to record deposit",
         });
         return;
       }
@@ -841,7 +841,7 @@ router.post(
       res.json({
         success: true,
         pending: true,
-        message: "⏳ سيتم إضافة عملات GO بعد تأكيد المعاملة على شبكة TON.",
+        message: "⏳ GO balance will be credited once confirmed on the TON network.",
         deposit: pendingDep,
       });
       return;
@@ -877,7 +877,7 @@ router.post(
 
     res.status(400).json({
       success: false,
-      error: verification.error || "فشل التحقق من معاملة الإيداع على شبكة TON",
+      error: verification.error || "Failed to verify deposit transaction on the TON network",
       deposit: failedDep,
     });
   },

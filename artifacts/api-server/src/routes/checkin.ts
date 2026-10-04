@@ -157,7 +157,7 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
       }
 
       if (user.isVisible === false) {
-        throw new Error("محظور");
+        throw new Error("banned");
       }
 
       const todayStr = getTodayDateString();
@@ -239,13 +239,13 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
       day: result.streak,
       rewardAmount: result.rewardAmount,
       goBalance: result.updatedUser.goBalance,
-      message: `🎉 تم استلام مكافأة اليوم ${result.streak} (+${result.rewardAmount} GO) بنجاح!`,
+      message: `🎉 Day ${result.streak} reward (+${result.rewardAmount} GO) claimed successfully!`,
     });
   } catch (err: any) {
     if (err.message === "Already claimed today") {
-      res.status(400).json({ error: "لقد قمت بتسجيل الدخول اليوم بالفعل", alreadyClaimed: true });
-    } else if (err.message === "محظور") {
-      res.status(403).json({ error: "محظور", banned: true });
+      res.status(400).json({ error: "You have already claimed today's reward", alreadyClaimed: true });
+    } else if (err.message === "banned" || err.message === "محظور") {
+      res.status(403).json({ error: "banned", banned: true });
     } else if (err.message === "User not found") {
       res.status(404).json({ error: "User not found" });
     } else {

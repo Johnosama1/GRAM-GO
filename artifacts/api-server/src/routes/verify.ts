@@ -30,7 +30,7 @@ function getCaptcha(token: string): { question: string; answer: number } {
 
 function htmlBase(title: string, body: string): string {
   return `<!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -64,45 +64,45 @@ function htmlBase(title: string, body: string): string {
 
 function verifyPageHtml(uid: number, token: string, question: string, errorMsg?: string): string {
   const errHtml = errorMsg ? `<div class="err">⚠️ ${errorMsg}</div>` : "";
-  return htmlBase("التحقق — Gram GO APP", `
+  return htmlBase("Verification — Gram GO APP", `
     <span class="icon">⚡</span>
-    <span class="badge">التحقق من الهوية</span>
-    <h1>تحقق من حسابك</h1>
-    <p class="sub">أكمل هذه الخطوة البسيطة للوصول إلى Gram GO APP وبدء الربح</p>
+    <span class="badge">Identity Verification</span>
+    <h1>Verify Your Account</h1>
+    <p class="sub">Complete this simple step to access Gram GO APP and start earning</p>
     ${errHtml}
     <div class="captcha-box">
-      <div class="captcha-label">حل المسألة للتأكيد</div>
+      <div class="captcha-label">Solve the math problem to confirm</div>
       <div class="captcha-q">${question} = ?</div>
       <form method="POST" action="/api/verify" id="vf">
         <input type="hidden" name="uid" value="${uid}">
         <input type="hidden" name="token" value="${token}">
-        <input type="number" name="captcha_answer" placeholder="الإجابة" required autofocus min="1" max="99" inputmode="numeric">
-        <button class="btn" type="submit" id="vbtn">✅ تأكيد التحقق</button>
+        <input type="number" name="captcha_answer" placeholder="Answer" required autofocus min="1" max="99" inputmode="numeric">
+        <button class="btn" type="submit" id="vbtn">✅ Confirm Verification</button>
       </form>
     </div>
-    <div class="note">🔒 يتم فحص عنوان IP الخاص بك لمنع الحسابات المتعددة<br>لا تشارك هذا الرابط مع أحد</div>
+    <div class="note">🔒 Your IP address is checked to prevent duplicate accounts<br>Do not share this link with anyone</div>
     <script>
       document.getElementById('vf').addEventListener('submit',function(){
         var b=document.getElementById('vbtn');
-        b.disabled=true;b.textContent='جاري التحقق...';
+        b.disabled=true;b.textContent='Verifying...';
       });
     </script>
   `);
 }
 
 function successHtml(msg: string): string {
-  return htmlBase("تم التحقق — Gram GO APP", `
+  return htmlBase("Verified — Gram GO APP", `
     <span class="success-icon">✅</span>
-    <h1>تم التحقق بنجاح!</h1>
+    <h1>Verified Successfully!</h1>
     <p class="sub">${msg}</p>
-    <p style="margin-top:14px;color:#7c6eff;font-size:14px;font-weight:600">يمكنك الآن إغلاق هذه الصفحة والعودة إلى تيليجرام 👆</p>
+    <p style="margin-top:14px;color:#7c6eff;font-size:14px;font-weight:600">You can now close this page and return to Telegram 👆</p>
   `);
 }
 
 function errorHtml(msg: string): string {
-  return htmlBase("خطأ — Gram GO APP", `
+  return htmlBase("Error — Gram GO APP", `
     <span class="icon">🚫</span>
-    <h1>تعذّر التحقق</h1>
+    <h1>Verification Failed</h1>
     <p class="sub">${msg}</p>
   `);
 }
@@ -114,29 +114,29 @@ router.get("/verify", async (req, res) => {
   const token = (req.query.token as string) || "";
 
   if (!uid || !token) {
-    res.status(400).send(errorHtml("رابط التحقق غير صالح. يرجى طلب رابط جديد من البوت."));
+    res.status(400).send(errorHtml("Invalid verification link. Please request a new link from the bot."));
     return;
   }
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, uid)).limit(1);
 
   if (!user) {
-    res.status(404).send(errorHtml("المستخدم غير موجود."));
+    res.status(404).send(errorHtml("User not found."));
     return;
   }
 
   if (user.isVisible === false) {
-    res.status(403).send(errorHtml("حسابك محظور من استخدام هذا البوت."));
+    res.status(403).send(errorHtml("Your account is banned from using this bot."));
     return;
   }
 
   if (user.ipVerifiedAt) {
-    res.send(successHtml("حسابك محقق مسبقاً! يمكنك استخدام التطبيق الآن."));
+    res.send(successHtml("Your account is already verified! You can use the app now."));
     return;
   }
 
   if (user.verificationToken !== token) {
-    res.status(403).send(errorHtml("رابط التحقق غير صالح أو منتهي الصلاحية. يرجى الضغط على /start للحصول على رابط جديد."));
+    res.status(403).send(errorHtml("Invalid or expired verification link. Please send /start to get a new link."));
     return;
   }
 
@@ -152,36 +152,36 @@ router.post("/verify", async (req, res) => {
   const captchaAnswer = parseInt(req.body.captcha_answer);
 
   if (!uid || !token) {
-    res.status(400).send(errorHtml("بيانات غير صالحة."));
+    res.status(400).send(errorHtml("Invalid data."));
     return;
   }
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, uid)).limit(1);
 
   if (!user) {
-    res.status(404).send(errorHtml("المستخدم غير موجود."));
+    res.status(404).send(errorHtml("User not found."));
     return;
   }
 
   if (user.isVisible === false) {
-    res.status(403).send(errorHtml("حسابك محظور من استخدام هذا البوت."));
+    res.status(403).send(errorHtml("Your account is banned from using this bot."));
     return;
   }
 
   if (user.ipVerifiedAt) {
-    res.send(successHtml("حسابك محقق مسبقاً! يمكنك استخدام التطبيق الآن."));
+    res.send(successHtml("Your account is already verified! You can use the app now."));
     return;
   }
 
   if (user.verificationToken !== token) {
-    res.status(403).send(errorHtml("رابط التحقق غير صالح أو منتهي الصلاحية."));
+    res.status(403).send(errorHtml("Invalid or expired verification link."));
     return;
   }
 
   // Validate captcha
   const captcha = getCaptcha(token);
   if (isNaN(captchaAnswer) || captchaAnswer !== captcha.answer) {
-    res.send(verifyPageHtml(uid, token, captcha.question, "إجابة خاطئة، حاول مجدداً"));
+    res.send(verifyPageHtml(uid, token, captcha.question, "Wrong answer, please try again"));
     return;
   }
 
@@ -211,13 +211,13 @@ router.post("/verify", async (req, res) => {
     if (bot) {
       await bot.sendMessage(
         uid,
-        `✅ تم التحقق بنجاح!\n\n🎉 مرحباً بك في Gram GO APP!\nيمكنك الآن الدخول إلى التطبيق وبدء الربح.`,
+        `✅ Verification successful!\n\n🎉 Welcome to Gram GO APP!\nYou can now access the app and start earning.`,
       );
       await sendWelcomeMessage(uid, uid, user.firstName || "");
     }
   } catch { /* bot message is non-critical */ }
 
-  res.send(successHtml("تم التحقق بنجاح! عُد إلى تيليجرام واضغط على زر &laquo;افتح التطبيق&raquo;."));
+  res.send(successHtml("Verification successful! Return to Telegram and click &laquo;Open App&raquo;."));
 });
 
 // User IDs that bypass verification entirely (trusted accounts)

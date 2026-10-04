@@ -74,13 +74,13 @@ router.post("/issue", async (req, res) => {
   const parsed = parseInitData(initData);
   if (!parsed.valid && process.env.NODE_ENV === "production") {
     logger.warn({ bodyUserId }, "issue-session: invalid initData");
-    res.status(401).json({ error: "invalid_auth", message: "بيانات Telegram غير صالحة" });
+    res.status(401).json({ error: "invalid_auth", message: "Invalid Telegram data" });
     return;
   }
 
   const userId = parsed.userId ?? bodyUserId;
   if (!userId) {
-    res.status(400).json({ error: "missing_user", message: "معرّف المستخدم مفقود" });
+    res.status(400).json({ error: "missing_user", message: "User ID is missing" });
     return;
   }
 
@@ -90,7 +90,7 @@ router.post("/issue", async (req, res) => {
     const adminBypass = await isAdminUser(userId);
     if (!adminBypass) {
       logger.info({ userId }, "issue-session: blocked by maintenance mode");
-      res.status(503).json({ error: "maintenance", message: "البوت تحت الصيانة حالياً. يرجى المحاولة لاحقاً." });
+      res.status(503).json({ error: "maintenance", message: "The bot is currently under maintenance. Please try again later." });
       return;
     }
   }
@@ -109,7 +109,7 @@ router.post("/issue", async (req, res) => {
 
   if (user.isVisible === false) {
     logger.warn({ userId }, "issue-session: user is banned");
-    res.status(403).json({ error: "banned", message: "حسابك محظور" });
+    res.status(403).json({ error: "banned", message: "Your account is banned" });
     return;
   }
 
@@ -122,7 +122,7 @@ router.post("/issue", async (req, res) => {
     );
     res.status(403).json({
       error: "subscription_blocked",
-      message: "يجب إعادة الانضمام للقنوات المطلوبة للمتابعة",
+      message: "You must rejoin the required channels to continue",
       missingChannels: access.missingChannels,
       requiredChannels: access.requiredChannels,
     });
@@ -144,7 +144,7 @@ router.post("/recheck", async (req, res) => {
 
   const parsed = parseInitData(initData);
   if (!parsed.valid && process.env.NODE_ENV === "production") {
-    res.status(401).json({ error: "invalid_auth", message: "بيانات Telegram غير صالحة" });
+    res.status(401).json({ error: "invalid_auth", message: "Invalid Telegram data" });
     return;
   }
   const userId = (parsed.valid ? parsed.userId : undefined) ?? bodyUserId;
@@ -157,7 +157,7 @@ router.post("/recheck", async (req, res) => {
   // Maintenance check
   const botEnabled = await isBotEnabled().catch(() => true);
   if (!botEnabled && !(await isAdminUser(userId))) {
-    res.status(503).json({ error: "maintenance", message: "البوت تحت الصيانة حالياً." });
+    res.status(503).json({ error: "maintenance", message: "The bot is currently under maintenance." });
     return;
   }
 
@@ -166,7 +166,7 @@ router.post("/recheck", async (req, res) => {
   if (!access.allowed) {
     res.status(403).json({
       error: "subscription_blocked",
-      message: "لا تزال غير مشترك في القنوات المطلوبة",
+      message: "You are still not subscribed to the required channels",
       missingChannels: access.missingChannels,
       requiredChannels: access.requiredChannels,
     });

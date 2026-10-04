@@ -58,7 +58,7 @@ export async function checkBotChannelAdmin(channelInput: string): Promise<BotAdm
     return {
       ok: false,
       isAdmin: false,
-      error: "Telegram Bot Token غير مضبوط في الخادم",
+      error: "Telegram Bot Token is not configured on the server",
     };
   }
 
@@ -67,7 +67,7 @@ export async function checkBotChannelAdmin(channelInput: string): Promise<BotAdm
     return {
       ok: false,
       isAdmin: false,
-      error: "معرف القناة غير صالح",
+      error: "Invalid channel identifier",
     };
   }
 
@@ -89,13 +89,13 @@ export async function checkBotChannelAdmin(channelInput: string): Promise<BotAdm
         return {
           ok: false,
           isAdmin: false,
-          error: `القناة (${chatId}) غير موجودة أو أن الرابط غير صحيح`,
+          error: `Channel (${chatId}) not found or the link is invalid`,
         };
       }
       return {
         ok: false,
         isAdmin: false,
-        error: `البوت لا يمكنه الوصول للقناة (${chatId}). يرجى إضافة بوت GRAM GO كمشرف في القناة أولاً.`,
+        error: `Bot cannot access channel (${chatId}). Please add GRAM GO bot as an administrator in the channel first.`,
       };
     }
 
@@ -111,7 +111,7 @@ export async function checkBotChannelAdmin(channelInput: string): Promise<BotAdm
       return {
         ok: false,
         isAdmin: false,
-        error: `البوت ليس مشرفاً في القناة (${chatId}). يرجى ترقية البوت إلى مشرف (Administrator) بصلاحيات التحقق.`,
+        error: `Bot is not an administrator in channel (${chatId}). Please promote the bot to Administrator.`,
       };
     }
 
@@ -143,7 +143,7 @@ export async function checkBotChannelAdmin(channelInput: string): Promise<BotAdm
     return {
       ok: false,
       isAdmin: false,
-      error: "حدث خطأ أو انتهاء مهلة أثناء التحقق من القناة مع Telegram",
+      error: "An error or timeout occurred while verifying channel with Telegram",
     };
   }
 }
@@ -165,7 +165,7 @@ export async function verifyUserChannelMembership(
   if (!token) {
     return {
       isMember: false,
-      error: "Telegram Bot Token غير مضبوط في الخادم",
+      error: "Telegram Bot Token is not configured on the server",
     };
   }
 
@@ -173,7 +173,7 @@ export async function verifyUserChannelMembership(
   if (!chatId) {
     return {
       isMember: false,
-      error: "معرف القناة غير صالح",
+      error: "Invalid channel identifier",
     };
   }
 
@@ -202,7 +202,7 @@ export async function verifyUserChannelMembership(
         return {
           isMember: false,
           status,
-          error: "يرجى الانضمام للقناة أولاً ثم الضغط على تحقق",
+          error: "Please join the channel first, then tap verify",
         };
       }
     }
@@ -217,26 +217,26 @@ export async function verifyUserChannelMembership(
     ) {
       return {
         isMember: false,
-        error: "البوت ليس مشرفاً في هذه القناة للتحقق من العضوية. يرجى التواصل مع الإدارة.",
+        error: "The bot is not an administrator in this channel to verify membership. Please contact administration.",
       };
     }
 
     if (desc.includes("USER_NOT_PARTICIPANT") || desc.includes("user not found")) {
       return {
         isMember: false,
-        error: "يرجى الانضمام للقناة أولاً ثم الضغط على تحقق",
+        error: "Please join the channel first, then tap verify",
       };
     }
 
     return {
       isMember: false,
-      error: desc || "فشل التحقق من عضوية القناة",
+      error: desc || "Failed to verify channel membership",
     };
   } catch (err: any) {
     logger.error({ err, userId, channelInput }, "verifyUserChannelMembership error");
     return {
       isMember: false,
-      error: "تعذر الاتصال بـ Telegram للتحقق من العضوية حالياً. يرجى المحاولة بعد قليل.",
+      error: "Unable to connect to Telegram to verify membership right now. Please try again later.",
     };
   }
 }

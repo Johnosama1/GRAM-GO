@@ -72,7 +72,7 @@ export async function verifyTonDepositTransaction(
   const expectedAmt = parseFloat(String(amount));
 
   if (isNaN(expectedAmt) || expectedAmt <= 0) {
-    return { verified: false, error: "المبلغ غير صالح" };
+    return { verified: false, error: "Invalid amount" };
   }
 
   // ── 1. Check double transaction in DB first ───────────────────────────────
@@ -94,7 +94,7 @@ export async function verifyTonDepositTransaction(
       return {
         verified: false,
         isDuplicate: true,
-        error: "❌ Transaction already processed (تمت معالجة هذه المعاملة مسبقاً)",
+        error: "❌ Transaction already processed",
       };
     }
   }
@@ -103,7 +103,7 @@ export async function verifyTonDepositTransaction(
   const normalizedDepositWallet = normalizeTonAddress(depositWalletStr);
 
   if (!normalizedDepositWallet) {
-    return { verified: false, error: "عنوان محفظة الإيداع غير مهيأ" };
+    return { verified: false, error: "Deposit wallet address is not configured" };
   }
 
   let bocHashHex: string | null = null;
@@ -313,19 +313,19 @@ export async function verifyTonDepositTransaction(
         txHash: cleanTxHash || bocHashHex || `tc_${Date.now()}`,
         amount: expectedAmt.toFixed(4),
         senderWallet: normalizedUserWallet || undefined,
-        error: "المعاملة قيد التأكيد على شبكة TON. يرجى الانتظار بضع لحظات.",
+        error: "Transaction is being confirmed on the TON network. Please wait a few moments.",
       };
     }
 
     return {
       verified: false,
-      error: "لم يتم العثور على المعاملة على شبكة TON. تأكد من إرسال المبلغ إلى محفظة الإيداع المحددة.",
+      error: "Transaction was not found on the TON network. Ensure the amount was sent to the designated deposit wallet.",
     };
   } catch (err) {
     logger.error({ err, userId, amount }, "Error during TON deposit blockchain verification");
     return {
       verified: false,
-      error: "تعذر التحقق من المعاملة عبر شبكة TON حالياً. يرجى المحاولة مرة أخرى.",
+      error: "Unable to verify transaction on the TON network right now. Please try again.",
     };
   }
 }

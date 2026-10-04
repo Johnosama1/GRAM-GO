@@ -27,15 +27,15 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, textAlign: "center", gap: 16 }}>
           <div style={{ fontSize: 48 }}>⚠️</div>
-          <h2 style={{ color: "#fff", margin: 0 }}>حدث خطأ غير متوقع</h2>
+          <h2 style={{ color: "#fff", margin: 0 }}>An unexpected error occurred</h2>
           <p style={{ color: "rgba(255,255,255,0.6)", margin: 0 }}>
-            {this.state.error?.message || "يرجى تحديث الصفحة والمحاولة مرة أخرى."}
+            {this.state.error?.message || "Please refresh the page and try again."}
           </p>
           <button
             onClick={() => window.location.reload()}
             style={{ background: "#fbbf24", color: "#000", border: "none", padding: "12px 24px", borderRadius: 12, fontWeight: 700, marginTop: 8 }}
           >
-            تحديث
+            Refresh
           </button>
         </div>
       );

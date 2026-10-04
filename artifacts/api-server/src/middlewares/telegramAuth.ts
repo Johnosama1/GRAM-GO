@@ -61,7 +61,7 @@ export function spinRateLimit(req: Request, res: Response, next: NextFunction) {
   const now = Date.now();
   const last = spinTimestamps.get(id);
   if (last && now - last < SPIN_COOLDOWN_MS) {
-    res.status(429).json({ error: "يرجى الانتظار قليلاً قبل الدوران مجدداً" });
+    res.status(429).json({ error: "Please wait a moment before spinning again" });
     return;
   }
   spinTimestamps.set(id, now);

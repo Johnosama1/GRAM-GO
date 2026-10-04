@@ -269,23 +269,11 @@ export default function ProfilePage() {
 
     const amt = parseFloat(withdrawAmount);
     if (!withdrawAmount || isNaN(amt) || amt < minWithdrawal) {
-      setWithdrawError(
-        language === "ar"
-          ? `الحد الأدنى للسحب: ${minWithdrawal} Gram`
-          : language === "ru"
-            ? `Мин. вывод: ${minWithdrawal} Gram`
-            : `Minimum withdrawal is ${minWithdrawal} Gram`,
-      );
+      setWithdrawError(`Minimum withdrawal is ${minWithdrawal} Gram`);
       return;
     }
     if (amt > gramBalance) {
-      setWithdrawError(
-        language === "ar"
-          ? `رصيد Gram غير كافٍ (المتاح: ${gramBalance.toFixed(4)} Gram)`
-          : language === "ru"
-            ? `Недостаточно Gram на балансе (Доступно: ${gramBalance.toFixed(4)} Gram)`
-            : `Insufficient Gram balance (Available: ${gramBalance.toFixed(4)} Gram)`,
-      );
+      setWithdrawError(`Insufficient Gram balance (Available: ${gramBalance.toFixed(4)} Gram)`);
       return;
     }
 
@@ -346,7 +334,7 @@ export default function ProfilePage() {
 
     if (!targetWallet || targetWallet.length < 40) {
       setDepositError(
-        "⚠️ عنوان محفظة الإيداع غير مهيأ بعد في لوحة تحكم الإدارة (Deposit wallet is not configured in Admin panel)",
+        "⚠️ Deposit wallet is not configured in the Admin panel.",
       );
       return;
     }
@@ -366,7 +354,7 @@ export default function ProfilePage() {
 
       if (!result || !result.boc) {
         throw new Error(
-          "فشلت المعاملة: لم يتم استلام استجابة صحيحة من المحفظة (No BOC returned)",
+          "Transaction failed: No valid response received from wallet (No BOC returned).",
         );
       }
 
@@ -381,11 +369,11 @@ export default function ProfilePage() {
         setDepositSuccess(true);
         setDepositAmount("0.00");
       } else if (res.pending || res.success) { // if pending true or success but not verified
-        setDepositPending("⏳ جاري تأكيد المعاملة على شبكة TON. سيتم إضافة عملات GO قريباً.");
+        setDepositPending("⏳ Confirming transaction on the TON network. GO will be credited shortly.");
         setDepositAmount("0.00");
       } else {
         setDepositError(
-          res.error || "فشل التحقق من معاملة الإيداع على شبكة TON",
+          res.error || "Failed to verify deposit transaction on the TON network",
         );
       }
 
@@ -404,13 +392,13 @@ export default function ProfilePage() {
         msg.toLowerCase().includes("aborted") ||
         msg.toLowerCase().includes("declined")
       ) {
-        setDepositError("⚠️ تم إلغاء المعاملة من قبل المستخدم");
+        setDepositError("⚠️ Transaction was cancelled by user.");
       } else if (
         msg.includes("Wrong 'address' format") ||
         msg.includes("address format")
       ) {
         setDepositError(
-          "⚠️ عنوان محفظة الإيداع غير صحيح. يرجى ضبط عنوان محفظة الإيداع من لوحة الإدارة.",
+          "⚠️ Deposit wallet address is invalid. Please configure it in the Admin panel.",
         );
       } else {
         setDepositError(msg || t.depositFailed);
@@ -884,7 +872,7 @@ export default function ProfilePage() {
                   <div
                     style={{ fontSize: 16, fontWeight: 900, color: "#ffffff" }}
                   >
-                    {language === "ar" ? "الدعم والمعلومات" : "Support & Info"}
+                    Support & Info
                   </div>
                   <div
                     style={{
@@ -893,7 +881,7 @@ export default function ProfilePage() {
                       marginTop: 2,
                     }}
                   >
-                    {language === "ar" ? "الأسئلة الشائعة والشكاوى" : "FAQ & Complaints"}
+                    FAQ & Complaints
                   </div>
                 </div>
               </div>
@@ -1312,7 +1300,7 @@ export default function ProfilePage() {
                     fontWeight: 700,
                   }}
                 >
-                  ✅ تم تأكيد الإيداع وإضافة عملات GO إلى رصيدك.
+                  ✅ Deposit confirmed and GO balance has been credited.
                 </div>
               )}
 
@@ -2017,7 +2005,7 @@ export default function ProfilePage() {
                             marginTop: 2,
                           }}
                         >
-                          السبب: {errorMsg}
+                          Reason: {errorMsg}
                         </div>
                       )}
                     </div>
@@ -2263,7 +2251,7 @@ export default function ProfilePage() {
               <ChevronLeft size={20} />
             </button>
             <div style={{ fontSize: 20, fontWeight: 900, color: "#ffffff" }}>
-              {language === "ar" ? "الدعم والمعلومات" : "Support & Info"}
+              Support & Info
             </div>
           </div>
 
@@ -2303,7 +2291,7 @@ export default function ProfilePage() {
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <AnimatedSticker animationData={supportComplaint} size={24} />
                 <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>
-                  {language === "ar" ? "تقديم شكوى" : "Submit a Complaint"}
+                  Submit a Complaint
                 </span>
               </div>
               <ExternalLink size={18} color="rgba(255, 255, 255, 0.4)" />
@@ -2328,7 +2316,7 @@ export default function ProfilePage() {
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <AnimatedSticker animationData={supportFaq} size={24} />
                 <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>
-                  {language === "ar" ? "الأسئلة الشائعة" : "FAQ"}
+                  FAQ
                 </span>
               </div>
               <ChevronRight size={20} color="rgba(255, 255, 255, 0.4)" />
@@ -2354,7 +2342,7 @@ export default function ProfilePage() {
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                 <video src={supportContactVideo} autoPlay loop muted playsInline style={{width: 24, height: 24}} />
                 <span style={{ color: "#fff", fontSize: 15, fontWeight: 800 }}>
-                  {language === "ar" ? "التواصل مع الدعم" : "Contact Support"}
+                  Contact Support
                 </span>
               </div>
               <ExternalLink size={18} color="rgba(255, 255, 255, 0.4)" />
@@ -2407,7 +2395,7 @@ export default function ProfilePage() {
               <ChevronLeft size={20} />
             </button>
             <div style={{ fontSize: 20, fontWeight: 900, color: "#ffffff" }}>
-              {language === "ar" ? "الأسئلة الشائعة" : "FAQ"}
+              FAQ
             </div>
           </div>
 

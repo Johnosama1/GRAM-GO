@@ -26,7 +26,7 @@ export default function SubscriptionBlockedScreen({
     try {
       await onUnblocked();
     } catch {
-      setError("لا تزال غير مشترك في القنوات المطلوبة");
+      setError("You are still not subscribed to the required channels");
     } finally {
       setChecking(false);
     }
@@ -60,17 +60,16 @@ export default function SubscriptionBlockedScreen({
           margin: "0 0 10px",
           lineHeight: 1.4,
         }}>
-          غادرت قناة مطلوبة!
+          You left a required channel!
         </h2>
         <p style={{
           color: "rgba(255,255,255,0.6)",
           fontSize: 13,
           margin: "0 0 20px",
           lineHeight: 1.7,
-          direction: "rtl",
         }}>
-          حصلت على مكافآت مقابل الانضمام للقنوات المطلوبة.
-          يجب عليك البقاء مشتركاً للاستمرار في استخدام التطبيق.
+          You received rewards for joining required channels.
+          You must stay subscribed to continue using the app.
         </p>
 
         <div style={{
@@ -87,7 +86,7 @@ export default function SubscriptionBlockedScreen({
             letterSpacing: "0.05em",
             fontWeight: 600,
           }}>
-            القنوات المطلوبة للانضمام
+            Required Channels
           </p>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {missingChannels.map((ch) => {
@@ -111,12 +110,12 @@ export default function SubscriptionBlockedScreen({
                   }}
                 >
                   <span style={{ fontSize: 20 }}>📢</span>
-                  <div style={{ flex: 1, textAlign: "right", direction: "rtl" }}>
+                  <div style={{ flex: 1, textAlign: "left" }}>
                     <div style={{ color: "#fff", fontWeight: 700, fontSize: 14 }}>
                       {ch.title || `@${ch.username}`}
                     </div>
                     <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 11 }}>
-                      ⚠️ غير مشترك
+                      ⚠️ Not joined
                     </div>
                   </div>
                   <span style={{
@@ -128,7 +127,7 @@ export default function SubscriptionBlockedScreen({
                     borderRadius: 8,
                     whiteSpace: "nowrap",
                   }}>
-                    انضمام ➞
+                    Join ➞
                   </span>
                 </a>
               );
@@ -168,17 +167,16 @@ export default function SubscriptionBlockedScreen({
           marginBottom: 12,
         }}
       >
-        {checking ? "⏳ جاري التحقق..." : "🔄 تحققت من الاشتراك"}
+        {checking ? "⏳ Checking..." : "🔄 Check Again"}
       </button>
 
       <p style={{
         color: "rgba(255,255,255,0.3)",
         fontSize: 11,
         margin: 0,
-        direction: "rtl",
         lineHeight: 1.6,
       }}>
-        بعد الانضمام، اضغط زر التحقق أعلاه لاستعادة الوصول
+        After joining, click the check button above to restore access
       </p>
     </div>
   );

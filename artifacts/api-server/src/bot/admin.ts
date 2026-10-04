@@ -970,7 +970,7 @@ export async function handleAdminCallback(
           ipVerifiedAt: new Date(),
           verificationToken: null,
         }).where(eq(usersTable.id, targetId));
-        try { await bot.sendMessage(targetId, "✅ Your account has been banned. You can use now! 🎉"); } catch { /**/ }
+        try { await bot.sendMessage(targetId, "✅ Your account ban has been lifted. You can use the app now! 🎉"); } catch { /**/ }
         const [u] = await db.select().from(usersTable).where(eq(usersTable.id, targetId)).limit(1);
         await bot.sendMessage(chatId, `✅ User ${esc(u?.firstName || String(targetId))} (${targetId}) has been unblocked — he can use directly without re-verification.`);
       } else if (act === "warn" && p1) {
