@@ -53,9 +53,10 @@ export async function getBoostStatus(): Promise<BoostStatus> {
 }
 
 let _tasksCache: Promise<Task[]> | null = null;
-export function getTasksOnce(options?: { force?: boolean }): Promise<Task[]> {
+export function getTasksOnce(options?: { force?: boolean; userId?: number }): Promise<Task[]> {
+  const url = options?.userId ? `/tasks?userId=${options.userId}` : "/tasks";
   if (options?.force || !_tasksCache) {
-    _tasksCache = apiCall<Task[]>("/tasks").catch((err) => {
+    _tasksCache = apiCall<Task[]>(url).catch((err) => {
       _tasksCache = null;
       throw err;
     });
@@ -537,6 +538,7 @@ export interface Task {
   icon: string | null;
   category?: string;
   channelUsername?: string | null;
+  channelChatId?: string | null;
   botUsername?: string | null;
   botLink?: string | null;
   requiredReferrals?: number | null;

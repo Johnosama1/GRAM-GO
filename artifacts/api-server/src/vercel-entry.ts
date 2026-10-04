@@ -111,9 +111,10 @@ async function runStartupMigrations() {
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
-    console.log("[startup] uploads table OK");
+    await db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS channel_chat_id TEXT`);
+    console.log("[startup] uploads table and tasks columns OK");
   } catch (e) {
-    console.warn("[startup] uploads table migration skipped:", e instanceof Error ? e.message : e);
+    console.warn("[startup] uploads/tasks table migration skipped:", e instanceof Error ? e.message : e);
   }
 
   // ── Backfill referral_count ─────────────────────────────────────────

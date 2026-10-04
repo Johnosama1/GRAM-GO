@@ -63,18 +63,15 @@ export function hasPerm(info: AdminInfo, _perm?: AdminPermission): boolean {
 }
 
 // ─────────────────────────── HELPERS ───────────────────────────
+import { verifyUserChannelMembership } from "../lib/telegramChannel";
 
 export async function checkChannelMembership(
-  bot: TelegramBot,
+  _bot: TelegramBot,
   userId: number,
   channelUsername: string
 ): Promise<boolean> {
-  try {
-    const member = await bot.getChatMember(`@${channelUsername}`, userId);
-    return ["member", "administrator", "creator"].includes(member.status);
-  } catch {
-    return false;
-  }
+  const res = await verifyUserChannelMembership(userId, channelUsername);
+  return res.isMember;
 }
 
 export async function getChannelPhotoUrl(

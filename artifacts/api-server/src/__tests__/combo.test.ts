@@ -180,21 +180,26 @@ describe('Daily Combo API', () => {
         limit: vi.fn().mockResolvedValue([]),
         insert: vi.fn().mockReturnThis(),
         values: vi.fn().mockReturnThis(),
+        update: vi.fn().mockReturnThis(),
+        set: vi.fn().mockReturnThis(),
       };
+      (mockTx.values as any).mockImplementation(() => ({
+        catch: vi.fn()
+      }));
       (db.transaction as any).mockImplementation(async (cb: any) => {
         return await cb(mockTx);
       });
 
       const response = await request(app)
         .post('/api/combo/check')
-        .send({ selectedItems: [3, 2, 1] });
+        .send({ selectedItems: [1, 2, 4] });
 
       expect(response.status).toBe(200);
       expect(response.body.isSuccess).toBe(false);
-      expect(response.body.selectedItems).toEqual([3, 2, 1]); // exact order preserved
+      expect(response.body.selectedItems).toEqual([1, 2, 4]); // exact order preserved
 
       expect(mockTx.values).toHaveBeenCalledWith(expect.objectContaining({
-        selectedItems: [3, 2, 1],
+        selectedItems: [1, 2, 4],
         isSuccess: false
       }));
     });

@@ -12,6 +12,41 @@ import {
 import { CheckCircle, ExternalLink, Clock, Zap, Calendar } from "lucide-react";
 import { ActiveAdsTaskCard, DisabledAdsTaskCard } from "../components/ads/AdsCards";
 
+function getTaskTargetUrl(task: Task): string | null {
+  if (task.url && task.url.trim()) return task.url.trim();
+  if (task.channelUsername && task.channelUsername.trim()) {
+    const clean = task.channelUsername.trim().replace(/^@/, "");
+    return `https://t.me/${clean}`;
+  }
+  if (task.botLink && task.botLink.trim()) return task.botLink.trim();
+  if (task.botUsername && task.botUsername.trim()) {
+    const clean = task.botUsername.trim().replace(/^@/, "");
+    return `https://t.me/${clean}`;
+  }
+  return null;
+}
+
+function openTelegramOrExternalUrl(url: string) {
+  try {
+    const tg = (window as any).Telegram?.WebApp;
+    if (tg) {
+      if (url.includes("t.me/") || url.startsWith("tg://")) {
+        if (typeof tg.openTelegramLink === "function") {
+          tg.openTelegramLink(url);
+          return;
+        }
+      }
+      if (typeof tg.openLink === "function") {
+        tg.openLink(url);
+        return;
+      }
+    }
+  } catch (err) {
+    console.error("Telegram WebApp link open error:", err);
+  }
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
 export default function TasksPage() {
   const { user, refresh, initialized, retryInit, setCanClaimCheckin } =
     useUser();
@@ -129,7 +164,7 @@ export default function TasksPage() {
     if (!user) return;
     if (showLoading) setLoading(true);
     Promise.all([
-      getTasksOnce({ force: true }),
+      getTasksOnce({ force: true, userId: user.id }),
       getCompletedTasksOnce(user.id, { force: true }),
     ])
       .then(([t, c]) => {
@@ -154,7 +189,16 @@ export default function TasksPage() {
   }, [user, initialized]);
 
   const handleOpenUrl = (task: Task) => {
-    window.open(task.url!, "_blank");
+    const targetUrl = getTaskTargetUrl(task);
+    if (!targetUrl) {
+      setMessage({
+        taskId: task.id,
+        text: "رابط المهمة غير متوفر",
+        type: "error",
+      });
+      return;
+    }
+    openTelegramOrExternalUrl(targetUrl);
     setUrlOpened((prev) => new Set([...prev, task.id]));
   };
 
@@ -164,7 +208,7 @@ export default function TasksPage() {
     try {
       await api.completeTask(task.id, user.id);
       invalidateUserCaches(user.id);
-      setCompleted((prev) => [...prev, task.id]);
+      setCompleted((prev) => (prev.includes(task.id) ? prev : [...prev, task.id]));
       setMessage({
         taskId: task.id,
         text: "✅ تم إنجاز المهمة! حصلت على المكافأة بنجاح!",
@@ -175,18 +219,19 @@ export default function TasksPage() {
     } catch (e: unknown) {
       setMessage({
         taskId: task.id,
-        text: e instanceof Error ? e.message : "Failed",
+        text: e instanceof Error ? e.message : "فشل التحقق من المهمة",
         type: "error",
       });
     } finally {
       setCompleting(null);
-      setTimeout(() => setMessage(null), 4000);
+      setTimeout(() => setMessage(null), 5000);
     }
   };
 
   const handleComplete = async (task: Task) => {
     if (!user || completing !== null) return;
-    if (task.url) {
+    const targetUrl = getTaskTargetUrl(task);
+    if (targetUrl) {
       if (!urlOpened.has(task.id)) {
         handleOpenUrl(task);
         return;
@@ -744,8 +789,10 @@ export default function TasksPage() {
               const isExpiring =
                 task.expiresAt &&
                 new Date(task.expiresAt).getTime() - Date.now() < 3600000;
+              const targetUrl = getTaskTargetUrl(task);
+              const hasLink = Boolean(targetUrl);
               const isOpened = urlOpened.has(task.id);
-              const showOpen = task.url && !isOpened && !isDone;
+              const showOpen = hasLink && !isOpened && !isDone;
 
               return (
                 <div
@@ -758,14 +805,15 @@ export default function TasksPage() {
                     backdropFilter: "blur(18px)",
                     WebkitBackdropFilter: "blur(18px)",
                     border: isDone
-                      ? "1px solid rgba(16,185,129,0.28)"
+                      ? "1px solid rgba(16,185,129,0.35)"
                       : "1px solid rgba(255,255,255,0.08)",
                     background: isDone
-                      ? "linear-gradient(135deg, rgba(16,185,129,0.08), rgba(8,6,22,0.65))"
+                      ? "linear-gradient(135deg, rgba(16,185,129,0.12), rgba(6,78,59,0.25), rgba(8,6,22,0.85))"
                       : "linear-gradient(135deg, rgba(20,16,42,0.65), rgba(8,6,22,0.78))",
-                    boxShadow:
-                      "0 4px 18px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.04)",
-                    opacity: isDone ? 0.78 : 1,
+                    boxShadow: isDone
+                      ? "0 4px 18px rgba(16,185,129,0.18), inset 0 1px 0 rgba(16,185,129,0.25)"
+                      : "0 4px 18px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.04)",
+                    opacity: isDone ? 0.85 : 1,
                   }}
                 >
                   <div
@@ -785,13 +833,13 @@ export default function TasksPage() {
                         overflow: "hidden",
                         position: "relative",
                         background: isDone
-                          ? "rgba(16,185,129,0.12)"
+                          ? "rgba(16,185,129,0.15)"
                           : "linear-gradient(135deg, rgba(139,92,246,0.18), rgba(56,189,248,0.10))",
                         border: isDone
-                          ? "1.5px solid rgba(16,185,129,0.32)"
+                          ? "1.5px solid rgba(16,185,129,0.40)"
                           : "1.5px solid rgba(139,92,246,0.25)",
                         boxShadow: isDone
-                          ? "0 0 12px rgba(16,185,129,0.18)"
+                          ? "0 0 12px rgba(16,185,129,0.20)"
                           : "0 0 12px rgba(139,92,246,0.15)",
                       }}
                     >
@@ -832,11 +880,9 @@ export default function TasksPage() {
                       >
                         <span
                           style={{
-                            color: isDone ? "rgba(255,255,255,0.65)" : "#fff",
+                            color: isDone ? "rgba(255,255,255,0.70)" : "#fff",
                             fontWeight: 700,
                             fontSize: 13.5,
-                            textDecoration: isDone ? "line-through" : "none",
-                            textDecorationColor: "rgba(255,255,255,0.30)",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
                             whiteSpace: "nowrap",
@@ -903,7 +949,7 @@ export default function TasksPage() {
                               letterSpacing: 0.2,
                             }}
                           >
-                            +5 Go
+                            +{task.rewardAmount || "0.5"} {task.rewardCurrency || "GO"}
                           </span>
                         </div>
                       )}
@@ -914,18 +960,22 @@ export default function TasksPage() {
                       {isDone ? (
                         <div
                           style={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: 12,
                             display: "flex",
                             alignItems: "center",
-                            justifyContent: "center",
-                            background: "rgba(16,185,129,0.15)",
-                            border: "1px solid rgba(16,185,129,0.30)",
+                            gap: 4,
+                            padding: "7px 11px",
+                            borderRadius: 12,
+                            background: "rgba(16,185,129,0.18)",
+                            border: "1px solid rgba(16,185,129,0.40)",
                             boxShadow: "0 0 10px rgba(16,185,129,0.15)",
+                            color: "#34d399",
+                            fontWeight: 800,
+                            fontSize: 11,
+                            whiteSpace: "nowrap",
                           }}
                         >
-                          <CheckCircle size={19} color="#34d399" />
+                          <CheckCircle size={14} color="#34d399" />
+                          <span>مكتملة</span>
                         </div>
                       ) : (
                         <button

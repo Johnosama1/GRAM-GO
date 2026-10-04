@@ -4,8 +4,7 @@ import { tasksTable, userTasksTable, usersTable } from "@workspace/db/schema";
 import { addGoBalanceAndClaim } from "../lib/miningUtils";
 import { eq, and, sql, ilike } from "drizzle-orm";
 import { promoCodesTable, userPromoCodesTable, botSettingsTable, adRewardEventsTable } from "@workspace/db/schema";
-import { getBot } from "../bot";
-import { checkChannelMembership } from "../bot/admin";
+import { verifyUserChannelMembership } from "../lib/telegramChannel";
 import { recordChannelReward } from "../bot/subscription";
 import { verifyAccessMiddleware } from "../middlewares/verifyAccess";
 import { requireSession } from "../middlewares/requireSession";
@@ -21,12 +20,26 @@ export function invalidateTasksCache() {
 
 function extractChannelUsername(url: string | null): string | null {
   if (!url) return null;
-  const m = url.match(/t\.me\/([A-Za-z0-9_]+)/);
-  return m ? m[1] : null;
+  const m = url.match(/t\.me\/([A-Za-z0-9_+-]+)/);
+  return m ? m[1].replace(/^@/, "") : null;
 }
 
-router.get("/", async (_req, res) => {
+router.get("/", async (req, res) => {
   const nowDate = new Date();
+  const userId = req.query.userId ? parseInt(String(req.query.userId)) : undefined;
+
+  let userCompletedIds = new Set<number>();
+  if (userId && !isNaN(userId) && userId > 0) {
+    try {
+      const userCompleted = await db
+        .select({ taskId: userTasksTable.taskId })
+        .from(userTasksTable)
+        .where(eq(userTasksTable.userId, userId));
+      userCompletedIds = new Set(userCompleted.map((c) => c.taskId));
+    } catch {
+      // ignore
+    }
+  }
 
   // Always query database directly with aggregated claimed count
   const tasksWithClaims = await db
@@ -43,6 +56,7 @@ router.get("/", async (_req, res) => {
       isActive: tasksTable.isActive,
       category: tasksTable.category,
       channelUsername: tasksTable.channelUsername,
+      channelChatId: tasksTable.channelChatId,
       botUsername: tasksTable.botUsername,
       botLink: tasksTable.botLink,
       requiredReferrals: tasksTable.requiredReferrals,
@@ -57,11 +71,11 @@ router.get("/", async (_req, res) => {
     .groupBy(tasksTable.id)
     .orderBy(sql`${tasksTable.createdAt} DESC`);
 
-  // Filter out expired tasks and finite tasks that reached seats limit
+  // Filter out expired tasks and finite tasks that reached seats limit (unless already completed by the requesting user)
   const active = tasksWithClaims.filter((t) => {
     if (t.expiresAt && new Date(t.expiresAt) <= nowDate) return false;
     if (t.maxClaims !== null && t.maxClaims !== undefined && t.maxClaims > 0) {
-      if (t.claimedCount >= t.maxClaims) return false;
+      if (t.claimedCount >= t.maxClaims && !userCompletedIds.has(t.id)) return false;
     }
     return true;
   });
@@ -106,7 +120,7 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
     return;
   }
 
-  // Task specific validations
+  // Task specific validations: Referral
   if (task.category === "referral") {
     const [userRefCheck] = await db.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
     const userReferralsCount = userRefCheck?.referralCount || 0;
@@ -117,28 +131,28 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
     }
   }
 
-  // Channel membership verification
-  const channelUsername = task.channelUsername || extractChannelUsername(task.url);
-  const isChannelTask = !!channelUsername && task.category === "channel";
+  // Channel membership server-side verification using Telegram Bot API getChatMember
+  const channelIdentifier = task.channelChatId || task.channelUsername || extractChannelUsername(task.url);
+  const isChannelTask = task.category === "channel" || !!task.channelChatId || !!task.channelUsername;
 
   if (isChannelTask) {
-    try {
-      const botInstance = getBot();
-      if (botInstance) {
-        const isMember = await checkChannelMembership(botInstance, userId, channelUsername);
-        if (!isMember) {
-          res.status(400).json({ error: `يجب الانضمام للقناة أولاً: @${channelUsername}` });
-          return;
-        }
-      }
-    } catch {
-      // If bot check fails, allow completion
+    if (!channelIdentifier) {
+      res.status(400).json({ error: "بيانات القناة غير مكتملة للتحقق من العضوية" });
+      return;
+    }
+
+    const memResult = await verifyUserChannelMembership(userId, channelIdentifier);
+    if (!memResult.isMember) {
+      res.status(400).json({
+        error: memResult.error || "يرجى الانضمام للقناة أولاً ثم الضغط على تحقق",
+      });
+      return;
     }
   }
 
   try {
     const result = await db.transaction(async (tx) => {
-      // 1. Check if this user already completed
+      // 1. Check if this user already completed (idempotent guard)
       const existing = await tx
         .select()
         .from(userTasksTable)
@@ -146,7 +160,8 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
         .limit(1);
 
       if (existing.length > 0) {
-        throw new Error("Already completed");
+        const [existingUser] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+        return { user: existingUser, alreadyCompleted: true };
       }
 
       // 2. Lock the task row to serialize concurrent completions
@@ -204,10 +219,11 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
           await recordChannelReward(userId, 1);
         }
       }
-      return await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+      const [updatedUser] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+      return { user: updatedUser, alreadyCompleted: false };
     });
 
-    res.json({ success: true, user: result[0] });
+    res.json({ success: true, user: result.user, alreadyCompleted: result.alreadyCompleted });
   } catch (err: any) {
     if (err.message === "Already completed") {
       res.status(400).json({ error: "Already completed" });

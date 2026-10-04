@@ -36,6 +36,7 @@ const server = app.listen(port, (err?: Error) => {
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     )
   `).catch(() => {});
+  db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS channel_chat_id TEXT`).catch(() => {});
 
   if (process.env.DISABLE_BOT !== "true") {
     // Prefer explicit env var; fall back to Replit production domain auto-detection

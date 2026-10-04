@@ -36,6 +36,7 @@ import { invalidateTasksCache } from "./tasks";
 import { uploadsMemoryCache, getNextFallbackId } from "./uploads";
 import { getBot } from "../bot";
 import { getChannelPhotoUrl } from "../bot/admin";
+import { checkBotChannelAdmin, extractChannelUsername } from "../lib/telegramChannel";
 import { setBotEnabled, clearBotEnabledCache, isBotEnabled } from "../bot/control";
 import { clearAllSubCache } from "../bot/subscription";
 import { getSetting, invalidateSetting } from "../lib/settingsCache";
@@ -413,6 +414,7 @@ router.get("/tasks", async (_req: AdminRequest, res: Response) => {
       isActive: tasksTable.isActive,
       category: tasksTable.category,
       channelUsername: tasksTable.channelUsername,
+      channelChatId: tasksTable.channelChatId,
       botUsername: tasksTable.botUsername,
       botLink: tasksTable.botLink,
       requiredReferrals: tasksTable.requiredReferrals,
@@ -569,6 +571,7 @@ router.post("/tasks", requireAdminPerm("canManageTasks"), async (req: AdminReque
     isActive,
     channelPhotoUrl,
     channelUsername,
+    channelChatId,
     botUsername,
     botLink,
     requiredReferrals,
@@ -592,9 +595,34 @@ router.post("/tasks", requireAdminPerm("canManageTasks"), async (req: AdminReque
     return;
   }
 
-  if (parsedCategory === "channel" && !channelUsername) {
-    res.status(400).json({ error: "Channel username is required" });
-    return;
+  let resolvedChatId: string | null = channelChatId ? String(channelChatId).trim() : null;
+  let resolvedPhotoUrl: string | null = channelPhotoUrl || null;
+  let resolvedUsername: string | null = channelUsername ? String(channelUsername).trim().replace(/^@/, "") : extractChannelUsername(url);
+
+  if (parsedCategory === "channel") {
+    const channelTarget = resolvedChatId || channelUsername || url;
+    if (!channelTarget) {
+      res.status(400).json({ error: "معرف القناة أو رابطها مطلوب" });
+      return;
+    }
+
+    const adminCheck = await checkBotChannelAdmin(String(channelTarget));
+    if (!adminCheck.isAdmin) {
+      res.status(400).json({
+        error: adminCheck.error || "البوت ليس مشرفاً في القناة. يرجى إضافة بوت GRAM GO كمشرف في القناة أولاً.",
+      });
+      return;
+    }
+
+    if (adminCheck.chatId) {
+      resolvedChatId = adminCheck.chatId;
+    }
+    if (adminCheck.photoUrl && !resolvedPhotoUrl) {
+      resolvedPhotoUrl = adminCheck.photoUrl;
+    }
+    if (!resolvedUsername && adminCheck.title) {
+      resolvedUsername = extractChannelUsername(channelTarget) || resolvedUsername;
+    }
   }
 
   let parsedMaxClaims: number | null = null;
@@ -616,8 +644,9 @@ router.post("/tasks", requireAdminPerm("canManageTasks"), async (req: AdminReque
       rewardAmount: String(rewardAmount || "0.5"),
       rewardCurrency: rewardCurrency || "GO",
       maxClaims: parsedMaxClaims,
-      channelPhotoUrl: channelPhotoUrl || null,
-      channelUsername: channelUsername ? String(channelUsername).trim().replace(/^@/, "") : null,
+      channelPhotoUrl: resolvedPhotoUrl,
+      channelUsername: resolvedUsername,
+      channelChatId: resolvedChatId,
       botUsername: botUsername ? String(botUsername).trim().replace(/^@/, "") : null,
       botLink: botLink ? String(botLink).trim() : null,
       requiredReferrals: requiredReferrals ? parseInt(String(requiredReferrals)) : null,
@@ -645,6 +674,7 @@ router.put("/tasks/:id", requireAdminPerm("canManageTasks"), async (req: AdminRe
     isActive,
     channelPhotoUrl,
     channelUsername,
+    channelChatId,
     botUsername,
     botLink,
     requiredReferrals,
@@ -657,6 +687,32 @@ router.put("/tasks/:id", requireAdminPerm("canManageTasks"), async (req: AdminRe
   }
 
   const parsedCategory = category || "normal";
+
+  let resolvedChatId: string | null = channelChatId ? String(channelChatId).trim() : null;
+  let resolvedPhotoUrl: string | null = channelPhotoUrl || null;
+  let resolvedUsername: string | null = channelUsername ? String(channelUsername).trim().replace(/^@/, "") : extractChannelUsername(url);
+
+  if (parsedCategory === "channel") {
+    const channelTarget = resolvedChatId || channelUsername || url;
+    if (channelTarget) {
+      const adminCheck = await checkBotChannelAdmin(String(channelTarget));
+      if (!adminCheck.isAdmin) {
+        res.status(400).json({
+          error: adminCheck.error || "البوت ليس مشرفاً في القناة. يرجى إضافة بوت GRAM GO كمشرف في القناة أولاً.",
+        });
+        return;
+      }
+      if (adminCheck.chatId) {
+        resolvedChatId = adminCheck.chatId;
+      }
+      if (adminCheck.photoUrl && !resolvedPhotoUrl) {
+        resolvedPhotoUrl = adminCheck.photoUrl;
+      }
+      if (!resolvedUsername && adminCheck.title) {
+        resolvedUsername = extractChannelUsername(channelTarget) || resolvedUsername;
+      }
+    }
+  }
 
   let parsedMaxClaims: number | null = null;
   if (maxClaims !== undefined && maxClaims !== null && maxClaims !== "" && maxClaims !== "unlimited") {
@@ -677,8 +733,9 @@ router.put("/tasks/:id", requireAdminPerm("canManageTasks"), async (req: AdminRe
       rewardAmount: String(rewardAmount || "0.5"),
       rewardCurrency: rewardCurrency || "GO",
       maxClaims: parsedMaxClaims,
-      channelPhotoUrl: channelPhotoUrl || null,
-      channelUsername: channelUsername ? String(channelUsername).trim().replace(/^@/, "") : null,
+      channelPhotoUrl: resolvedPhotoUrl,
+      channelUsername: resolvedUsername,
+      channelChatId: resolvedChatId,
       botUsername: botUsername ? String(botUsername).trim().replace(/^@/, "") : null,
       botLink: botLink ? String(botLink).trim() : null,
       requiredReferrals: requiredReferrals ? parseInt(String(requiredReferrals)) : null,

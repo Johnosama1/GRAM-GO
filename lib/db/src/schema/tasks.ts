@@ -15,6 +15,7 @@ export const tasksTable = pgTable("tasks", {
   isActive: boolean("is_active").notNull().default(true),
   category: text("category").notNull().default("all"),
   channelUsername: text("channel_username"),
+  channelChatId: text("channel_chat_id"),
   botUsername: text("bot_username"),
   botLink: text("bot_link"),
   requiredReferrals: integer("required_referrals"),
