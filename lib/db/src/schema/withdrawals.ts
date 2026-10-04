@@ -1,4 +1,4 @@
-import { pgTable, serial, numeric, text, timestamp, bigint, jsonb, integer } from "drizzle-orm/pg-core";
+import { pgTable, serial, numeric, text, timestamp, bigint, jsonb, integer, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -32,6 +32,8 @@ export const depositsTable = pgTable("deposits", {
   reason: text("reason"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   confirmedAt: timestamp("confirmed_at"),
+  adminNotified: boolean("admin_notified").notNull().default(false),
+  adminNotifiedAt: timestamp("admin_notified_at"),
 });
 
 export const insertWithdrawalSchema = createInsertSchema(withdrawalsTable).omit({ id: true, createdAt: true, processedAt: true });

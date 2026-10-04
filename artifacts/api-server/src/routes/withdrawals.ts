@@ -18,6 +18,7 @@ import { requireSession } from "../middlewares/requireSession";
 import { getSetting } from "../lib/settingsCache";
 import { logger } from "../lib/logger";
 import { verifyTonDepositTransaction } from "../lib/depositVerifier";
+import { notifyAdminOnDeposit } from "../lib/depositNotifier";
 
 import { OWNER_TELEGRAM_ID } from "../lib/adminSecurity";
 
@@ -588,8 +589,16 @@ router.post(
       const senderWallet =
         verification.senderWallet || cleanWallet || user.savedWalletAddress;
 
+      const goBefore = parseFloat(user.goBalance || user.balance || "0");
+      const gramBefore = parseFloat(user.gramBalance || "0");
+      const lastMiningAtBefore = user.lastMiningAt;
+
       let confirmedDeposit: typeof depositsTable.$inferSelect;
       let newTonBalance = "0";
+      let goAfter = goBefore + verifiedAmt * 1000;
+      let gramAfter = gramBefore;
+      let lastMiningAtAfter = new Date();
+      let unclaimedGramHarvested = 0;
 
       try {
         const txRes = await db.transaction(async (tx) => {
@@ -650,7 +659,7 @@ router.post(
           }
 
           const goAmount = verifiedAmt * 1000;
-          await addGoBalanceAndClaim(tx, numUserId, goAmount);
+          const updatedFromMining = await addGoBalanceAndClaim(tx, numUserId, goAmount);
           const [updatedUser] = await tx
             .update(usersTable)
             .set({
@@ -671,11 +680,15 @@ router.post(
             },
           });
 
-          return { dep, updatedUser };
+          return { dep, updatedUser, updatedFromMining };
         });
 
         confirmedDeposit = txRes.dep;
         newTonBalance = txRes.updatedUser.goBalance || "0";
+        goAfter = parseFloat(txRes.updatedUser.goBalance || txRes.updatedUser.balance || "0");
+        gramAfter = parseFloat(txRes.updatedUser.gramBalance || "0");
+        lastMiningAtAfter = txRes.updatedUser.lastMiningAt || new Date();
+        unclaimedGramHarvested = Math.max(0, gramAfter - gramBefore);
       } catch (dbErr) {
         logger.error(
           { err: dbErr },
@@ -687,83 +700,53 @@ router.post(
         return;
       }
 
-      // ── 4. Telegram Notification to Admin/Owner ─────────────────────────────
-      const ownerIdRow = await db
-        .select()
-        .from(botSettingsTable)
-        .where(eq(botSettingsTable.key, "owner_telegram_id"))
-        .limit(1);
-      const ownerId =
-        ownerIdRow.length > 0 && ownerIdRow[0].value
-          ? parseInt(ownerIdRow[0].value)
-          : null;
-
-      const explorerUrl =
-        confirmedTxHash && !confirmedTxHash.startsWith("tx_")
-          ? `https://tonviewer.com/transaction/${encodeURIComponent(confirmedTxHash)}`
-          : null;
-
-      const userFullName = [user.firstName, user.lastName]
-        .filter(Boolean)
-        .join(" ");
-      const userDisplayName = user.username
-        ? `@${esc(user.username)}` +
-          (userFullName ? ` (${esc(userFullName)})` : "")
-        : esc(userFullName || `User #${user.id}`);
-
-      const depositReplyMarkup = explorerUrl
-        ? {
-            inline_keyboard: [
-              [
-                {
-                  text: "View on Blockchain",
-                  url: explorerUrl,
-                  icon_custom_emoji_id: "5314730683988458852",
-                  style: "primary",
-                } as any,
-              ],
-            ],
-          }
-        : undefined;
-
-      if (bot && ownerId) {
-        try {
-          const formattedDate = new Date().toLocaleString("en-US", {
-            dateStyle: "medium",
-            timeStyle: "short",
-          });
-
-          const adminMsg =
-            `<tg-emoji emoji-id="6127223820764844602">✅</tg-emoji><b>Deposit Successful (New Deposit)</b>\n\n` +
-            `<tg-emoji emoji-id="5260399854500191689">👤</tg-emoji>${userDisplayName}\n\n` +
-            `<tg-emoji emoji-id="5422683699130933153">🪪</tg-emoji><code>${user.id}</code>\n\n` +
-            `<tg-emoji emoji-id="5945101187186433635">💎</tg-emoji><b>Amount:</b>\n` +
-            `<b>${verifiedAmt.toFixed(4)} TON</b>\n\n` +
-            `🪙 <b>GO Received:</b>\n` +
-            `<b>+${(verifiedAmt * 1000).toFixed(2)} GO</b>\n\n` +
-            `<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji><b>User New GO Balance:</b>\n` +
-            `<b>${parseFloat(newTonBalance).toFixed(2)} GO</b>\n\n` +
-            `<tg-emoji emoji-id="5039557485157942342">👛</tg-emoji><b>Transaction Hash:</b>\n` +
-            `<code>${esc(confirmedTxHash)}</code>\n\n` +
-            `📅 <b>Date:</b> ${formattedDate}\n` +
-            `Status: ✅ <b>VERIFIED REAL TON ON-CHAIN</b>`;
-
-          await bot.sendMessage(ownerId, adminMsg, {
-            parse_mode: "HTML",
-            reply_markup: depositReplyMarkup,
-            disable_web_page_preview: true,
-          });
-        } catch (botErr) {
-          logger.warn(
-            { err: botErr },
-            "Failed to send deposit notification to admin",
-          );
-        }
-      }
+      // ── 4. Telegram Notification to Admin (Idempotent & Detailed) ───────────
+      await notifyAdminOnDeposit(confirmedDeposit.id, {
+        goBefore,
+        goAfter,
+        gramBefore,
+        gramAfter,
+        lastMiningAtBefore,
+        lastMiningAtAfter,
+        unclaimedGramHarvested,
+      }).catch((notifyErr) => {
+        logger.error(
+          { err: notifyErr, depositId: confirmedDeposit.id },
+          "Failed to process admin deposit notification",
+        );
+      });
 
       // ── 5. Telegram Notification to User ────────────────────────────────────
       if (bot) {
         try {
+          const userFullName = [user.firstName, user.lastName]
+            .filter(Boolean)
+            .join(" ");
+          const userDisplayName = user.username
+            ? `@${esc(user.username)}` +
+              (userFullName ? ` (${esc(userFullName)})` : "")
+            : esc(userFullName || `User #${user.id}`);
+
+          const explorerUrl =
+            confirmedTxHash && !confirmedTxHash.startsWith("tx_")
+              ? `https://tonviewer.com/transaction/${encodeURIComponent(confirmedTxHash)}`
+              : null;
+
+          const depositReplyMarkup = explorerUrl
+            ? {
+                inline_keyboard: [
+                  [
+                    {
+                      text: "View on Blockchain",
+                      url: explorerUrl,
+                      icon_custom_emoji_id: "5314730683988458852",
+                      style: "primary",
+                    } as any,
+                  ],
+                ],
+              }
+            : undefined;
+
           const userMsg =
             `<tg-emoji emoji-id="6127223820764844602">✅</tg-emoji><b>Deposit Successful</b>\n\n` +
             `<tg-emoji emoji-id="5260399854500191689">👤</tg-emoji>${userDisplayName}\n\n` +
