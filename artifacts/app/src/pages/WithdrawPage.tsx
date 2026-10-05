@@ -36,10 +36,6 @@ export default function WithdrawPage() {
     const prev = prevAddressRef.current;
     prevAddressRef.current = connectedAddress;
 
-    if (!user.savedWalletAddress && connectedAddress && !prev) {
-      return;
-    }
-
     if (connectedAddress && connectedAddress !== user.savedWalletAddress) {
       setSyncing(true);
       api.saveWallet(user.id, connectedAddress)
@@ -57,10 +53,9 @@ export default function WithdrawPage() {
   const [success, setSuccess]       = useState(false);
   const [error, setError]           = useState("");
 
-
   const balance     = parseFloat(user?.gramBalance || "0");
   const canWithdraw = balance >= minWithdrawal;
-  const savedWallet = user?.savedWalletAddress ?? null;
+  const savedWallet = user?.savedWalletAddress || connectedAddress || null;
 
   const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();

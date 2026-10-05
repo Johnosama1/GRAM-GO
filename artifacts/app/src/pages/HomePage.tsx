@@ -282,9 +282,6 @@ export default function HomePage() {
   // ── Auto-sync connected TON wallet with user account ────────────────
   useEffect(() => {
     if (!user) return;
-    if (!user.savedWalletAddress && connectedAddress) {
-      return;
-    }
     if (connectedAddress && connectedAddress !== user.savedWalletAddress) {
       api
         .saveWallet(user.id, connectedAddress)
@@ -465,7 +462,7 @@ export default function HomePage() {
   const isCycleFinished = false; // Always false since mining is continuous
   const isMiningActive = hasPower; // Continuous mining means it's always active if there's power
 
-  const activeWallet = user?.savedWalletAddress || null;
+  const activeWallet = user?.savedWalletAddress || connectedAddress || null;
   const walletDisplay = activeWallet
     ? `${activeWallet.slice(0, 4)}...${activeWallet.slice(-4)}`
     : "Connect Wallet";

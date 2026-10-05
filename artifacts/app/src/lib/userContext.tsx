@@ -265,18 +265,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           console.warn("Bypass ban (isVisible)");
         }
 
-        // If user has no saved wallet in backend, purge any lingering ton-connect keys
-        if (!freshUser.savedWalletAddress) {
-          const tcKeys: string[] = [];
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith("ton-connect")) {
-              tcKeys.push(key);
-            }
-          }
-          tcKeys.forEach((k) => localStorage.removeItem(k));
-        }
-
         const freshSlots = (slotsRes.status === "fulfilled" ? slotsRes.value : cachedSlots ?? []) as WheelSlot[];
         setUser(freshUser);
         setSlots(freshSlots);

@@ -120,9 +120,6 @@ export default function WalletPage() {
     if (!user) return;
     const prev = prevAddressRef.current;
     prevAddressRef.current = connectedAddress;
-    if (!user.savedWalletAddress && connectedAddress && !prev) {
-      return;
-    }
     if (connectedAddress && connectedAddress !== user.savedWalletAddress) {
       setSyncing(true);
       api.saveWallet(user.id, connectedAddress)

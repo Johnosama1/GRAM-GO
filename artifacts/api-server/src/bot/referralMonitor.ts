@@ -84,26 +84,9 @@ async function activatePendingReferrals(bot: TelegramBot): Promise<number> {
         continue;
       }
 
-      // All 3 conditions met — activate referral and credit inviter
-      await db.update(referralsTable)
-        .set({ status: "active" })
-        .where(eq(referralsTable.id, ref.id));
-
-      // Process mining rewards first before updating GO balance
-      await addGoBalanceAndClaim(db, ref.referrerId, 10);
-
-      const [inviter] = await db
-        .update(usersTable)
-        .set({
-          referralCount: sql`referral_count + 1`,
-        })
-        .where(eq(usersTable.id, ref.referrerId))
-        .returning({ id: usersTable.id, referralCount: usersTable.referralCount, goBalance: usersTable.goBalance });
-
-      if (inviter) {
-        const msg = `🎉 <b>Congratulations!</b> A friend joined and their subscription was confirmed!\n🪙 You got <b>+10 Go Coins</b> to increase your gram mining speed by 3%! ⛏️`;
-        await bot.sendMessage(ref.referrerId, msg, { parse_mode: "HTML" }).catch(() => {});
-      }
+      // Check qualification progress (Daily Check-in + 3 Tasks -> +5 GO)
+      const { checkAndUpdateReferralQualification } = await import("../lib/referralManager");
+      await checkAndUpdateReferralQualification(ref.referredId, db, bot);
 
       activated++;
       await new Promise(r => setTimeout(r, 200));

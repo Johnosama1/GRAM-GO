@@ -180,14 +180,6 @@ export default function ProfilePage() {
     const prev = prevAddressRef.current;
     prevAddressRef.current = connectedAddress;
 
-    // If user has NO saved wallet in DB, but TonConnect has a cached address on mount, disconnect it
-    if (!user.savedWalletAddress && connectedAddress && !prev) {
-      try {
-        tonConnectUI.disconnect().catch(() => {});
-      } catch {}
-      return;
-    }
-
     if (connectedAddress && connectedAddress !== user.savedWalletAddress) {
       api
         .saveWallet(user.id, connectedAddress)
@@ -244,8 +236,10 @@ export default function ProfilePage() {
   const gramBalance = parseFloat(user?.gramBalance || "0");
   const goBalance = parseFloat(user?.goBalance || user?.balance || "0");
   const tonBalance = parseFloat(user?.tonBalance || "0");
-  const savedWallet = user?.savedWalletAddress || null;
-  const isWalletConnected = Boolean(user?.savedWalletAddress);
+  const savedWallet = user?.savedWalletAddress || connectedAddress || null;
+  const isWalletConnected = Boolean(
+    connectedAddress || user?.savedWalletAddress,
+  );
 
   const copyUserId = () => {
     if (!user) return;
