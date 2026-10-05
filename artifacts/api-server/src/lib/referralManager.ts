@@ -140,9 +140,9 @@ export async function checkAndUpdateReferralQualification(
         ? `@${esc(referredUser.username)}`
         : esc(referredUser?.firstName || `User #${userId}`);
 
-      // Process qualification reward (+1 GO) and send telegram notification to inviter(s)
+      // Process qualification reward (+5 GO) and send telegram notification to inviter(s)
       for (const ref of pendingReferrals) {
-        // Idempotently credit +1 GO qualification reward
+        // Idempotently credit +5 GO qualification reward
         try {
           const existingReward = await client
             .select({ id: transactionsTable.id })
@@ -157,36 +157,36 @@ export async function checkAndUpdateReferralQualification(
             .limit(1);
 
           if (existingReward.length === 0) {
-            await addGoBalanceAndClaim(client, ref.referrerId, 1);
+            await addGoBalanceAndClaim(client, ref.referrerId, 5);
             await client.insert(transactionsTable).values({
               userId: ref.referrerId,
               type: "referral_qualification_reward",
-              amount: "1",
+              amount: "5",
               currency: "GO",
               details: {
                 referredUserId: userId,
-                rewardGo: 1,
+                rewardGo: 5,
                 reason: "qualification_completed",
               },
             });
             logger.info(
               { referrerId: ref.referrerId, referredUserId: userId },
-              "Credited +1 GO referral qualification reward to referrer",
+              "Credited +5 GO referral qualification reward to referrer",
             );
           }
         } catch (rewardErr) {
-          logger.error({ err: rewardErr, referrerId: ref.referrerId, userId }, "Failed to credit +1 GO referral reward");
+          logger.error({ err: rewardErr, referrerId: ref.referrerId, userId }, "Failed to credit +5 GO referral reward");
         }
 
         if (bot) {
           try {
             await bot.sendMessage(
               ref.referrerId,
-              `🟢 <b>Referral Successful &amp; +1 GO Reward!</b>\n\n` +
+              `🟢 <b>Referral Successful &amp; +5 GO Reward!</b>\n\n` +
                 `🎉 Your friend ${displayName} has completed all qualification requirements:\n` +
                 `✅ Daily Check-in\n` +
                 `✅ 3 Completed Tasks\n\n` +
-                `🎁 <b>You received +1 GO referral qualification reward!</b>\n\n` +
+                `🎁 <b>You received +5 GO referral qualification reward!</b>\n\n` +
                 `Your referral is now marked <b>🟢 Successful</b> and eligible for 5-level network commissions! ⛏️`,
               { parse_mode: "HTML" },
             );

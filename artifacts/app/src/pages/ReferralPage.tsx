@@ -826,7 +826,7 @@ export default function ReferralPage() {
                         </span>
                         {isSuccessful && (
                           <span style={{ color: "#00E676", fontSize: 9.5, fontWeight: 900 }}>
-                            +1 GO
+                            +5 GO
                           </span>
                         )}
                       </div>
@@ -1334,7 +1334,7 @@ export default function ReferralPage() {
                   🟢 Successful
                 </span>
                 <span style={{ color: "#8B96A8", fontSize: 10, lineHeight: 1.3 }}>
-                  After completing all requirements, you will receive <b style={{ color: "#00E676" }}>+1 GO</b>.
+                  After completing all requirements, you will receive <b style={{ color: "#00E676" }}>+5 GO</b>.
                 </span>
               </div>
             </div>

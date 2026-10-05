@@ -155,19 +155,19 @@ describe("5-Level Referral System & Qualification", () => {
     });
   });
 
-  describe("4. Direct Referral Qualification Reward (+1 GO)", () => {
-    it("should credit exactly +1 GO once to referrer when referral transitions to successful", () => {
+  describe("4. Direct Referral Qualification Reward (+5 GO)", () => {
+    it("should credit exactly +5 GO once to referrer when referral transitions to successful", () => {
       let referrerGoBalance = 10;
-      const qualificationRewardGo = 1;
+      const qualificationRewardGo = 5;
       referrerGoBalance += qualificationRewardGo;
-      expect(referrerGoBalance).toBe(11);
+      expect(referrerGoBalance).toBe(15);
 
-      // Verify idempotency: subsequent qualification check does not re-add +1 GO
+      // Verify idempotency: subsequent qualification check does not re-add +5 GO
       const isAlreadyRewarded = true;
       if (!isAlreadyRewarded) {
         referrerGoBalance += qualificationRewardGo;
       }
-      expect(referrerGoBalance).toBe(11);
+      expect(referrerGoBalance).toBe(15);
     });
   });
 
