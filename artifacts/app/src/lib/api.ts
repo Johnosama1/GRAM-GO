@@ -202,8 +202,15 @@ export const api = {
     gramToGoRate?: number;
   }>("/config"),
 
-  initUser: (data: { id: number; username?: string; first_name?: string; last_name?: string; photo_url?: string }) =>
-    apiCall<User>("/users/init", { method: "POST", body: JSON.stringify(data) }),
+  initUser: (data: {
+    id: number;
+    username?: string;
+    first_name?: string;
+    last_name?: string;
+    photo_url?: string;
+    start_param?: string;
+    referred_by?: number;
+  }) => apiCall<User>("/users/init", { method: "POST", body: JSON.stringify(data) }),
 
   getUser: (id: number) => apiCall<User>(`/users/${id}`),
 

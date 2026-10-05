@@ -76,6 +76,33 @@ router.post("/init", telegramAuth, async (req, res) => {
       }
     }
 
+    // ── Register referral if new user opened via referral link ──────────
+    const rawRef = req.body.start_param || req.body.referred_by || req.body.ref;
+    const referredById = rawRef ? parseInt(String(rawRef), 10) : undefined;
+    if (referredById && !isNaN(referredById) && referredById > 0 && referredById !== id) {
+      if (!user.referredBy) {
+        await db.update(usersTable).set({ referredBy: referredById }).where(eq(usersTable.id, user.id)).catch(() => {});
+        try {
+          const { referralsTable } = await import("@workspace/db/schema");
+          await db.insert(referralsTable).values({
+            referrerId: referredById,
+            referredId: user.id,
+            status: "pending",
+          }).onConflictDoNothing().catch(() => {});
+
+          const { getBot } = await import("../bot");
+          const b = getBot();
+          if (b) {
+            b.sendMessage(
+              referredById,
+              `👥 A new friend joined via your link!\n⏳ The referral will be calculated after completing qualification requirements (Daily Check-in + 3 Tasks).`,
+              { parse_mode: "HTML" }
+            ).catch(() => {});
+          }
+        } catch { /* ignore */ }
+      }
+    }
+
     res.setHeader("Cache-Control", "no-store");
     res.json({
       ...user,

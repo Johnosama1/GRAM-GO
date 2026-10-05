@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { api, User, WheelSlot, getWheelSlotsOnce, getTasksOnce, getCompletedTasksOnce, getWithdrawalsOnce, setSessionToken, SubscriptionChannel } from "./api";
-import { getTelegramUser, initTelegramApp, getMockUser } from "./telegram";
+import { getTelegramUser, initTelegramApp, getMockUser, getStartParam } from "./telegram";
 import { collectFullDevicePayload } from "./deviceFingerprint";
 
 // ── Session states ───────────────────────────────────────────────────
@@ -196,6 +196,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           first_name: tgUser.first_name ?? undefined,
           last_name: tgUser.last_name ?? undefined,
           photo_url: tgUser.photo_url ?? undefined,
+          start_param: getStartParam() || undefined,
         }),
         // 2. Silent Multi-Factor Security Verification
         (async () => {

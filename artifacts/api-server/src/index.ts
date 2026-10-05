@@ -56,6 +56,11 @@ const server = app.listen(port, (err?: Error) => {
   `).catch(() => {});
   db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ref_comm_deposit ON referral_commissions(deposit_id)`).catch(() => {});
   db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ref_comm_referrer ON referral_commissions(referrer_id)`).catch(() => {});
+  import("./lib/userPurge").then(({ purgeUsersCompletely }) => {
+    purgeUsersCompletely([6507841710, 2069046826], db).catch((err) => {
+      logger.warn({ err }, "Startup user purge failed");
+    });
+  }).catch(() => {});
 
   if (process.env.DISABLE_BOT !== "true") {
     // Prefer explicit env var; fall back to Replit production domain auto-detection

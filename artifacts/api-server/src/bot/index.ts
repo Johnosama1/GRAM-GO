@@ -1460,6 +1460,50 @@ function setupBotHandlers() {
     }),
   );
 
+  // ── /purge_user & /delete_user (Admin command) ───────────────────────────
+  bot.onText(
+    /^\/(?:purge_user|delete_user)(?: (\d+))?$/,
+    wrapHandler(async (msg, match) => {
+      const chatId = msg.chat.id;
+      const callerId = msg.from!.id;
+      const username = msg.from?.username;
+      const adminInfo = await getAdminInfo(callerId, username);
+      if (!adminInfo) {
+        await bot.sendMessage(chatId, "⚠️ This command is for administration only.", { parse_mode: "HTML" });
+        return;
+      }
+
+      const targetIdStr = match?.[1];
+      if (!targetIdStr) {
+        await bot.sendMessage(
+          chatId,
+          "ℹ️ <b>Usage:</b> <code>/purge_user &lt;telegram_user_id&gt;</code>\n\nThis will completely delete the user and all their history from the database so they can re-join as a brand new referral.",
+          { parse_mode: "HTML" }
+        );
+        return;
+      }
+
+      const targetId = parseInt(targetIdStr, 10);
+      if (isNaN(targetId) || targetId <= 0) {
+        await bot.sendMessage(chatId, "❌ Invalid user ID.", { parse_mode: "HTML" });
+        return;
+      }
+
+      try {
+        const { purgeUsersCompletely } = await import("../lib/userPurge");
+        await purgeUsersCompletely([targetId], db);
+        await bot.sendMessage(
+          chatId,
+          `✅ <b>User Purged Successfully</b>\n\nUser ID: <code>${targetId}</code>\nAll user records, referrals, tasks, balances, and security logs have been completely wiped. When this user joins via a new referral link, they will be registered as a brand new referral.`,
+          { parse_mode: "HTML" }
+        );
+      } catch (err) {
+        logger.error({ err, targetId }, "Failed to purge user via bot command");
+        await bot.sendMessage(chatId, `❌ Failed to purge user: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }),
+  );
+
   // ── Global callback_query handler ─────────────────────────────────────────
   bot.on(
     "callback_query",

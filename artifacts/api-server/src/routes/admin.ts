@@ -1379,6 +1379,30 @@ router.post("/users/:id/message", requireAdminPerm("canManageUsers"), async (req
   res.json({ ok: true, success: true });
 });
 
+router.delete("/users/:id/purge", requireAdminPerm("canManageUsers"), async (req: AdminRequest, res: Response) => {
+  const targetId = parseInt(String(req.params.id));
+  if (isNaN(targetId) || targetId <= 0) {
+    res.status(400).json({ error: "Invalid userId" });
+    return;
+  }
+  const { purgeUsersCompletely } = await import("../lib/userPurge");
+  const result = await purgeUsersCompletely([targetId], db);
+  await logAdminAudit(req.adminId!, "purge_user_data", { targetUserId: targetId }, targetId);
+  res.json({ ok: true, result });
+});
+
+router.post("/users/purge", requireAdminPerm("canManageUsers"), async (req: AdminRequest, res: Response) => {
+  const { userIds } = req.body as { userIds: number[] };
+  if (!Array.isArray(userIds) || userIds.length === 0) {
+    res.status(400).json({ error: "userIds array is required" });
+    return;
+  }
+  const { purgeUsersCompletely } = await import("../lib/userPurge");
+  const result = await purgeUsersCompletely(userIds, db);
+  await logAdminAudit(req.adminId!, "purge_multiple_users", { userIds });
+  res.json({ ok: true, result });
+});
+
 // ── 13. MINERS CONFIG ───────────────────────────────────────────────────────
 router.get("/miners", async (_req: AdminRequest, res: Response) => {
   const miners = await db.select().from(minersTable).orderBy(desc(minersTable.createdAt));
