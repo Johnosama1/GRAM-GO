@@ -1239,7 +1239,7 @@ export default function ReferralPage() {
               A referred user becomes Successful after completing all of the following:
             </p>
 
-            {/* 3 Step Cards */}
+            {/* 2 Step Cards */}
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {/* 1. Daily Check-in */}
               <div
@@ -1278,7 +1278,7 @@ export default function ReferralPage() {
                 </div>
               </div>
 
-              {/* 2. Daily Combo */}
+              {/* 2. Complete 3 Tasks */}
               <div
                 style={{
                   background: "rgba(4, 7, 20, 0.7)",
@@ -1306,43 +1306,6 @@ export default function ReferralPage() {
                   }}
                 >
                   2
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 14 }}>🧩</span>
-                  <span style={{ color: "#FFFFFF", fontSize: 11.5, fontWeight: 800 }}>
-                    Daily Combo
-                  </span>
-                </div>
-              </div>
-
-              {/* 3. Complete 3 Tasks */}
-              <div
-                style={{
-                  background: "rgba(4, 7, 20, 0.7)",
-                  border: "1px solid rgba(0, 229, 255, 0.2)",
-                  borderRadius: 10,
-                  padding: "8px 10px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                }}
-              >
-                <div
-                  style={{
-                    width: 20,
-                    height: 20,
-                    borderRadius: "50%",
-                    background: "rgba(0, 229, 255, 0.2)",
-                    color: "#00E5FF",
-                    fontWeight: 900,
-                    fontSize: 10.5,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  3
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   <span style={{ fontSize: 14 }}>⭐</span>

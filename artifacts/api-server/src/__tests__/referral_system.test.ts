@@ -33,7 +33,7 @@ describe("5-Level Referral System & Qualification", () => {
               const res = [{ count: 0 }];
               const promise: any = Promise.resolve(res);
               promise.limit = vi.fn().mockResolvedValue([
-                { id: 101, tasksCompleted: 0, lastDailyClaimAt: null, comboCompletedAt: null },
+                { id: 101, tasksCompleted: 0, lastDailyClaimAt: null },
               ]);
               return promise;
             }),
@@ -44,7 +44,6 @@ describe("5-Level Referral System & Qualification", () => {
       const progress = await getUserQualificationProgress(101, mockClient);
       expect(progress.isQualified).toBe(false);
       expect(progress.dailyCheckin).toBe(false);
-      expect(progress.dailyCombo).toBe(false);
       expect(progress.tasksCompleted).toBe(0);
       expect(progress.tasksRequired).toBe(3);
     });
@@ -57,7 +56,7 @@ describe("5-Level Referral System & Qualification", () => {
               const res = [{ count: 0 }];
               const promise: any = Promise.resolve(res);
               promise.limit = vi.fn().mockResolvedValue([
-                { id: 101, tasksCompleted: 0, lastDailyClaimAt: new Date(), comboCompletedAt: null },
+                { id: 101, tasksCompleted: 0, lastDailyClaimAt: new Date() },
               ]);
               return promise;
             }),
@@ -68,11 +67,10 @@ describe("5-Level Referral System & Qualification", () => {
       const progress = await getUserQualificationProgress(101, mockClient);
       expect(progress.isQualified).toBe(false);
       expect(progress.dailyCheckin).toBe(true);
-      expect(progress.dailyCombo).toBe(false);
       expect(progress.tasksCompleted).toBe(0);
     });
 
-    it("should report Pending if Check-in and Combo are complete but tasks < 3", async () => {
+    it("should report Pending if Check-in is complete but tasks < 3", async () => {
       const mockClient = {
         select: vi.fn().mockImplementation(() => ({
           from: vi.fn().mockImplementation(() => ({
@@ -80,7 +78,7 @@ describe("5-Level Referral System & Qualification", () => {
               const res = [{ count: 2 }];
               const promise: any = Promise.resolve(res);
               promise.limit = vi.fn().mockResolvedValue([
-                { id: 101, tasksCompleted: 2, lastDailyClaimAt: new Date(), comboCompletedAt: new Date() },
+                { id: 101, tasksCompleted: 2, lastDailyClaimAt: new Date() },
               ]);
               return promise;
             }),
@@ -91,12 +89,11 @@ describe("5-Level Referral System & Qualification", () => {
       const progress = await getUserQualificationProgress(101, mockClient);
       expect(progress.isQualified).toBe(false);
       expect(progress.dailyCheckin).toBe(true);
-      expect(progress.dailyCombo).toBe(true);
       expect(progress.tasksCompleted).toBe(2);
       expect(progress.tasksRequired).toBe(3);
     });
 
-    it("should become Successful (Qualified) when Check-in, Combo, and >= 3 Tasks are completed", async () => {
+    it("should become Successful (Qualified) when Check-in and >= 3 Tasks are completed (No Combo required)", async () => {
       const mockClient = {
         select: vi.fn().mockImplementation(() => ({
           from: vi.fn().mockImplementation(() => ({
@@ -104,7 +101,7 @@ describe("5-Level Referral System & Qualification", () => {
               const res = [{ count: 3 }];
               const promise: any = Promise.resolve(res);
               promise.limit = vi.fn().mockResolvedValue([
-                { id: 101, tasksCompleted: 3, lastDailyClaimAt: new Date(), comboCompletedAt: new Date() },
+                { id: 101, tasksCompleted: 3, lastDailyClaimAt: new Date() },
               ]);
               return promise;
             }),
@@ -115,7 +112,6 @@ describe("5-Level Referral System & Qualification", () => {
       const progress = await getUserQualificationProgress(101, mockClient);
       expect(progress.isQualified).toBe(true);
       expect(progress.dailyCheckin).toBe(true);
-      expect(progress.dailyCombo).toBe(true);
       expect(progress.tasksCompleted).toBe(3);
     });
   });
@@ -232,7 +228,6 @@ describe("5-Level Referral System & Qualification", () => {
       const depositingUserQualification = {
         isQualified: false,
         dailyCheckin: true,
-        dailyCombo: false,
         tasksCompleted: 1,
         tasksRequired: 3,
       };

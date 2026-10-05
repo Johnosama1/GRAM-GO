@@ -18,7 +18,6 @@ import { logger } from "./logger";
 export interface QualificationProgress {
   isQualified: boolean;
   dailyCheckin: boolean;
-  dailyCombo: boolean;
   tasksCompleted: number;
   tasksRequired: number;
 }
@@ -43,10 +42,9 @@ const esc = (s: string | null | undefined) =>
     .replace(/>/g, "&gt;");
 
 /**
- * Checks a user's progress toward the 3 qualification conditions:
+ * Checks a user's progress toward the 2 qualification conditions:
  * 1. Daily Check-in (completed at least 1 checkin or lastDailyClaimAt is set)
- * 2. Daily Combo (completed at least 1 successful combo or comboCompletedAt is set)
- * 3. Complete at least 3 Tasks
+ * 2. Complete at least 3 Tasks
  */
 export async function getUserQualificationProgress(
   userId: number,
@@ -57,26 +55,16 @@ export async function getUserQualificationProgress(
       id: usersTable.id,
       tasksCompleted: usersTable.tasksCompleted,
       lastDailyClaimAt: usersTable.lastDailyClaimAt,
-      comboCompletedAt: usersTable.comboCompletedAt,
     })
     .from(usersTable)
     .where(eq(usersTable.id, userId))
     .limit(1);
 
-  const [checkinRes, comboRes, tasksRes] = await Promise.all([
+  const [checkinRes, tasksRes] = await Promise.all([
     client
       .select({ count: sql<number>`COUNT(*)::int` })
       .from(dailyCheckinsTable)
       .where(eq(dailyCheckinsTable.userId, userId)),
-    client
-      .select({ count: sql<number>`COUNT(*)::int` })
-      .from(userComboAttemptsTable)
-      .where(
-        and(
-          eq(userComboAttemptsTable.userId, userId),
-          eq(userComboAttemptsTable.isSuccess, true),
-        ),
-      ),
     client
       .select({ count: sql<number>`COUNT(*)::int` })
       .from(userTasksTable)
@@ -84,20 +72,17 @@ export async function getUserQualificationProgress(
   ]);
 
   const checkinCount = checkinRes[0]?.count || 0;
-  const comboCount = comboRes[0]?.count || 0;
   const taskCount = tasksRes[0]?.count || 0;
 
   const hasCheckin = checkinCount > 0 || !!user?.lastDailyClaimAt;
-  const hasCombo = comboCount > 0 || !!user?.comboCompletedAt;
   const tasksCompleted = Math.max(taskCount, user?.tasksCompleted || 0);
   const tasksRequired = 3;
 
-  const isQualified = hasCheckin && hasCombo && tasksCompleted >= tasksRequired;
+  const isQualified = hasCheckin && tasksCompleted >= tasksRequired;
 
   return {
     isQualified,
     dailyCheckin: hasCheckin,
-    dailyCombo: hasCombo,
     tasksCompleted,
     tasksRequired,
   };
@@ -200,7 +185,6 @@ export async function checkAndUpdateReferralQualification(
               `🟢 <b>Referral Successful &amp; +1 GO Reward!</b>\n\n` +
                 `🎉 Your friend ${displayName} has completed all qualification requirements:\n` +
                 `✅ Daily Check-in\n` +
-                `✅ Daily Combo\n` +
                 `✅ 3 Completed Tasks\n\n` +
                 `🎁 <b>You received +1 GO referral qualification reward!</b>\n\n` +
                 `Your referral is now marked <b>🟢 Successful</b> and eligible for 5-level network commissions! ⛏️`,
