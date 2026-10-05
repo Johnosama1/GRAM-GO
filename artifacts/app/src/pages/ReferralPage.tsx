@@ -5,7 +5,6 @@ import { useUser } from "../lib/userContext";
 import {
   api,
   ReferralEntry,
-  MilestoneItem,
   ReferralCommissionRate,
   ReferralCommissionHistoryItem,
 } from "../lib/api";
@@ -15,8 +14,6 @@ import {
   Copy,
   CheckCheck,
   Link2,
-  Lock,
-  CheckCircle2,
   ChevronRight,
   BookOpen,
   Gift,
@@ -26,10 +23,7 @@ import {
   Trophy,
   Star,
   User,
-  Check,
-  Calendar,
-  Puzzle,
-  Sparkles,
+  CheckCircle2,
 } from "lucide-react";
 
 const DEFAULT_LEVELS: ReferralCommissionRate[] = [
@@ -40,12 +34,12 @@ const DEFAULT_LEVELS: ReferralCommissionRate[] = [
   { level: 5, percent: 1 },
 ];
 
-const DEFAULT_MILESTONES = [
+const MILESTONES_CONFIG = [
   { id: 1, requiredReferrals: 1, rewardAmount: "1", rewardCurrency: "GO", icon: User },
   { id: 2, requiredReferrals: 5, rewardAmount: "3", rewardCurrency: "GO", icon: Users },
   { id: 3, requiredReferrals: 10, rewardAmount: "10", rewardCurrency: "GO", icon: Users },
-  { id: 4, requiredReferrals: 25, rewardAmount: "30", rewardCurrency: "GO", icon: Star },
-  { id: 5, requiredReferrals: 50, rewardAmount: "100", rewardCurrency: "GO", icon: Trophy },
+  { id: 4, requiredReferrals: 25, rewardAmount: "25", rewardCurrency: "GO", icon: Star },
+  { id: 5, requiredReferrals: 50, rewardAmount: "50", rewardCurrency: "GO", icon: Trophy },
 ];
 
 export default function ReferralPage() {
@@ -58,10 +52,8 @@ export default function ReferralPage() {
   const [levels, setLevels] = useState<ReferralCommissionRate[]>(DEFAULT_LEVELS);
   const [commissions, setCommissions] = useState<ReferralCommissionHistoryItem[]>([]);
   const [selectedLevelFilter, setSelectedLevelFilter] = useState<number | "all">("all");
-  const [selectedCommissionLevel, setSelectedCommissionLevel] = useState<number | "all">("all");
-  const [totalEarnedCommissionGo, setTotalEarnedCommissionGo] = useState(0);
 
-  // Modals state
+  // Modal states
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showTasksModal, setShowTasksModal] = useState(false);
 
@@ -85,7 +77,6 @@ export default function ReferralPage() {
         if (res.botUsername) {
           setBotUsername(res.botUsername);
         }
-        setTotalEarnedCommissionGo(res.totalEarnedGo || 0);
       })
       .catch(() => {
         api.getUserReferrals(user.id).then(setReferrals).catch(() => {});
@@ -99,7 +90,7 @@ export default function ReferralPage() {
     [referrals],
   );
 
-  // Level counts for filter pills: L1, L2, L3, L4, L5
+  // Level counts for filter buttons
   const levelCounts = useMemo(() => {
     const counts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
     for (const r of referrals) {
@@ -116,12 +107,6 @@ export default function ReferralPage() {
     if (selectedLevelFilter === "all") return referrals;
     return referrals.filter((r) => (r.level || 1) === selectedLevelFilter);
   }, [referrals, selectedLevelFilter]);
-
-  // Filtered commission history list based on dropdown
-  const filteredCommissions = useMemo(() => {
-    if (selectedCommissionLevel === "all") return commissions;
-    return commissions.filter((c) => c.level === selectedCommissionLevel);
-  }, [commissions, selectedCommissionLevel]);
 
   const refLink = user ? `https://t.me/${botUsername}?start=ref_${user.id}` : "";
   const loadFailed = initialized && !user;
@@ -159,15 +144,15 @@ export default function ReferralPage() {
   const getLevelBadgeStyle = (level: number) => {
     switch (level) {
       case 1:
-        return { bg: "rgba(0, 242, 254, 0.15)", border: "rgba(0, 242, 254, 0.35)", text: "#00f2fe" };
+        return { bg: "rgba(0, 229, 255, 0.15)", border: "rgba(0, 229, 255, 0.4)", text: "#00E5FF" };
       case 2:
-        return { bg: "rgba(168, 85, 247, 0.15)", border: "rgba(168, 85, 247, 0.35)", text: "#c084fc" };
+        return { bg: "rgba(139, 61, 255, 0.15)", border: "rgba(193, 60, 255, 0.4)", text: "#C13CFF" };
       case 3:
-        return { bg: "rgba(59, 130, 246, 0.15)", border: "rgba(59, 130, 246, 0.35)", text: "#60a5fa" };
+        return { bg: "rgba(0, 157, 255, 0.15)", border: "rgba(0, 157, 255, 0.4)", text: "#009DFF" };
       case 4:
-        return { bg: "rgba(236, 72, 153, 0.15)", border: "rgba(236, 72, 153, 0.35)", text: "#f472b6" };
+        return { bg: "rgba(236, 72, 153, 0.15)", border: "rgba(236, 72, 153, 0.4)", text: "#F472B6" };
       default:
-        return { bg: "rgba(20, 184, 166, 0.15)", border: "rgba(20, 184, 166, 0.35)", text: "#2dd4bf" };
+        return { bg: "rgba(0, 230, 118, 0.15)", border: "rgba(0, 230, 118, 0.4)", text: "#00E676" };
     }
   };
 
@@ -192,52 +177,67 @@ export default function ReferralPage() {
           WebkitOverflowScrolling: "touch",
           touchAction: "pan-y",
           padding:
-            "calc(max(env(safe-area-inset-top, 0px), 10px) + 12px) 14px calc(86px + env(safe-area-inset-bottom, 0px))",
+            "calc(max(env(safe-area-inset-top, 0px), 10px) + 12px) 16px calc(86px + env(safe-area-inset-bottom, 0px))",
           display: "flex",
           flexDirection: "column",
-          gap: 16,
+          gap: 14,
+          maxWidth: "430px",
+          width: "100%",
+          margin: "0 auto",
         }}
       >
         {/* ========================================================
-            1. HEADER: TITLE ON LEFT, 🎁 TASKS & 📖 RULES BUTTONS ON RIGHT
+            1. HEADER (ICON CONTAINER + TITLE + 🎁 & 📖 BUTTONS)
             ======================================================== */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 2 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            minHeight: "80px",
+            padding: "4px 0",
+          }}
+        >
+          {/* Left: 64x64 Icon + Titles */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
             <div
               style={{
-                width: 44,
-                height: 44,
-                borderRadius: 14,
-                background: "linear-gradient(135deg, rgba(0, 242, 254, 0.15), rgba(168, 85, 247, 0.15))",
-                border: "1px solid rgba(0, 242, 254, 0.3)",
+                width: 60,
+                height: 60,
+                borderRadius: 18,
+                background: "linear-gradient(135deg, rgba(0, 229, 255, 0.2), rgba(139, 61, 255, 0.15))",
+                border: "1px solid #00E5FF",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 0 20px rgba(0, 242, 254, 0.2)",
+                boxShadow: "0 0 18px rgba(0, 229, 255, 0.35)",
+                flexShrink: 0,
               }}
             >
-              <Users size={24} color="#00f2fe" />
+              <Users size={30} color="#00E5FF" strokeWidth={2.4} />
             </div>
-            <div>
+
+            <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
               <h1
                 style={{
-                  color: "#ffffff",
-                  fontSize: 21,
-                  fontWeight: 900,
-                  letterSpacing: "0.03em",
+                  color: "#FFFFFF",
+                  fontSize: 24,
+                  fontWeight: 800,
+                  letterSpacing: "0.02em",
                   margin: 0,
                   lineHeight: 1.15,
-                  textShadow: "0 2px 14px rgba(0, 242, 254, 0.35)",
+                  textShadow: "0 2px 14px rgba(0, 229, 255, 0.35)",
                 }}
               >
                 Referral Program
               </h1>
               <p
                 style={{
-                  color: "rgba(255, 255, 255, 0.55)",
-                  fontSize: 12,
+                  color: "#8B96A8",
+                  fontSize: 13,
                   fontWeight: 600,
                   margin: "2px 0 0",
+                  lineHeight: 1.25,
                 }}
               >
                 5-Level Network &amp; Instant GO Commissions
@@ -245,29 +245,29 @@ export default function ReferralPage() {
             </div>
           </div>
 
-          {/* TWO SQUARE ACTION BUTTONS: 🎁 REFERRAL TASKS & 📖 RULES */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {/* Right: 🎁 Tasks & 📖 Rules Buttons */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
             {/* 🎁 Referral Tasks Button */}
             <button
               onClick={() => setShowTasksModal(true)}
               aria-label="Referral Tasks"
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: 12,
-                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(236, 72, 153, 0.15))",
-                border: "1px solid rgba(168, 85, 247, 0.5)",
+                width: 48,
+                height: 48,
+                borderRadius: 16,
+                background: "linear-gradient(135deg, rgba(139, 61, 255, 0.25), rgba(193, 60, 255, 0.18))",
+                border: "1px solid #C13CFF",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 cursor: "pointer",
-                boxShadow: "0 0 16px rgba(168, 85, 247, 0.3)",
+                boxShadow: "0 0 14px rgba(193, 60, 255, 0.35)",
                 transition: "transform 0.15s ease",
               }}
               onPointerDown={(e) => (e.currentTarget.style.transform = "scale(0.92)")}
               onPointerUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
             >
-              <Gift size={20} color="#c084fc" strokeWidth={2.4} />
+              <Gift size={22} color="#C13CFF" strokeWidth={2.4} />
             </button>
 
             {/* 📖 Referral Rules Button */}
@@ -275,53 +275,53 @@ export default function ReferralPage() {
               onClick={() => setShowRulesModal(true)}
               aria-label="Referral Rules"
               style={{
-                width: 40,
-                height: 40,
-                borderRadius: 12,
-                background: "linear-gradient(135deg, rgba(0, 242, 254, 0.2), rgba(6, 182, 212, 0.15))",
-                border: "1px solid rgba(0, 242, 254, 0.5)",
+                width: 48,
+                height: 48,
+                borderRadius: 16,
+                background: "linear-gradient(135deg, rgba(0, 229, 255, 0.22), rgba(0, 157, 255, 0.15))",
+                border: "1px solid #00E5FF",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 cursor: "pointer",
-                boxShadow: "0 0 16px rgba(0, 242, 254, 0.3)",
+                boxShadow: "0 0 14px rgba(0, 229, 255, 0.35)",
                 transition: "transform 0.15s ease",
               }}
               onPointerDown={(e) => (e.currentTarget.style.transform = "scale(0.92)")}
               onPointerUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
             >
-              <BookOpen size={20} color="#00f2fe" strokeWidth={2.4} />
+              <BookOpen size={22} color="#00E5FF" strokeWidth={2.4} />
             </button>
           </div>
         </div>
 
         {/* ========================================================
-            2. YOUR INVITE LINK SECTION (MATCHING REFERENCE IMAGE)
+            2. INVITE LINK CARD
             ======================================================== */}
         <div
           style={{
             position: "relative",
             overflow: "hidden",
             borderRadius: 22,
-            background: "linear-gradient(145deg, rgba(14, 20, 48, 0.92), rgba(7, 10, 26, 0.96))",
+            background: "rgba(5, 15, 32, 0.90)",
             backdropFilter: "blur(24px)",
             WebkitBackdropFilter: "blur(24px)",
-            border: "1px solid rgba(0, 242, 254, 0.28)",
+            border: "1px solid #00D9FF",
             padding: "16px",
-            boxShadow: "0 12px 36px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(0, 242, 254, 0.2)",
+            boxShadow: "0 0 14px rgba(0, 229, 255, 0.15), 0 12px 36px rgba(0, 0, 0, 0.6)",
             display: "flex",
             flexDirection: "column",
             gap: 12,
           }}
         >
-          {/* Section Title */}
+          {/* Header */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Link2 size={16} color="#00f2fe" strokeWidth={2.4} />
+            <Link2 size={18} color="#00E5FF" strokeWidth={2.4} />
             <span
               style={{
-                color: "#ffffff",
-                fontSize: 12,
-                fontWeight: 900,
+                color: "#FFFFFF",
+                fontSize: 16,
+                fontWeight: 800,
                 letterSpacing: "0.06em",
                 textTransform: "uppercase",
               }}
@@ -330,24 +330,25 @@ export default function ReferralPage() {
             </span>
           </div>
 
-          {/* Link Box with integrated Copy Icon */}
+          {/* Referral URL Input Box */}
           <div
             onClick={handleCopy}
             style={{
+              height: 46,
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               gap: 8,
-              background: "rgba(4, 7, 20, 0.8)",
-              border: "1px solid rgba(255, 255, 255, 0.12)",
-              borderRadius: 14,
-              padding: "10px 12px",
+              background: "#050B18",
+              border: "1px solid rgba(0, 229, 255, 0.35)",
+              borderRadius: 12,
+              padding: "0 12px",
               cursor: "pointer",
             }}
           >
             <span
               style={{
-                color: "rgba(255, 255, 255, 0.85)",
+                color: "rgba(255, 255, 255, 0.9)",
                 fontSize: 13,
                 fontFamily: "monospace",
                 margin: 0,
@@ -361,32 +362,32 @@ export default function ReferralPage() {
             >
               {refLink || (loadFailed ? "Connection error" : "Generating link…")}
             </span>
-            <div style={{ color: copied ? "#34d399" : "rgba(255, 255, 255, 0.6)", flexShrink: 0 }}>
-              {copied ? <CheckCheck size={16} strokeWidth={2.4} /> : <Copy size={16} strokeWidth={2.2} />}
+            <div style={{ color: copied ? "#00E676" : "rgba(255, 255, 255, 0.6)", flexShrink: 0 }}>
+              {copied ? <CheckCheck size={18} strokeWidth={2.4} /> : <Copy size={18} strokeWidth={2.2} />}
             </div>
           </div>
 
-          {/* Action Buttons: [ 📋 Copy Link ] & [ 🔗 Share ] */}
+          {/* Action Buttons: Copy Link & Share */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             {/* Copy Button */}
             <button
               onClick={handleCopy}
               disabled={!refLink}
               style={{
-                padding: "12px 14px",
-                borderRadius: 14,
+                height: 44,
+                borderRadius: 12,
                 border: "none",
                 cursor: refLink ? "pointer" : "not-allowed",
-                fontWeight: 900,
+                fontWeight: 800,
                 fontSize: 14,
                 fontFamily: "inherit",
-                background: "linear-gradient(135deg, #00f2fe 0%, #0284c7 100%)",
-                color: "#040b18",
+                background: "linear-gradient(135deg, #00E5FF 0%, #009DFF 100%)",
+                color: "#050A1A",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 8,
-                boxShadow: "0 4px 18px rgba(0, 242, 254, 0.35)",
+                boxShadow: "0 4px 18px rgba(0, 229, 255, 0.35)",
                 transition: "transform 0.15s ease",
               }}
               onPointerDown={(e) => (e.currentTarget.style.transform = "scale(0.96)")}
@@ -401,20 +402,20 @@ export default function ReferralPage() {
               onClick={shareLink}
               disabled={!refLink}
               style={{
-                padding: "12px 14px",
-                borderRadius: 14,
+                height: 44,
+                borderRadius: 12,
                 border: "none",
                 cursor: refLink ? "pointer" : "not-allowed",
-                fontWeight: 900,
+                fontWeight: 800,
                 fontSize: 14,
                 fontFamily: "inherit",
-                background: "linear-gradient(135deg, #a855f7 0%, #6366f1 100%)",
-                color: "#ffffff",
+                background: "linear-gradient(135deg, #8B3DFF 0%, #C13CFF 100%)",
+                color: "#FFFFFF",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 gap: 8,
-                boxShadow: "0 4px 18px rgba(168, 85, 247, 0.35)",
+                boxShadow: "0 4px 18px rgba(139, 61, 255, 0.35)",
                 transition: "transform 0.15s ease",
               }}
               onPointerDown={(e) => (e.currentTarget.style.transform = "scale(0.96)")}
@@ -427,20 +428,19 @@ export default function ReferralPage() {
         </div>
 
         {/* ========================================================
-            3. LEADERBOARD CARD (DIRECTLY BELOW INVITE LINK)
+            3. LEADERBOARD CARD
             ======================================================== */}
         <div
           onClick={() => setLocation("/leaderboard")}
           style={{
-            position: "relative",
-            overflow: "hidden",
+            height: 70,
             borderRadius: 22,
-            background: "linear-gradient(145deg, rgba(30, 24, 8, 0.88), rgba(20, 15, 4, 0.94))",
+            background: "rgba(45, 32, 0, 0.35)",
             backdropFilter: "blur(24px)",
             WebkitBackdropFilter: "blur(24px)",
-            border: "1px solid rgba(251, 191, 36, 0.32)",
-            padding: "16px 18px",
-            boxShadow: "0 10px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(251, 191, 36, 0.2)",
+            border: "1px solid #D6A928",
+            padding: "0 16px",
+            boxShadow: "0 0 16px rgba(255, 210, 31, 0.15), 0 10px 30px rgba(0, 0, 0, 0.5)",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
@@ -449,39 +449,40 @@ export default function ReferralPage() {
           }}
           onPointerDown={(e) => (e.currentTarget.style.transform = "scale(0.98)")}
           onPointerUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+          onPointerLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 14, zIndex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div
               style={{
-                width: 44,
-                height: 44,
+                width: 46,
+                height: 46,
                 borderRadius: 14,
-                background: "linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.08))",
-                border: "1px solid rgba(251, 191, 36, 0.45)",
+                background: "rgba(255, 210, 31, 0.15)",
+                border: "1px solid #FFD21F",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                boxShadow: "0 0 16px rgba(251, 191, 36, 0.25)",
+                boxShadow: "0 0 12px rgba(255, 210, 31, 0.25)",
               }}
             >
-              <video src={leaderboardVideo} autoPlay loop muted playsInline style={{ width: 28, height: 28 }} />
+              <video src={leaderboardVideo} autoPlay loop muted playsInline style={{ width: 26, height: 26 }} />
             </div>
             <div>
               <h2
                 style={{
-                  color: "#ffffff",
-                  fontSize: 15,
+                  color: "#FFFFFF",
+                  fontSize: 18,
                   fontWeight: 900,
-                  letterSpacing: "0.04em",
+                  letterSpacing: "0.03em",
                   margin: 0,
-                  textShadow: "0 2px 14px rgba(251, 191, 36, 0.35)",
+                  textShadow: "0 2px 14px rgba(255, 210, 31, 0.35)",
                 }}
               >
                 LEADERBOARD
               </h2>
               <p
                 style={{
-                  color: "rgba(255, 255, 255, 0.6)",
+                  color: "#8B96A8",
                   fontSize: 12,
                   fontWeight: 600,
                   margin: "2px 0 0",
@@ -497,44 +498,44 @@ export default function ReferralPage() {
               width: 32,
               height: 32,
               borderRadius: "50%",
-              background: "rgba(251, 191, 36, 0.12)",
-              border: "1px solid rgba(251, 191, 36, 0.35)",
+              background: "rgba(255, 210, 31, 0.15)",
+              border: "1px solid rgba(255, 210, 31, 0.4)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              zIndex: 1,
             }}
           >
-            <ChevronRight size={18} color="#fbbf24" />
+            <ChevronRight size={18} color="#FFD21F" />
           </div>
         </div>
 
         {/* ========================================================
-            4. 5-LEVEL COMMISSIONS (COMPACT 5 EQUAL BOXES ROW)
+            4. 5-LEVEL COMMISSIONS
             ======================================================== */}
         <div
           style={{
             position: "relative",
             overflow: "hidden",
             borderRadius: 22,
-            background: "linear-gradient(145deg, rgba(14, 20, 48, 0.88), rgba(7, 10, 26, 0.94))",
+            background: "rgba(5, 12, 30, 0.88)",
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
-            border: "1px solid rgba(0, 242, 254, 0.22)",
-            padding: "14px 16px",
+            border: "1px solid rgba(0, 229, 255, 0.45)",
+            padding: "16px",
             display: "flex",
             flexDirection: "column",
-            gap: 10,
-            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
+            gap: 12,
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.45)",
           }}
         >
+          {/* Header */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <Layers size={16} color="#00f2fe" />
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Layers size={18} color="#00E5FF" />
               <span
                 style={{
-                  color: "#ffffff",
-                  fontSize: 13,
+                  color: "#FFFFFF",
+                  fontSize: 15,
                   fontWeight: 900,
                   letterSpacing: "0.04em",
                 }}
@@ -544,20 +545,20 @@ export default function ReferralPage() {
             </div>
             <span
               style={{
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: 800,
-                color: "#c084fc",
-                background: "rgba(168, 85, 247, 0.14)",
-                padding: "2px 8px",
-                borderRadius: 8,
-                border: "1px solid rgba(168, 85, 247, 0.3)",
+                color: "#C13CFF",
+                background: "linear-gradient(135deg, rgba(139, 61, 255, 0.25), rgba(193, 60, 255, 0.15))",
+                padding: "4px 10px",
+                borderRadius: 10,
+                border: "1px solid rgba(193, 60, 255, 0.45)",
               }}
             >
               1 Gram = 1,000 GO
             </span>
           </div>
 
-          {/* 5 Equal Compact Boxes */}
+          {/* 5 Equal Compact Boxes (L1 to L5) */}
           <div
             style={{
               display: "grid",
@@ -569,21 +570,23 @@ export default function ReferralPage() {
               <div
                 key={lvl.level}
                 style={{
-                  background: "linear-gradient(145deg, rgba(0, 242, 254, 0.08), rgba(168, 85, 247, 0.04))",
-                  border: "1px solid rgba(0, 242, 254, 0.25)",
+                  height: 76,
+                  background: "rgba(4, 18, 35, 0.95)",
+                  border: "1px solid rgba(0, 229, 255, 0.40)",
                   borderRadius: 12,
                   padding: "10px 2px",
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
-                  gap: 3,
+                  justifyContent: "center",
+                  gap: 4,
                 }}
               >
                 <span
                   style={{
-                    color: "rgba(255, 255, 255, 0.55)",
-                    fontSize: 10,
-                    fontWeight: 800,
+                    color: "#B9C4D5",
+                    fontSize: 13,
+                    fontWeight: 700,
                     textTransform: "uppercase",
                   }}
                 >
@@ -591,11 +594,11 @@ export default function ReferralPage() {
                 </span>
                 <span
                   style={{
-                    color: "#00f2fe",
-                    fontSize: 15,
+                    color: "#00E5FF",
+                    fontSize: 21,
                     fontWeight: 900,
                     lineHeight: 1.1,
-                    textShadow: "0 0 10px rgba(0, 242, 254, 0.45)",
+                    textShadow: "0 0 10px rgba(0, 229, 255, 0.5)",
                   }}
                 >
                   {lvl.percent}%
@@ -606,15 +609,15 @@ export default function ReferralPage() {
         </div>
 
         {/* ========================================================
-            5. YOUR REFERRALS SECTION (WITH L1-L5 FILTERS & STATUS CHIPS)
+            5. YOUR REFERRALS
             ======================================================== */}
         <div
           style={{
             borderRadius: 22,
-            background: "rgba(8, 12, 30, 0.75)",
+            background: "rgba(3, 9, 25, 0.92)",
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
-            border: "1px solid rgba(0, 242, 254, 0.18)",
+            border: "1px solid rgba(0, 229, 255, 0.35)",
             padding: "16px",
             display: "flex",
             flexDirection: "column",
@@ -623,13 +626,13 @@ export default function ReferralPage() {
         >
           {/* Header */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <Users size={17} color="#00f2fe" />
-            <h2 style={{ color: "#ffffff", fontSize: 14, fontWeight: 900, letterSpacing: "0.03em", margin: 0 }}>
+            <Users size={18} color="#00E5FF" />
+            <h2 style={{ color: "#FFFFFF", fontSize: 18, fontWeight: 900, letterSpacing: "0.03em", margin: 0 }}>
               YOUR REFERRALS ({totalInvited})
             </h2>
           </div>
 
-          {/* Level Filter Pills: All, L1, L2, L3, L4, L5 */}
+          {/* Level Filters (All, L1, L2, L3, L4, L5) */}
           <div
             style={{
               display: "grid",
@@ -641,16 +644,17 @@ export default function ReferralPage() {
             <button
               onClick={() => setSelectedLevelFilter("all")}
               style={{
-                padding: "6px 2px",
+                height: 38,
                 borderRadius: 10,
-                border: selectedLevelFilter === "all" ? "1px solid #00f2fe" : "1px solid rgba(255, 255, 255, 0.08)",
-                background: selectedLevelFilter === "all" ? "rgba(0, 242, 254, 0.22)" : "rgba(4, 7, 20, 0.6)",
-                color: selectedLevelFilter === "all" ? "#00f2fe" : "rgba(255, 255, 255, 0.6)",
+                border: selectedLevelFilter === "all" ? "none" : "1px solid rgba(255, 255, 255, 0.08)",
+                background: selectedLevelFilter === "all" ? "#00CFE8" : "rgba(4, 7, 20, 0.6)",
+                color: selectedLevelFilter === "all" ? "#050A1A" : "#8B96A8",
                 fontSize: 11,
-                fontWeight: 800,
+                fontWeight: 900,
                 cursor: "pointer",
                 textAlign: "center",
                 whiteSpace: "nowrap",
+                fontFamily: "inherit",
               }}
             >
               All ({totalInvited})
@@ -666,16 +670,17 @@ export default function ReferralPage() {
                   key={lvl}
                   onClick={() => setSelectedLevelFilter(lvl)}
                   style={{
-                    padding: "6px 2px",
+                    height: 38,
                     borderRadius: 10,
-                    border: isSelected ? "1px solid #00f2fe" : "1px solid rgba(255, 255, 255, 0.08)",
-                    background: isSelected ? "rgba(0, 242, 254, 0.22)" : "rgba(4, 7, 20, 0.6)",
-                    color: isSelected ? "#00f2fe" : "rgba(255, 255, 255, 0.6)",
+                    border: isSelected ? "none" : "1px solid rgba(255, 255, 255, 0.08)",
+                    background: isSelected ? "#00CFE8" : "rgba(4, 7, 20, 0.6)",
+                    color: isSelected ? "#050A1A" : "#8B96A8",
                     fontSize: 11,
-                    fontWeight: 800,
+                    fontWeight: 900,
                     cursor: "pointer",
                     textAlign: "center",
                     whiteSpace: "nowrap",
+                    fontFamily: "inherit",
                   }}
                 >
                   L{lvl} ({count})
@@ -684,9 +689,9 @@ export default function ReferralPage() {
             })}
           </div>
 
-          {/* Referral Cards List */}
+          {/* Referral Cards */}
           {loadingReferrals ? (
-            <div style={{ textAlign: "center", padding: "20px", color: "rgba(255, 255, 255, 0.5)", fontSize: 13 }}>
+            <div style={{ textAlign: "center", padding: "20px", color: "#8B96A8", fontSize: 13 }}>
               Loading referrals…
             </div>
           ) : filteredReferrals.length === 0 ? (
@@ -704,7 +709,7 @@ export default function ReferralPage() {
               }}
             >
               <Users size={28} color="rgba(255, 255, 255, 0.2)" />
-              <p style={{ color: "rgba(255, 255, 255, 0.6)", fontSize: 12, margin: 0, fontWeight: 600 }}>
+              <p style={{ color: "#8B96A8", fontSize: 13, margin: 0, fontWeight: 600 }}>
                 {selectedLevelFilter === "all"
                   ? "No referrals yet. Share your invite link to build your 5-level network!"
                   : `No referrals found in Level ${selectedLevelFilter}.`}
@@ -715,33 +720,33 @@ export default function ReferralPage() {
               {filteredReferrals.map((ref) => {
                 const isSuccessful = ref.status === "successful" || ref.status === "approved";
                 const lvl = ref.level || 1;
-                const badgeStyle = getLevelBadgeStyle(lvl);
 
                 return (
                   <div
                     key={ref.id}
                     style={{
-                      background: "rgba(11, 16, 38, 0.75)",
-                      border: "1px solid rgba(255, 255, 255, 0.08)",
-                      borderRadius: 16,
-                      padding: "10px 12px",
+                      height: 76,
+                      background: "rgba(8, 15, 32, 0.85)",
+                      border: "1px solid rgba(90, 110, 150, 0.20)",
+                      borderRadius: 18,
+                      padding: "0 14px",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
                       gap: 8,
                     }}
                   >
-                    {/* Left: Avatar + Name + @username + Level Badge */}
+                    {/* Left: Avatar + Names */}
                     <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
                       {ref.photoUrl ? (
                         <img
                           src={ref.photoUrl}
                           alt=""
                           style={{
-                            width: 38,
-                            height: 38,
-                            borderRadius: 12,
-                            border: "1px solid rgba(255, 255, 255, 0.2)",
+                            width: 48,
+                            height: 48,
+                            borderRadius: "50%",
+                            border: "1px solid rgba(255, 255, 255, 0.25)",
                             objectFit: "cover",
                             flexShrink: 0,
                           }}
@@ -749,18 +754,18 @@ export default function ReferralPage() {
                       ) : (
                         <div
                           style={{
-                            width: 38,
-                            height: 38,
-                            borderRadius: 12,
+                            width: 48,
+                            height: 48,
+                            borderRadius: "50%",
                             background: isSuccessful
-                              ? "linear-gradient(135deg, #10b981, #059669)"
-                              : "linear-gradient(135deg, #6366f1, #3b82f6)",
+                              ? "linear-gradient(135deg, #00E676, #009DFF)"
+                              : "linear-gradient(135deg, #8B3DFF, #C13CFF)",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            color: "#ffffff",
+                            color: "#FFFFFF",
                             fontWeight: 900,
-                            fontSize: 14,
+                            fontSize: 16,
                             flexShrink: 0,
                           }}
                         >
@@ -771,8 +776,8 @@ export default function ReferralPage() {
                       <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                         <span
                           style={{
-                            color: "#ffffff",
-                            fontSize: 13,
+                            color: "#FFFFFF",
+                            fontSize: 16,
                             fontWeight: 800,
                             overflow: "hidden",
                             textOverflow: "ellipsis",
@@ -784,8 +789,8 @@ export default function ReferralPage() {
                         {ref.username && (
                           <span
                             style={{
-                              color: "rgba(255, 255, 255, 0.5)",
-                              fontSize: 11,
+                              color: "#8B96A8",
+                              fontSize: 13,
                               fontWeight: 600,
                               overflow: "hidden",
                               textOverflow: "ellipsis",
@@ -797,16 +802,16 @@ export default function ReferralPage() {
                         )}
                       </div>
 
-                      {/* Level Pill Badge */}
+                      {/* Level Pill */}
                       <span
                         style={{
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: 800,
-                          color: badgeStyle.text,
-                          background: badgeStyle.bg,
-                          border: `1px solid ${badgeStyle.border}`,
-                          padding: "2px 7px",
-                          borderRadius: 8,
+                          color: "#C13CFF",
+                          background: "rgba(139, 61, 255, 0.15)",
+                          border: "1px solid rgba(139, 61, 255, 0.45)",
+                          padding: "3px 8px",
+                          borderRadius: 10,
                           flexShrink: 0,
                           marginLeft: 4,
                         }}
@@ -815,32 +820,32 @@ export default function ReferralPage() {
                       </span>
                     </div>
 
-                    {/* Right: Status Pill + +1 GO label + Chevron */}
+                    {/* Right: Status Pill & Arrow */}
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
                         <span
                           style={{
-                            padding: "3px 8px",
-                            borderRadius: 8,
-                            fontSize: 10,
+                            padding: "4px 10px",
+                            borderRadius: 10,
+                            fontSize: 11,
                             fontWeight: 900,
-                            background: isSuccessful ? "rgba(16, 185, 129, 0.16)" : "rgba(251, 191, 36, 0.16)",
-                            color: isSuccessful ? "#34d399" : "#fbbf24",
+                            background: isSuccessful ? "rgba(0, 230, 118, 0.15)" : "rgba(255, 193, 7, 0.15)",
+                            color: isSuccessful ? "#00E676" : "#FFC107",
                             border: isSuccessful
-                              ? "1px solid rgba(16, 185, 129, 0.35)"
-                              : "1px solid rgba(251, 191, 36, 0.35)",
+                              ? "1px solid rgba(0, 230, 118, 0.4)"
+                              : "1px solid rgba(255, 193, 7, 0.4)",
                           }}
                         >
                           {isSuccessful ? "🟢 Successful" : "🟡 Pending"}
                         </span>
                         {isSuccessful && (
-                          <span style={{ color: "#34d399", fontSize: 10, fontWeight: 900 }}>
+                          <span style={{ color: "#00E676", fontSize: 11, fontWeight: 900 }}>
                             +1 GO
                           </span>
                         )}
                       </div>
 
-                      <ChevronRight size={16} color="rgba(255, 255, 255, 0.4)" />
+                      <ChevronRight size={18} color="#8B96A8" />
                     </div>
                   </div>
                 );
@@ -850,68 +855,38 @@ export default function ReferralPage() {
         </div>
 
         {/* ========================================================
-            6. COMMISSION HISTORY TABLE (MATCHING REFERENCE IMAGE)
+            6. COMMISSION HISTORY
             ======================================================== */}
         <div
           style={{
             borderRadius: 22,
-            background: "rgba(8, 12, 30, 0.75)",
+            background: "rgba(3, 9, 25, 0.92)",
             backdropFilter: "blur(20px)",
             WebkitBackdropFilter: "blur(20px)",
-            border: "1px solid rgba(0, 242, 254, 0.18)",
+            border: "1px solid rgba(0, 229, 255, 0.35)",
             padding: "16px",
             display: "flex",
             flexDirection: "column",
             gap: 12,
           }}
         >
-          {/* Header with Level Dropdown */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Coins size={17} color="#00f2fe" />
-              <h2 style={{ color: "#ffffff", fontSize: 14, fontWeight: 900, letterSpacing: "0.03em", margin: 0 }}>
-                COMMISSION HISTORY
-              </h2>
-            </div>
-
-            {/* Level Selector Dropdown */}
-            <select
-              value={selectedCommissionLevel}
-              onChange={(e) => {
-                const val = e.target.value;
-                setSelectedCommissionLevel(val === "all" ? "all" : parseInt(val));
-              }}
-              style={{
-                background: "rgba(4, 7, 20, 0.8)",
-                border: "1px solid rgba(255, 255, 255, 0.15)",
-                color: "#ffffff",
-                padding: "4px 8px",
-                borderRadius: 10,
-                fontSize: 11,
-                fontWeight: 800,
-                cursor: "pointer",
-                outline: "none",
-                fontFamily: "inherit",
-              }}
-            >
-              <option value="all" style={{ background: "#0c1024", color: "#fff" }}>All Levels</option>
-              <option value="1" style={{ background: "#0c1024", color: "#fff" }}>Level 1</option>
-              <option value="2" style={{ background: "#0c1024", color: "#fff" }}>Level 2</option>
-              <option value="3" style={{ background: "#0c1024", color: "#fff" }}>Level 3</option>
-              <option value="4" style={{ background: "#0c1024", color: "#fff" }}>Level 4</option>
-              <option value="5" style={{ background: "#0c1024", color: "#fff" }}>Level 5</option>
-            </select>
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Coins size={18} color="#00E5FF" />
+            <h2 style={{ color: "#FFFFFF", fontSize: 17, fontWeight: 900, letterSpacing: "0.03em", margin: 0 }}>
+              COMMISSION HISTORY
+            </h2>
           </div>
 
-          {/* Commission Table Columns Header */}
+          {/* Table Header */}
           <div
             style={{
               display: "grid",
               gridTemplateColumns: "1.6fr 0.7fr 0.8fr 1fr 1fr",
-              padding: "4px 8px",
-              fontSize: 10,
+              padding: "6px 8px",
+              fontSize: 11,
               fontWeight: 800,
-              color: "rgba(255, 255, 255, 0.45)",
+              color: "#8B96A8",
               letterSpacing: "0.05em",
               textTransform: "uppercase",
               borderBottom: "1px solid rgba(255, 255, 255, 0.08)",
@@ -924,7 +899,7 @@ export default function ReferralPage() {
             <span style={{ textAlign: "right" }}>DATE</span>
           </div>
 
-          {filteredCommissions.length === 0 ? (
+          {commissions.length === 0 ? (
             <div
               style={{
                 textAlign: "center",
@@ -938,13 +913,13 @@ export default function ReferralPage() {
               }}
             >
               <Coins size={24} color="rgba(255, 255, 255, 0.2)" />
-              <p style={{ color: "rgba(255, 255, 255, 0.5)", fontSize: 12, margin: 0 }}>
+              <p style={{ color: "#8B96A8", fontSize: 12, margin: 0 }}>
                 No commission records yet.
               </p>
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {filteredCommissions.map((c) => {
+              {commissions.map((c) => {
                 const dateObj = new Date(c.createdAt);
                 const year = dateObj.getFullYear();
                 const month = String(dateObj.getMonth() + 1).padStart(2, "0");
@@ -975,9 +950,9 @@ export default function ReferralPage() {
                           src={c.depositingUserPhotoUrl}
                           alt=""
                           style={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: 8,
+                            width: 26,
+                            height: 26,
+                            borderRadius: "50%",
                             objectFit: "cover",
                             flexShrink: 0,
                           }}
@@ -985,9 +960,9 @@ export default function ReferralPage() {
                       ) : (
                         <div
                           style={{
-                            width: 24,
-                            height: 24,
-                            borderRadius: 8,
+                            width: 26,
+                            height: 26,
+                            borderRadius: "50%",
                             background: badgeStyle.bg,
                             border: `1px solid ${badgeStyle.border}`,
                             color: badgeStyle.text,
@@ -1003,11 +978,11 @@ export default function ReferralPage() {
                         </div>
                       )}
                       <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                        <span style={{ color: "#ffffff", fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11 }}>
+                        <span style={{ color: "#FFFFFF", fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11 }}>
                           {c.depositingUserName}
                         </span>
                         {c.depositingUserUsername && (
-                          <span style={{ color: "rgba(255, 255, 255, 0.4)", fontSize: 9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          <span style={{ color: "#8B96A8", fontSize: 9, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             @{c.depositingUserUsername}
                           </span>
                         )}
@@ -1032,17 +1007,17 @@ export default function ReferralPage() {
                     </div>
 
                     {/* Percent */}
-                    <div style={{ color: "#ffffff", fontWeight: 800 }}>
+                    <div style={{ color: "#FFFFFF", fontWeight: 800 }}>
                       {c.percentage}%
                     </div>
 
                     {/* GO Amount */}
-                    <div style={{ color: "#34d399", fontWeight: 900, fontSize: 12 }}>
+                    <div style={{ color: "#00E676", fontWeight: 900, fontSize: 12 }}>
                       +{c.commissionAmountGo.toFixed(0)} GO
                     </div>
 
                     {/* Date */}
-                    <div style={{ textAlign: "right", color: "rgba(255, 255, 255, 0.45)", fontSize: 9, fontWeight: 600 }}>
+                    <div style={{ textAlign: "right", color: "#8B96A8", fontSize: 9, fontWeight: 600 }}>
                       {dateFormatted}
                     </div>
                   </div>
@@ -1054,7 +1029,7 @@ export default function ReferralPage() {
       </div>
 
       {/* ========================================================
-          MODAL 1: REFERRAL TASKS (🎁 BUTTON MODAL)
+          MODAL: REFERRAL TASKS (🎁 BUTTON)
           ======================================================== */}
       {showTasksModal && (
         <div
@@ -1062,13 +1037,13 @@ export default function ReferralPage() {
             position: "fixed",
             inset: 0,
             zIndex: 1000,
-            background: "rgba(0, 0, 0, 0.78)",
+            background: "rgba(0, 0, 0, 0.8)",
             backdropFilter: "blur(12px)",
             WebkitBackdropFilter: "blur(12px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "20px",
+            padding: "16px",
           }}
           onClick={() => setShowTasksModal(false)}
         >
@@ -1076,11 +1051,11 @@ export default function ReferralPage() {
             style={{
               position: "relative",
               width: "100%",
-              maxWidth: 380,
-              borderRadius: 24,
+              maxWidth: 360,
+              borderRadius: 22,
               background: "linear-gradient(145deg, rgba(14, 20, 48, 0.98), rgba(7, 10, 26, 0.98))",
-              border: "1px solid rgba(168, 85, 247, 0.4)",
-              boxShadow: "0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(168, 85, 247, 0.25)",
+              border: "1px solid rgba(193, 60, 255, 0.45)",
+              boxShadow: "0 20px 50px rgba(0, 0, 0, 0.85), 0 0 30px rgba(193, 60, 255, 0.25)",
               padding: "20px",
               display: "flex",
               flexDirection: "column",
@@ -1098,20 +1073,20 @@ export default function ReferralPage() {
                     width: 36,
                     height: 36,
                     borderRadius: 12,
-                    background: "rgba(168, 85, 247, 0.2)",
-                    border: "1px solid rgba(168, 85, 247, 0.45)",
+                    background: "rgba(193, 60, 255, 0.2)",
+                    border: "1px solid rgba(193, 60, 255, 0.45)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
-                  <Gift size={18} color="#c084fc" />
+                  <Gift size={18} color="#C13CFF" />
                 </div>
                 <div>
-                  <h3 style={{ color: "#ffffff", fontSize: 16, fontWeight: 900, margin: 0 }}>
+                  <h3 style={{ color: "#FFFFFF", fontSize: 16, fontWeight: 900, margin: 0 }}>
                     Referral Tasks
                   </h3>
-                  <p style={{ color: "rgba(255, 255, 255, 0.5)", fontSize: 11, fontWeight: 600, margin: 0 }}>
+                  <p style={{ color: "#8B96A8", fontSize: 11, fontWeight: 600, margin: 0 }}>
                     Complete referral milestones to earn extra GO rewards!
                   </p>
                 </div>
@@ -1129,7 +1104,7 @@ export default function ReferralPage() {
                   alignItems: "center",
                   justifyContent: "center",
                   cursor: "pointer",
-                  color: "rgba(255, 255, 255, 0.7)",
+                  color: "#8B96A8",
                 }}
               >
                 <X size={15} />
@@ -1138,7 +1113,7 @@ export default function ReferralPage() {
 
             {/* Milestones List */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {DEFAULT_MILESTONES.map((m) => {
+              {MILESTONES_CONFIG.map((m) => {
                 const IconComponent = m.icon;
                 const isAchieved = successfulCount >= m.requiredReferrals;
 
@@ -1146,14 +1121,15 @@ export default function ReferralPage() {
                   <div
                     key={m.id}
                     style={{
+                      height: 56,
                       background: isAchieved
-                        ? "linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(4, 7, 20, 0.7))"
+                        ? "linear-gradient(135deg, rgba(0, 230, 118, 0.12), rgba(4, 7, 20, 0.7))"
                         : "rgba(4, 7, 20, 0.7)",
                       border: isAchieved
-                        ? "1px solid rgba(16, 185, 129, 0.4)"
+                        ? "1px solid rgba(0, 230, 118, 0.4)"
                         : "1px solid rgba(255, 255, 255, 0.08)",
                       borderRadius: 14,
-                      padding: "12px 14px",
+                      padding: "0 14px",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "space-between",
@@ -1166,25 +1142,25 @@ export default function ReferralPage() {
                           width: 32,
                           height: 32,
                           borderRadius: 10,
-                          background: isAchieved ? "rgba(16, 185, 129, 0.2)" : "rgba(168, 85, 247, 0.15)",
-                          border: isAchieved ? "1px solid rgba(16, 185, 129, 0.4)" : "1px solid rgba(168, 85, 247, 0.3)",
+                          background: isAchieved ? "rgba(0, 230, 118, 0.2)" : "rgba(139, 61, 255, 0.15)",
+                          border: isAchieved ? "1px solid rgba(0, 230, 118, 0.4)" : "1px solid rgba(139, 61, 255, 0.3)",
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
                         }}
                       >
-                        <IconComponent size={16} color={isAchieved ? "#34d399" : "#c084fc"} />
+                        <IconComponent size={16} color={isAchieved ? "#00E676" : "#C13CFF"} />
                       </div>
-                      <span style={{ color: "#ffffff", fontSize: 13, fontWeight: 800 }}>
+                      <span style={{ color: "#FFFFFF", fontSize: 13, fontWeight: 800 }}>
                         {m.requiredReferrals} {m.requiredReferrals === 1 ? "Successful Friend" : "Successful Friends"}
                       </span>
                     </div>
 
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ color: "#34d399", fontSize: 14, fontWeight: 900 }}>
+                      <span style={{ color: "#00E676", fontSize: 14, fontWeight: 900 }}>
                         +{m.rewardAmount} {m.rewardCurrency}
                       </span>
-                      {isAchieved && <CheckCircle2 size={16} color="#34d399" />}
+                      {isAchieved && <CheckCircle2 size={16} color="#00E676" />}
                     </div>
                   </div>
                 );
@@ -1195,7 +1171,7 @@ export default function ReferralPage() {
       )}
 
       {/* ========================================================
-          MODAL 2: REFERRAL RULES (📖 BUTTON MODAL)
+          MODAL: REFERRAL RULES (📖 BUTTON)
           ======================================================== */}
       {showRulesModal && (
         <div
@@ -1203,13 +1179,13 @@ export default function ReferralPage() {
             position: "fixed",
             inset: 0,
             zIndex: 1000,
-            background: "rgba(0, 0, 0, 0.78)",
+            background: "rgba(0, 0, 0, 0.8)",
             backdropFilter: "blur(12px)",
             WebkitBackdropFilter: "blur(12px)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "20px",
+            padding: "16px",
           }}
           onClick={() => setShowRulesModal(false)}
         >
@@ -1217,11 +1193,11 @@ export default function ReferralPage() {
             style={{
               position: "relative",
               width: "100%",
-              maxWidth: 380,
-              borderRadius: 24,
-              background: "linear-gradient(145deg, rgba(14, 20, 48, 0.98), rgba(7, 10, 26, 0.98))",
-              border: "1px solid rgba(0, 242, 254, 0.4)",
-              boxShadow: "0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 242, 254, 0.25)",
+              maxWidth: 360,
+              borderRadius: 22,
+              background: "linear-gradient(145deg, rgba(5, 15, 32, 0.98), rgba(2, 8, 23, 0.98))",
+              border: "1px solid rgba(0, 229, 255, 0.45)",
+              boxShadow: "0 20px 50px rgba(0, 0, 0, 0.85), 0 0 30px rgba(0, 229, 255, 0.25)",
               padding: "20px",
               display: "flex",
               flexDirection: "column",
@@ -1239,16 +1215,16 @@ export default function ReferralPage() {
                     width: 36,
                     height: 36,
                     borderRadius: 12,
-                    background: "rgba(0, 242, 254, 0.15)",
-                    border: "1px solid rgba(0, 242, 254, 0.4)",
+                    background: "rgba(0, 229, 255, 0.15)",
+                    border: "1px solid rgba(0, 229, 255, 0.4)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                   }}
                 >
-                  <BookOpen size={18} color="#00f2fe" />
+                  <BookOpen size={18} color="#00E5FF" />
                 </div>
-                <h3 style={{ color: "#ffffff", fontSize: 16, fontWeight: 900, margin: 0 }}>
+                <h3 style={{ color: "#FFFFFF", fontSize: 16, fontWeight: 900, margin: 0 }}>
                   Referral Rules
                 </h3>
               </div>
@@ -1265,25 +1241,25 @@ export default function ReferralPage() {
                   alignItems: "center",
                   justifyContent: "center",
                   cursor: "pointer",
-                  color: "rgba(255, 255, 255, 0.7)",
+                  color: "#8B96A8",
                 }}
               >
                 <X size={15} />
               </button>
             </div>
 
-            {/* Intro text */}
-            <p style={{ color: "rgba(255, 255, 255, 0.75)", fontSize: 12, margin: 0, lineHeight: 1.4 }}>
+            {/* Intro */}
+            <p style={{ color: "rgba(255, 255, 255, 0.85)", fontSize: 12, margin: 0, lineHeight: 1.4 }}>
               A referred user becomes Successful after completing all of the following:
             </p>
 
-            {/* 3 Numbered Condition Cards */}
+            {/* 3 Step Cards */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {/* 1. Daily Check-in */}
               <div
                 style={{
                   background: "rgba(4, 7, 20, 0.7)",
-                  border: "1px solid rgba(0, 242, 254, 0.2)",
+                  border: "1px solid rgba(0, 229, 255, 0.2)",
                   borderRadius: 12,
                   padding: "10px 12px",
                   display: "flex",
@@ -1293,11 +1269,11 @@ export default function ReferralPage() {
               >
                 <div
                   style={{
-                    width: 26,
-                    height: 26,
+                    width: 24,
+                    height: 24,
                     borderRadius: "50%",
-                    background: "rgba(0, 242, 254, 0.2)",
-                    color: "#00f2fe",
+                    background: "rgba(0, 229, 255, 0.2)",
+                    color: "#00E5FF",
                     fontWeight: 900,
                     fontSize: 12,
                     display: "flex",
@@ -1310,7 +1286,7 @@ export default function ReferralPage() {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 16 }}>📅</span>
-                  <span style={{ color: "#ffffff", fontSize: 13, fontWeight: 800 }}>
+                  <span style={{ color: "#FFFFFF", fontSize: 13, fontWeight: 800 }}>
                     Daily Check-in
                   </span>
                 </div>
@@ -1320,7 +1296,7 @@ export default function ReferralPage() {
               <div
                 style={{
                   background: "rgba(4, 7, 20, 0.7)",
-                  border: "1px solid rgba(0, 242, 254, 0.2)",
+                  border: "1px solid rgba(0, 229, 255, 0.2)",
                   borderRadius: 12,
                   padding: "10px 12px",
                   display: "flex",
@@ -1330,11 +1306,11 @@ export default function ReferralPage() {
               >
                 <div
                   style={{
-                    width: 26,
-                    height: 26,
+                    width: 24,
+                    height: 24,
                     borderRadius: "50%",
-                    background: "rgba(0, 242, 254, 0.2)",
-                    color: "#00f2fe",
+                    background: "rgba(0, 229, 255, 0.2)",
+                    color: "#00E5FF",
                     fontWeight: 900,
                     fontSize: 12,
                     display: "flex",
@@ -1347,7 +1323,7 @@ export default function ReferralPage() {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 16 }}>🧩</span>
-                  <span style={{ color: "#ffffff", fontSize: 13, fontWeight: 800 }}>
+                  <span style={{ color: "#FFFFFF", fontSize: 13, fontWeight: 800 }}>
                     Daily Combo
                   </span>
                 </div>
@@ -1357,7 +1333,7 @@ export default function ReferralPage() {
               <div
                 style={{
                   background: "rgba(4, 7, 20, 0.7)",
-                  border: "1px solid rgba(0, 242, 254, 0.2)",
+                  border: "1px solid rgba(0, 229, 255, 0.2)",
                   borderRadius: 12,
                   padding: "10px 12px",
                   display: "flex",
@@ -1367,11 +1343,11 @@ export default function ReferralPage() {
               >
                 <div
                   style={{
-                    width: 26,
-                    height: 26,
+                    width: 24,
+                    height: 24,
                     borderRadius: "50%",
-                    background: "rgba(0, 242, 254, 0.2)",
-                    color: "#00f2fe",
+                    background: "rgba(0, 229, 255, 0.2)",
+                    color: "#00E5FF",
                     fontWeight: 900,
                     fontSize: 12,
                     display: "flex",
@@ -1384,32 +1360,32 @@ export default function ReferralPage() {
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 16 }}>⭐</span>
-                  <span style={{ color: "#ffffff", fontSize: 13, fontWeight: 800 }}>
+                  <span style={{ color: "#FFFFFF", fontSize: 13, fontWeight: 800 }}>
                     Complete 3 Tasks
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Status Breakdown Section */}
+            {/* Status Breakdown */}
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 4 }}>
               {/* Pending */}
               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <span style={{ color: "#fbbf24", fontSize: 13, fontWeight: 900 }}>
+                <span style={{ color: "#FFC107", fontSize: 13, fontWeight: 900 }}>
                   🟡 Pending
                 </span>
-                <span style={{ color: "rgba(255, 255, 255, 0.6)", fontSize: 11, lineHeight: 1.3 }}>
+                <span style={{ color: "#8B96A8", fontSize: 11, lineHeight: 1.3 }}>
                   Until all requirements are completed.
                 </span>
               </div>
 
               {/* Successful */}
               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <span style={{ color: "#34d399", fontSize: 13, fontWeight: 900 }}>
+                <span style={{ color: "#00E676", fontSize: 13, fontWeight: 900 }}>
                   🟢 Successful
                 </span>
-                <span style={{ color: "rgba(255, 255, 255, 0.6)", fontSize: 11, lineHeight: 1.3 }}>
-                  After completing all requirements, you will receive <b style={{ color: "#34d399" }}>+1 GO</b>.
+                <span style={{ color: "#8B96A8", fontSize: 11, lineHeight: 1.3 }}>
+                  After completing all requirements, you will receive <b style={{ color: "#00E676" }}>+1 GO</b>.
                 </span>
               </div>
             </div>
