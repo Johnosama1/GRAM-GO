@@ -303,7 +303,7 @@ export default function AdminPage() {
   const [autoBannedList, setAutoBannedList] = useState<AutoBannedItem[]>([]);
   const [referralSettings, setReferralSettings] = useState({
     level1Percent: "10",
-    level2Percent: "5",
+    level2Percent: "3",
     level3Percent: "2",
     level4Percent: "1",
     level5Percent: "1",

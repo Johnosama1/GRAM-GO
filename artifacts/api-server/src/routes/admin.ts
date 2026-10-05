@@ -997,7 +997,7 @@ async function handleGetReferralSettings(_req: AdminRequest, res: Response) {
 
   res.json({
     level1Percent: String(levelMap.get(1) ?? 10),
-    level2Percent: String(levelMap.get(2) ?? 5),
+    level2Percent: String(levelMap.get(2) ?? 3),
     level3Percent: String(levelMap.get(3) ?? 2),
     level4Percent: String(levelMap.get(4) ?? 1),
     level5Percent: String(levelMap.get(5) ?? 1),
@@ -1075,7 +1075,7 @@ async function handleUpdateReferralSettings(req: AdminRequest, res: Response) {
     success: true,
     settings: {
       level1Percent: String(updatedMap.get(1) ?? 10),
-      level2Percent: String(updatedMap.get(2) ?? 5),
+      level2Percent: String(updatedMap.get(2) ?? 3),
       level3Percent: String(updatedMap.get(3) ?? 2),
       level4Percent: String(updatedMap.get(4) ?? 1),
       level5Percent: String(updatedMap.get(5) ?? 1),

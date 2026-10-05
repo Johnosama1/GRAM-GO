@@ -116,33 +116,33 @@ describe("5-Level Referral System & Qualification", () => {
     });
   });
 
-  describe("3. Default 5-Level Commission Structure (10%, 5%, 2%, 1%, 1%)", () => {
-    it("should have default commission rates of L1=10%, L2=5%, L3=2%, L4=1%, L5=1%", () => {
+  describe("3. Default 5-Level Commission Structure (10%, 3%, 2%, 1%, 1%)", () => {
+    it("should have default commission rates of L1=10%, L2=3%, L3=2%, L4=1%, L5=1%", () => {
       expect(DEFAULT_COMMISSION_RATES[1]).toBe(10);
-      expect(DEFAULT_COMMISSION_RATES[2]).toBe(5);
+      expect(DEFAULT_COMMISSION_RATES[2]).toBe(3);
       expect(DEFAULT_COMMISSION_RATES[3]).toBe(2);
       expect(DEFAULT_COMMISSION_RATES[4]).toBe(1);
       expect(DEFAULT_COMMISSION_RATES[5]).toBe(1);
     });
 
-    it("should traverse up to 5 levels (A -> B -> C -> D -> E -> F) and distribute exact GO amounts", async () => {
+    it("should traverse up to 5 levels (User A -> B -> C -> D -> E -> F) and distribute exact amounts (F deposits 100 GO -> E gets 10 GO, D gets 3 GO, C gets 2 GO, B gets 1 GO, A gets 1 GO)", async () => {
       const rates = [
         { level: 1, percent: 10 },
-        { level: 2, percent: 5 },
+        { level: 2, percent: 3 },
         { level: 3, percent: 2 },
         { level: 4, percent: 1 },
         { level: 5, percent: 1 },
       ];
 
       const depositGram = 0.1;
-      const depositGo = 100;
+      const depositGo = 100; // 100 GO (or $100 equivalent)
 
       const expectedPayouts = [
-        { level: 1, referrerId: 105, goAmount: 10 },
-        { level: 2, referrerId: 104, goAmount: 5 },
-        { level: 3, referrerId: 103, goAmount: 2 },
-        { level: 4, referrerId: 102, goAmount: 1 },
-        { level: 5, referrerId: 101, goAmount: 1 },
+        { level: 1, referrerId: 105, goAmount: 10 }, // User E (L1) -> 10% = 10 GO
+        { level: 2, referrerId: 104, goAmount: 3 },  // User D (L2) -> 3% = 3 GO
+        { level: 3, referrerId: 103, goAmount: 2 },  // User C (L3) -> 2% = 2 GO
+        { level: 4, referrerId: 102, goAmount: 1 },  // User B (L4) -> 1% = 1 GO
+        { level: 5, referrerId: 101, goAmount: 1 },  // User A (L5) -> 1% = 1 GO
       ];
 
       for (const exp of expectedPayouts) {

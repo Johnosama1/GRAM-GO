@@ -29,7 +29,7 @@ export interface CommissionRate {
 
 export const DEFAULT_COMMISSION_RATES: Record<number, number> = {
   1: 10,
-  2: 5,
+  2: 3,
   3: 2,
   4: 1,
   5: 1,
