@@ -35,6 +35,7 @@ import { useLocation } from "wouter";
 import SwapModal from "../components/SwapModal";
 import { faqs } from "../constants/faq";
 import { AnimatedSticker } from "../components/AnimatedSticker";
+import premiumStarData from "../assets/stickers/TgSticker_660377c5.json";
 import walletSticker from "../assets/stickers/wallet.json";
 import supportInfo from "../assets/stickers/support_info.json";
 import settingsSticker from "../assets/stickers/settings.json";
@@ -532,7 +533,11 @@ export default function ProfilePage() {
             >
               {fullName}
             </span>
-            <span style={{ fontSize: 20 }}>🧢</span>
+            <AnimatedSticker
+              animationData={premiumStarData}
+              size={22}
+              loop={true}
+            />
           </div>
 
           {/* @Username in Purple (Only if user has a username) */}
