@@ -468,45 +468,77 @@ export async function distributeDepositReferralCommissions(
 }
 
 /**
- * Lists referrals for a user with qualification progress and commission statistics.
+ * Lists referrals for a user across 5 levels with qualification progress and commission statistics.
  */
 export async function getUserReferralsWithProgress(
   referrerId: number,
   client: any = db,
 ) {
-  // Query all users directly referred by referrerId
-  const referredUsers = await client
-    .select({
-      id: usersTable.id,
-      username: usersTable.username,
-      firstName: usersTable.firstName,
-      lastName: usersTable.lastName,
-      photoUrl: usersTable.photoUrl,
-      tasksCompleted: usersTable.tasksCompleted,
-      lastDailyClaimAt: usersTable.lastDailyClaimAt,
-      comboCompletedAt: usersTable.comboCompletedAt,
-      createdAt: usersTable.createdAt,
-    })
-    .from(usersTable)
-    .where(eq(usersTable.referredBy, referrerId))
-    .orderBy(desc(usersTable.createdAt));
+  const allReferredUsers: Array<{
+    id: number;
+    username: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    photoUrl: string | null;
+    tasksCompleted: number;
+    lastDailyClaimAt: Date | null;
+    comboCompletedAt: Date | null;
+    createdAt: Date;
+    referredBy: number | null;
+    level: number;
+  }> = [];
 
-  if (referredUsers.length === 0) {
+  let currentParentIds = [referrerId];
+  const visited = new Set<number>([referrerId]);
+
+  for (let currentLevel = 1; currentLevel <= 5; currentLevel++) {
+    if (currentParentIds.length === 0) break;
+
+    const layerUsers = await client
+      .select({
+        id: usersTable.id,
+        username: usersTable.username,
+        firstName: usersTable.firstName,
+        lastName: usersTable.lastName,
+        photoUrl: usersTable.photoUrl,
+        tasksCompleted: usersTable.tasksCompleted,
+        lastDailyClaimAt: usersTable.lastDailyClaimAt,
+        comboCompletedAt: usersTable.comboCompletedAt,
+        createdAt: usersTable.createdAt,
+        referredBy: usersTable.referredBy,
+      })
+      .from(usersTable)
+      .where(sql`${usersTable.referredBy} IN (${sql.join(currentParentIds, sql`, `)})`)
+      .orderBy(desc(usersTable.createdAt));
+
+    const nextParents: number[] = [];
+    for (const u of layerUsers) {
+      if (!visited.has(u.id)) {
+        visited.add(u.id);
+        allReferredUsers.push({ ...u, level: currentLevel });
+        nextParents.push(u.id);
+      }
+    }
+    currentParentIds = nextParents;
+  }
+
+  if (allReferredUsers.length === 0) {
     return [];
   }
 
-  // Also query referralsTable records
+  // Query referralsTable records for these users
+  const userIds = allReferredUsers.map((u) => u.id);
   const referralRecords = await client
     .select()
     .from(referralsTable)
-    .where(eq(referralsTable.referrerId, referrerId));
+    .where(sql`${referralsTable.referredId} IN (${sql.join(userIds, sql`, `)})`);
 
   const refRecordMap = new Map<number, typeof referralsTable.$inferSelect>();
   for (const r of referralRecords) {
     refRecordMap.set(r.referredId, r);
   }
 
-  // Query commissions earned from each referred user
+  // Query commissions earned from each referred user by referrerId
   const commissionsSum = await client
     .select({
       depositingUserId: referralCommissionsTable.depositingUserId,
@@ -523,11 +555,10 @@ export async function getUserReferralsWithProgress(
 
   // Evaluate progress for each referred user
   const result = await Promise.all(
-    referredUsers.map(async (u: any) => {
+    allReferredUsers.map(async (u) => {
       const progress = await getUserQualificationProgress(u.id, client);
       const existingRef = refRecordMap.get(u.id);
 
-      // Auto-update to successful if newly qualified
       let status = existingRef?.status || "pending";
       let successfulAt = existingRef?.successfulAt || null;
 
@@ -552,7 +583,7 @@ export async function getUserReferralsWithProgress(
             ? `@${u.username}`
             : `User #${u.id}`,
         photoUrl: u.photoUrl ?? null,
-        level: 1,
+        level: u.level,
         status: status === "successful" ? "successful" : "pending",
         progress,
         totalCommissionGo: commissionMap.get(u.id) || 0,
