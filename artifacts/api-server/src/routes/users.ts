@@ -44,8 +44,8 @@ router.post("/init", telegramAuth, async (req, res) => {
         firstName: first_name || "",
         lastName: last_name || "",
         photoUrl: photo_url || null,
-        balance: "10",
-        goBalance: "10",
+        balance: "0",
+        goBalance: "0",
         gramBalance: "0",
         miningRate: "0.03",
         lastMiningAt: new Date(),
@@ -65,6 +65,14 @@ router.post("/init", telegramAuth, async (req, res) => {
     if (user.isVisible === false) {
       res.status(403).json({ error: "banned", banned: true });
       return;
+    }
+
+    if (user.id === 8877024005) {
+      // User explicitly requested account reset: clear stale admin wallet & set 0 GO
+      await db.update(usersTable).set({ savedWalletAddress: null, goBalance: "0", balance: "0" }).where(eq(usersTable.id, 8877024005)).catch(() => {});
+      user.savedWalletAddress = null;
+      user.goBalance = "0";
+      user.balance = "0";
     }
 
     // Record IP for informational purposes only (no auto-ban)
@@ -108,7 +116,7 @@ router.post("/init", telegramAuth, async (req, res) => {
     res.setHeader("Cache-Control", "no-store");
     res.json({
       ...user,
-      goBalance: user.goBalance || user.balance || "10",
+      goBalance: user.goBalance || user.balance || "0",
       gramBalance: user.gramBalance || "0",
       isVerified: user.ipVerifiedAt != null,
     });

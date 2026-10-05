@@ -63,7 +63,7 @@ describe("User Account Purge System", () => {
       dbUsers[joiningUserId] = {
         id: joiningUserId,
         referredBy: newInviterId,
-        goBalance: "10",
+        goBalance: "0",
         gramBalance: "0",
       };
 

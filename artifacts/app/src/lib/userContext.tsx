@@ -175,6 +175,28 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       initTelegramApp();
       const tgUser = getTelegramUser() ?? getMockUser();
 
+      // ── Isolate storage per Telegram user (prevent wallet leakage across accounts) ──
+      const LAST_USER_KEY = "jjx_last_user_id";
+      const lastUserId = localStorage.getItem(LAST_USER_KEY);
+      if (lastUserId && String(lastUserId) !== String(tgUser.id)) {
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (
+            key &&
+            (key.startsWith("ton-connect") ||
+              key.startsWith("user:") ||
+              key.startsWith("session_") ||
+              key.startsWith("jjx_cache_"))
+          ) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach((k) => localStorage.removeItem(k));
+        sessionStorage.clear();
+      }
+      localStorage.setItem(LAST_USER_KEY, String(tgUser.id));
+
       // ── Step 1: Show cached data immediately ───────────────────────
       const cachedUser = readCache<User>(`user:${tgUser.id}`);
       const cachedSlots = readCache<WheelSlot[]>("slots");
@@ -241,6 +263,18 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         if (freshUser.isVisible === false) {
           // Bypass ban - fallthrough to load normally
           console.warn("Bypass ban (isVisible)");
+        }
+
+        // If user has no saved wallet in backend, purge any lingering ton-connect keys
+        if (!freshUser.savedWalletAddress) {
+          const tcKeys: string[] = [];
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith("ton-connect")) {
+              tcKeys.push(key);
+            }
+          }
+          tcKeys.forEach((k) => localStorage.removeItem(k));
         }
 
         const freshSlots = (slotsRes.status === "fulfilled" ? slotsRes.value : cachedSlots ?? []) as WheelSlot[];

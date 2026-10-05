@@ -576,8 +576,8 @@ router.post(
         .insert(usersTable)
         .values({
           id: numUserId,
-          balance: "10",
-          goBalance: "10",
+          balance: "0",
+          goBalance: "0",
           gramBalance: "0",
           miningRate: "0.03",
           lastMiningAt: new Date(),

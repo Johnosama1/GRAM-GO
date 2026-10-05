@@ -120,6 +120,9 @@ export default function WalletPage() {
     if (!user) return;
     const prev = prevAddressRef.current;
     prevAddressRef.current = connectedAddress;
+    if (!user.savedWalletAddress && connectedAddress && !prev) {
+      return;
+    }
     if (connectedAddress && connectedAddress !== user.savedWalletAddress) {
       setSyncing(true);
       api.saveWallet(user.id, connectedAddress)
@@ -129,7 +132,7 @@ export default function WalletPage() {
     } else if (!connectedAddress && prev && user.savedWalletAddress) {
       api.saveWallet(user.id, "").then(() => refresh()).catch(() => {});
     }
-  }, [connectedAddress, user?.id]);
+  }, [connectedAddress, user?.id, user?.savedWalletAddress]);
 
   useEffect(() => {
     if (connectedAddress && reopenAfterConnect.current) {
