@@ -229,7 +229,7 @@ export default function ReferralPage() {
                   textShadow: "0 2px 14px rgba(0, 229, 255, 0.35)",
                 }}
               >
-                Referral Program
+                Referral <span style={{ color: "#00E5FF" }}>Program</span>
               </h1>
               <p
                 style={{
@@ -926,8 +926,8 @@ export default function ReferralPage() {
                 const day = String(dateObj.getDate()).padStart(2, "0");
                 const hours = String(dateObj.getHours()).padStart(2, "0");
                 const mins = String(dateObj.getMinutes()).padStart(2, "0");
-                const dateFormatted = `${year}-${month}-${day} ${hours}:${mins}`;
-                const badgeStyle = getLevelBadgeStyle(c.level);
+                const dateStr = `${year}-${month}-${day}`;
+                const timeStr = `${hours}:${mins}`;
 
                 return (
                   <div
@@ -963,9 +963,8 @@ export default function ReferralPage() {
                             width: 26,
                             height: 26,
                             borderRadius: "50%",
-                            background: badgeStyle.bg,
-                            border: `1px solid ${badgeStyle.border}`,
-                            color: badgeStyle.text,
+                            background: "linear-gradient(135deg, #8B3DFF, #C13CFF)",
+                            color: "#FFFFFF",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -997,9 +996,9 @@ export default function ReferralPage() {
                           borderRadius: 6,
                           fontSize: 10,
                           fontWeight: 900,
-                          background: badgeStyle.bg,
-                          color: badgeStyle.text,
-                          border: `1px solid ${badgeStyle.border}`,
+                          background: "rgba(139, 61, 255, 0.15)",
+                          color: "#C13CFF",
+                          border: "1px solid rgba(139, 61, 255, 0.45)",
                         }}
                       >
                         L{c.level}
@@ -1017,8 +1016,9 @@ export default function ReferralPage() {
                     </div>
 
                     {/* Date */}
-                    <div style={{ textAlign: "right", color: "#8B96A8", fontSize: 9, fontWeight: 600 }}>
-                      {dateFormatted}
+                    <div style={{ textAlign: "right", color: "#8B96A8", fontSize: 9, fontWeight: 600, display: "flex", flexDirection: "column", alignItems: "flex-end", lineHeight: 1.25 }}>
+                      <span>{dateStr}</span>
+                      <span>{timeStr}</span>
                     </div>
                   </div>
                 );
