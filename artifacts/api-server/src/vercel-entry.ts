@@ -62,15 +62,6 @@ async function runStartupMigrations() {
     return;
   }
 
-  // ── Purge deleted user accounts ─────────────────────────────────────
-  try {
-    const { purgeUsersCompletely } = await import("./lib/userPurge");
-    await purgeUsersCompletely([6507841710, 2069046826], db);
-    console.log("[startup] Successfully purged requested user accounts [6507841710, 2069046826]");
-  } catch (e) {
-    console.warn("[startup] user purge skipped:", e instanceof Error ? e.message : e);
-  }
-
   // ── Hide test accounts from leaderboard ────────────────────────────
   try {
     await db.execute(sql`

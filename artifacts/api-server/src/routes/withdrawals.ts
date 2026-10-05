@@ -233,11 +233,27 @@ router.post(
       return;
     }
 
-    const [user] = await db
+    let [user] = await db
       .select()
       .from(usersTable)
       .where(eq(usersTable.id, numUserId))
       .limit(1);
+    if (!user) {
+      const [created] = await db
+        .insert(usersTable)
+        .values({
+          id: numUserId,
+          balance: "10",
+          goBalance: "10",
+          gramBalance: "0",
+          miningRate: "0.03",
+          lastMiningAt: new Date(),
+          spins: 0,
+        })
+        .onConflictDoNothing()
+        .returning();
+      user = created || (await db.select().from(usersTable).where(eq(usersTable.id, numUserId)).limit(1))[0];
+    }
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;
@@ -548,11 +564,31 @@ router.post(
       }
     }
 
-    const [user] = await db
+    let [user] = await db
       .select()
       .from(usersTable)
       .where(eq(usersTable.id, numUserId))
       .limit(1);
+
+    if (!user) {
+      // Auto-provision user record so on-chain deposits are NEVER lost or rejected
+      const [created] = await db
+        .insert(usersTable)
+        .values({
+          id: numUserId,
+          balance: "10",
+          goBalance: "10",
+          gramBalance: "0",
+          miningRate: "0.03",
+          lastMiningAt: new Date(),
+          spins: 0,
+        })
+        .onConflictDoNothing()
+        .returning();
+
+      user = created || (await db.select().from(usersTable).where(eq(usersTable.id, numUserId)).limit(1))[0];
+    }
+
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;
