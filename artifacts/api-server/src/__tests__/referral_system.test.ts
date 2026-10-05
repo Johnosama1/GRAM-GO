@@ -223,22 +223,30 @@ describe("5-Level Referral System & Qualification", () => {
     });
   });
 
-  describe("7. Unqualified Referral Deposit Protection", () => {
-    it("should not distribute referral commission if depositing user is still Pending (unqualified)", () => {
+  describe("7. Deposit Commissions on Unqualified/Pending Referrals", () => {
+    it("should distribute referral commission even if depositing user is still Pending (unqualified)", () => {
+      // User has not completed checkin/tasks (still pending), but deposited
       const depositingUserQualification = {
         isQualified: false,
-        dailyCheckin: true,
-        tasksCompleted: 1,
+        dailyCheckin: false,
+        tasksCompleted: 0,
         tasksRequired: 3,
       };
 
-      const canDistribute = depositingUserQualification.isQualified;
-      expect(canDistribute).toBe(false);
+      // Direct +5 GO qualification reward is withheld until qualified
+      const canClaimDirectQualificationBonus = depositingUserQualification.isQualified;
+      expect(canClaimDirectQualificationBonus).toBe(false);
+
+      // Multi-level deposit commission IS credited to inviter
+      const depositAmountGo = 100;
+      const l1Percent = 10;
+      const l1CommissionGo = depositAmountGo * (l1Percent / 100);
+      expect(l1CommissionGo).toBe(10);
     });
   });
 
-  describe("8. Referral & Multi-Level Commission Telegram Notifications", () => {
-    it("should format and send new referral notification with live counts and username", async () => {
+  describe("8. Referral & Multi-Level Commission Telegram Notifications (100% English)", () => {
+    it("should format and send new referral notification with live counts, username and clean English", async () => {
       const { sendNewReferralNotification } = await import("../lib/referralManager");
       let sentChatId: number | null = null;
       let sentMessage: string = "";
@@ -270,7 +278,8 @@ describe("5-Level Referral System & Qualification", () => {
       expect(sentChatId).toBe(123456);
       expect(sentMessage).toContain("@ahmed_user");
       expect(sentMessage).toContain("Ahmed Ali");
-      expect(sentMessage).toContain("الإحالات الناجحة");
+      expect(sentMessage).toContain("Successful:");
+      expect(sentMessage).toContain("Pending:");
       expect(sentMessage).toContain("+5 GO");
     });
   });

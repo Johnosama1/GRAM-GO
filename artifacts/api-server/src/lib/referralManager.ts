@@ -182,12 +182,12 @@ export async function checkAndUpdateReferralQualification(
           try {
             await bot.sendMessage(
               ref.referrerId,
-              `🟢 <b>إحالة ناجحة ومكافأة +5 GO!</b> 🎉\n\n` +
-                `قام صديقك <b>${displayName}</b> بإكمال جميع شروط التأهيل المطلوبة:\n` +
-                `✅ تسجيل الدخول اليومي (Daily Check-in)\n` +
-                `✅ إكمال 3 مهام (Complete 3 Tasks)\n\n` +
-                `🎁 <b>تمت إضافة مكافأة +5 GO إلى رصيدك الآن بنجاح!</b> 🪙\n\n` +
-                `أصبحت هذه الإحالة الآن <b>🟢 ناجحة (Successful)</b> ومؤهلة لأرباح وعمولات شبكة الإيداع للـ 5 مستويات! ⛏️`,
+              `🟢 <b>Referral Qualified &amp; +5 GO Reward!</b> 🎉\n\n` +
+                `Your friend <b>${displayName}</b> has completed all qualification requirements:\n` +
+                `✅ Daily Check-in\n` +
+                `✅ Complete 3 Tasks\n\n` +
+                `🎁 <b>+5 GO bonus has been credited to your GO balance!</b> 🪙\n\n` +
+                `Your referral is now marked <b>🟢 Successful</b>! ⛏️`,
               { parse_mode: "HTML" },
             );
           } catch {
@@ -311,15 +311,8 @@ export async function distributeDepositReferralCommissions(
     return { distributed: false, reason: "already_processed", commissions: [] };
   }
 
-  // 2. Referral Qualification Check: User must be qualified
-  const qualProgress = await checkAndUpdateReferralQualification(depositingUserId, client, bot);
-  if (!qualProgress.isQualified) {
-    logger.info(
-      { depositingUserId, depositId, qualProgress },
-      "Depositing user has not completed referral qualification — commissions withheld",
-    );
-    return { distributed: false, reason: "depositing_user_not_qualified", commissions: [] };
-  }
+  // 2. Non-blocking referral qualification check update
+  checkAndUpdateReferralQualification(depositingUserId, client, bot).catch(() => {});
 
   // 3. Traverse referral chain up to 5 levels (A -> B -> C -> D -> E -> F)
   const chain: Array<{ referrerId: number; level: number }> = [];
@@ -426,27 +419,27 @@ export async function distributeDepositReferralCommissions(
     if (bot) {
       try {
         let levelTitle = "";
-        let relationshipText = "";
+        let tierDesc = "";
 
         if (level === 1) {
-          levelTitle = `💰 <b>عمولة إيداع مباشرة (المستوى 1) — ${percent}%</b> 🪙`;
-          relationshipText = `قام صديقك المباشر <b>${depositorDisplay}</b> بعملية إيداع!`;
+          levelTitle = `💰 <b>Direct Deposit Commission (Level 1) — ${percent}%</b> 🪙`;
+          tierDesc = `Your direct referral <b>${depositorDisplay}</b> made a deposit!`;
         } else if (level === 2) {
-          levelTitle = `👥 <b>عمولة شبكة الإحالات (المستوى 2) — ${percent}%</b> 🪙`;
-          relationshipText = `قام الصديق <b>${depositorDisplay}</b> (المدعو عبر صديقك) بعملية إيداع!`;
+          levelTitle = `👥 <b>Network Deposit Commission (Level 2) — ${percent}%</b> 🪙`;
+          tierDesc = `A user invited by your network <b>${depositorDisplay}</b> made a deposit!`;
         } else {
-          levelTitle = `🌐 <b>عمولة شبكة الإحالات (المستوى ${level}) — ${percent}%</b> 🪙`;
-          relationshipText = `قام الصديق <b>${depositorDisplay}</b> (المستوى ${level} في شبكتك) بعملية إيداع!`;
+          levelTitle = `🌐 <b>Network Deposit Commission (Level ${level}) — ${percent}%</b> 🪙`;
+          tierDesc = `A user in your Level ${level} network <b>${depositorDisplay}</b> made a deposit!`;
         }
 
         const msgText =
           `${levelTitle}\n\n` +
-          `👤 <b>الصديق المودع:</b> ${depositorDisplay}\n` +
-          `ℹ️ <b>نوع الإحالة:</b> ${relationshipText}\n\n` +
-          `💵 <b>قيمة الإيداع:</b> ${depositAmountGramOrTon.toFixed(4)} Gram (${depositAmountGo.toFixed(2)} GO)\n` +
-          `🎁 <b>نسبة عمولتك (${level === 1 ? "مباشرة" : "مستوى " + level}):</b> ${percent}%\n` +
-          `🪙 <b>العمولة المكتسبة:</b> <b>+${commissionGo.toFixed(2)} GO</b>\n\n` +
-          `✅ <b>تمت إضافة ${commissionGo.toFixed(2)} عملات GO إلى رصيد حسابك الآن بنجاح!</b> ⛏️`;
+          `👤 <b>Depositor:</b> ${depositorDisplay}\n` +
+          `ℹ️ <b>Referral Tier:</b> ${tierDesc}\n\n` +
+          `💵 <b>Deposit Amount:</b> ${depositAmountGramOrTon.toFixed(4)} Gram (${depositAmountGo.toFixed(2)} GO)\n` +
+          `🎁 <b>Commission Rate (${level === 1 ? "Direct" : "Level " + level}):</b> ${percent}%\n` +
+          `🪙 <b>Earned Reward:</b> <b>+${commissionGo.toFixed(2)} GO</b>\n\n` +
+          `✅ <b>+${commissionGo.toFixed(2)} GO has been added to your GO balance!</b> ⛏️`;
 
         await bot.sendMessage(
           referrerId,
@@ -701,15 +694,15 @@ export async function sendNewReferralNotification(
     const pendingCount = Number(pendingCountRes[0]?.count || 0);
 
     const message =
-      `🎉 <b>تم تسجيل إحالة جديدة عبر رابطك!</b>\n\n` +
-      `👤 <b>المستخدم المنضم:</b> ${userDisplay}\n\n` +
-      `📊 <b>إحصائيات إحالاتك الحالية:</b>\n` +
-      `🟢 <b>الإحالات الناجحة:</b> ${successfulCount}\n` +
-      `🟡 <b>قيد الانتظار:</b> ${pendingCount}\n\n` +
-      `🎁 <b>شروط التأهيل لكسب +5 GO:</b>\n` +
-      `1️⃣ تسجيل الدخول اليومي (Daily Check-in)\n` +
-      `2️⃣ إكمال 3 مهام (Complete 3 Tasks)\n\n` +
-      `⚡ بمجرد إتمام الصديق للشروط، ستحصل فوراً على مكافأة <b>+5 GO</b> وتتأهل لعمولات شبكة الإيداع الـ 5 مستويات (10%, 5%, 2%, 1%, 1%)! ⛏️`;
+      `🎉 <b>New Referral Joined via Your Link!</b>\n\n` +
+      `👤 <b>New Member:</b> ${userDisplay}\n\n` +
+      `📊 <b>Your Referral Network Stats:</b>\n` +
+      `🟢 <b>Successful:</b> ${successfulCount}\n` +
+      `🟡 <b>Pending:</b> ${pendingCount}\n\n` +
+      `🎁 <b>Qualification to Earn +5 GO:</b>\n` +
+      `1️⃣ Daily Check-in\n` +
+      `2️⃣ Complete 3 Tasks\n\n` +
+      `⚡ Once your friend completes the qualification requirements, you will immediately receive <b>+5 GO</b> bonus! ⛏️`;
 
     await bot.sendMessage(referrerId, message, { parse_mode: "HTML" });
     logger.info({ referrerId, referredUserId: referredUser.id }, "Sent rich new referral notification to inviter");
