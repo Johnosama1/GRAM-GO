@@ -12,6 +12,8 @@ import { verifyAccessMiddleware } from "../middlewares/verifyAccess";
 const router = Router();
 
 import { getSetting } from "../lib/settingsCache";
+import { checkAndUpdateReferralQualification } from "../lib/referralManager";
+import { getBot } from "../bot";
 
 // Exact required rewards table:
 // Day 1 = 2 GO, Day 2 = 3 GO, Day 3 = 4 GO, Day 4 = 5 GO, Day 5 = 6 GO,
@@ -232,6 +234,9 @@ router.post("/claim", requireSession, verifyAccessMiddleware, async (req, res) =
         updatedUser
       };
     });
+
+    // Trigger referral qualification check
+    checkAndUpdateReferralQualification(userId, db, getBot()).catch(() => {});
 
     res.json({
       ok: true,

@@ -5,9 +5,11 @@ import { addGoBalanceAndClaim } from "../lib/miningUtils";
 import { eq, and, sql, ilike } from "drizzle-orm";
 import { promoCodesTable, userPromoCodesTable, botSettingsTable, adRewardEventsTable } from "@workspace/db/schema";
 import { verifyUserChannelMembership } from "../lib/telegramChannel";
-import { recordChannelReward } from "../bot/subscription";
 import { verifyAccessMiddleware } from "../middlewares/verifyAccess";
 import { requireSession } from "../middlewares/requireSession";
+import { checkAndUpdateReferralQualification } from "../lib/referralManager";
+import { getBot } from "../bot";
+import { recordChannelReward } from "../bot/subscription";
 
 const router = Router();
 
@@ -222,6 +224,10 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
       const [updatedUser] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
       return { user: updatedUser, alreadyCompleted: false };
     });
+
+    if (!result.alreadyCompleted) {
+      checkAndUpdateReferralQualification(userId, db, getBot()).catch(() => {});
+    }
 
     res.json({ success: true, user: result.user, alreadyCompleted: result.alreadyCompleted });
   } catch (err: any) {

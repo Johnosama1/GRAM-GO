@@ -16,6 +16,7 @@ import {
   AdminUser,
   UserDetailResult,
   AdminPermission,
+  ReferralCommissionAuditItem,
   resolveImageUrl,
 } from "../lib/api";
 import {
@@ -301,10 +302,17 @@ export default function AdminPage() {
   const [searchingUser, setSearchingUser] = useState(false);
   const [autoBannedList, setAutoBannedList] = useState<AutoBannedItem[]>([]);
   const [referralSettings, setReferralSettings] = useState({
-    rewardAmount: "1",
-    depositPercent: "5",
+    level1Percent: "10",
+    level2Percent: "5",
+    level3Percent: "3",
+    level4Percent: "2",
+    level5Percent: "1",
+    rewardAmount: "10",
+    depositPercent: "10",
     threshold: "1",
   });
+  const [referralCommissions, setReferralCommissions] = useState<ReferralCommissionAuditItem[]>([]);
+  const [loadingCommissions, setLoadingCommissions] = useState(false);
   const [milestones, setMilestones] = useState<MilestoneItem[]>([
     {
       id: 1,
@@ -517,12 +525,19 @@ export default function AdminPage() {
       }
       if (chk) setCheckinRewards(chk);
       if (ab) setAutoBannedList(ab);
-      if (rf)
+      if (rf) {
         setReferralSettings({
-          rewardAmount: rf.referralRewardAmount || "1",
-          depositPercent: rf.referralDepositPercent || "5",
+          level1Percent: rf.level1Percent || "10",
+          level2Percent: rf.level2Percent || "5",
+          level3Percent: rf.level3Percent || "3",
+          level4Percent: rf.level4Percent || "2",
+          level5Percent: rf.level5Percent || "1",
+          rewardAmount: rf.referralRewardAmount || "10",
+          depositPercent: rf.level1Percent || "10",
           threshold: rf.referralThreshold || "1",
         });
+      }
+      api.adminGetReferralCommissions().then((r) => setReferralCommissions(r.items || [])).catch(() => {});
       if (ms && ms.length > 0) setMilestones(ms);
       if (se) setSecurityEvents(se);
       if (promos) setPromoCodes(promos);
@@ -2429,18 +2444,33 @@ export default function AdminPage() {
             </div>
           </AdminAccordionSection>
 
-          {/* Section 3: مكافأة الإحالة ونسبة الإيداع */}
+          {/* Section 3: إعدادات الإحالة وعمولات الإيداع (5 مستويات) */}
           <AdminAccordionSection
             id="mining_referrals"
-            title="3. مكافأة الإحالة ونسبة الإيداع للتعدين"
+            title="3. إعدادات الإحالة وعمولات الإيداع (5 مستويات)"
             icon={Users}
             isOpen={openSections.mining_referrals}
             onToggle={() => toggleSection("mining_referrals")}
           >
             <div
               style={{
+                background: "rgba(168, 85, 247, 0.08)",
+                border: "1px solid rgba(168, 85, 247, 0.25)",
+                borderRadius: 12,
+                padding: "10px 12px",
+                marginBottom: 12,
+                fontSize: 11,
+                color: "#c084fc",
+                lineHeight: 1.5,
+              }}
+            >
+              💡 <b>قاعدة العملة:</b> 1 Gram = 1,000 GO. يتم احتساب ودفع جميع عمولات الإحالة بعملة <b>GO</b> وتضاف مباشرة لرصيد المحيل عند تأكيد الإيداع على البلوكتشين.
+            </div>
+
+            <div
+              style={{
                 display: "grid",
-                gridTemplateColumns: "1fr 1fr",
+                gridTemplateColumns: "repeat(5, 1fr)",
                 gap: 8,
                 marginBottom: 12,
               }}
@@ -2449,63 +2479,188 @@ export default function AdminPage() {
                 <label
                   style={{
                     fontSize: 10,
-                    color: "#8A8F98",
+                    color: "#34d399",
                     display: "block",
                     marginBottom: 4,
+                    fontWeight: 700,
                   }}
                 >
-                  مكافأة الإحالة (Rush)
+                  المستوى 1 (%)
                 </label>
                 <input
-                  type="text"
-                  value={referralSettings.rewardAmount}
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={referralSettings.level1Percent}
                   onChange={(e) =>
                     setReferralSettings({
                       ...referralSettings,
-                      rewardAmount: e.target.value,
+                      level1Percent: e.target.value,
                     })
                   }
                   style={{
                     width: "100%",
                     background: "#080b10",
-                    border: "1px solid rgba(255,255,255,0.08)",
+                    border: "1px solid rgba(255,255,255,0.12)",
                     borderRadius: 10,
                     padding: 8,
                     color: "#fff",
                     fontSize: 12,
                     boxSizing: "border-box",
+                    fontWeight: 700,
                   }}
                 />
               </div>
+
               <div>
                 <label
                   style={{
                     fontSize: 10,
-                    color: "#8A8F98",
+                    color: "#60a5fa",
                     display: "block",
                     marginBottom: 4,
+                    fontWeight: 700,
                   }}
                 >
-                  نسبة عمولة الإيداع (%)
+                  المستوى 2 (%)
                 </label>
                 <input
-                  type="text"
-                  value={referralSettings.depositPercent}
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={referralSettings.level2Percent}
                   onChange={(e) =>
                     setReferralSettings({
                       ...referralSettings,
-                      depositPercent: e.target.value,
+                      level2Percent: e.target.value,
                     })
                   }
                   style={{
                     width: "100%",
                     background: "#080b10",
-                    border: "1px solid rgba(255,255,255,0.08)",
+                    border: "1px solid rgba(255,255,255,0.12)",
                     borderRadius: 10,
                     padding: 8,
                     color: "#fff",
                     fontSize: 12,
                     boxSizing: "border-box",
+                    fontWeight: 700,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    fontSize: 10,
+                    color: "#c084fc",
+                    display: "block",
+                    marginBottom: 4,
+                    fontWeight: 700,
+                  }}
+                >
+                  المستوى 3 (%)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={referralSettings.level3Percent}
+                  onChange={(e) =>
+                    setReferralSettings({
+                      ...referralSettings,
+                      level3Percent: e.target.value,
+                    })
+                  }
+                  style={{
+                    width: "100%",
+                    background: "#080b10",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 10,
+                    padding: 8,
+                    color: "#fff",
+                    fontSize: 12,
+                    boxSizing: "border-box",
+                    fontWeight: 700,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    fontSize: 10,
+                    color: "#fbbf24",
+                    display: "block",
+                    marginBottom: 4,
+                    fontWeight: 700,
+                  }}
+                >
+                  المستوى 4 (%)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={referralSettings.level4Percent}
+                  onChange={(e) =>
+                    setReferralSettings({
+                      ...referralSettings,
+                      level4Percent: e.target.value,
+                    })
+                  }
+                  style={{
+                    width: "100%",
+                    background: "#080b10",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 10,
+                    padding: 8,
+                    color: "#fff",
+                    fontSize: 12,
+                    boxSizing: "border-box",
+                    fontWeight: 700,
+                  }}
+                />
+              </div>
+
+              <div>
+                <label
+                  style={{
+                    fontSize: 10,
+                    color: "#f87171",
+                    display: "block",
+                    marginBottom: 4,
+                    fontWeight: 700,
+                  }}
+                >
+                  المستوى 5 (%)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={referralSettings.level5Percent}
+                  onChange={(e) =>
+                    setReferralSettings({
+                      ...referralSettings,
+                      level5Percent: e.target.value,
+                    })
+                  }
+                  style={{
+                    width: "100%",
+                    background: "#080b10",
+                    border: "1px solid rgba(255,255,255,0.12)",
+                    borderRadius: 10,
+                    padding: 8,
+                    color: "#fff",
+                    fontSize: 12,
+                    boxSizing: "border-box",
+                    fontWeight: 700,
                   }}
                 />
               </div>
@@ -2513,11 +2668,33 @@ export default function AdminPage() {
 
             <button
               onClick={async () => {
-                await api.adminUpdateReferralSettings({
-                  referralRewardAmount: referralSettings.rewardAmount,
-                  referralDepositPercent: referralSettings.depositPercent,
-                });
-                showToast("تم حفظ إعدادات الإحالة للتعدين بنجاح ✅");
+                const l1 = parseFloat(referralSettings.level1Percent);
+                const l2 = parseFloat(referralSettings.level2Percent);
+                const l3 = parseFloat(referralSettings.level3Percent);
+                const l4 = parseFloat(referralSettings.level4Percent);
+                const l5 = parseFloat(referralSettings.level5Percent);
+
+                if (
+                  [l1, l2, l3, l4, l5].some(
+                    (val) => isNaN(val) || val < 0 || val > 100,
+                  )
+                ) {
+                  showToast("⚠️ يرجى إدخال نسب مئوية صحيحة بين 0 و 100 لكل مستوى");
+                  return;
+                }
+
+                try {
+                  await api.adminUpdateReferralSettings({
+                    level1Percent: String(l1),
+                    level2Percent: String(l2),
+                    level3Percent: String(l3),
+                    level4Percent: String(l4),
+                    level5Percent: String(l5),
+                  });
+                  showToast("تم حفظ نسب عمولات الإحالة لجميع المستويات بنجاح ✅");
+                } catch {
+                  showToast("❌ فشل حفظ إعدادات الإحالة");
+                }
               }}
               style={{
                 width: "100%",
@@ -2529,10 +2706,132 @@ export default function AdminPage() {
                 fontWeight: 900,
                 fontSize: 12,
                 cursor: "pointer",
+                marginBottom: 16,
               }}
             >
-              حفظ إعدادات الإحالة
+              حفظ نسب الإحالة (5 مستويات)
             </button>
+
+            {/* Audit List of Referral Commissions */}
+            <div style={{ marginTop: 8 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  marginBottom: 8,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 800,
+                    color: "#fff",
+                  }}
+                >
+                  سجل عمولات الإحالة المدفوعة ({referralCommissions.length})
+                </span>
+                <button
+                  onClick={() => {
+                    api
+                      .adminGetReferralCommissions()
+                      .then((r) => setReferralCommissions(r.items || []))
+                      .catch(() => {});
+                  }}
+                  style={{
+                    background: "rgba(255,255,255,0.06)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 8,
+                    padding: "4px 8px",
+                    color: "#00f2fe",
+                    fontSize: 10,
+                    cursor: "pointer",
+                  }}
+                >
+                  تحديث السجل 🔄
+                </button>
+              </div>
+
+              {referralCommissions.length === 0 ? (
+                <div
+                  style={{
+                    padding: "16px",
+                    textAlign: "center",
+                    background: "rgba(0,0,0,0.3)",
+                    borderRadius: 10,
+                    color: "rgba(255,255,255,0.4)",
+                    fontSize: 11,
+                  }}
+                >
+                  لا توجد عمولات إحالة مسجلة حتى الآن
+                </div>
+              ) : (
+                <div
+                  style={{
+                    maxHeight: 280,
+                    overflowY: "auto",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6,
+                  }}
+                >
+                  {referralCommissions.map((c) => (
+                    <div
+                      key={c.id}
+                      style={{
+                        background: "rgba(0,0,0,0.35)",
+                        border: "1px solid rgba(255,255,255,0.06)",
+                        borderRadius: 10,
+                        padding: "8px 10px",
+                        fontSize: 11,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 4,
+                      }}
+                    >
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
+                        <span style={{ color: "#c084fc", fontWeight: 800 }}>
+                          مستوى L{c.level} ({c.percentage}%)
+                        </span>
+                        <span style={{ color: "#34d399", fontWeight: 900 }}>
+                          +{parseFloat(c.commissionAmountGo).toFixed(2)} GO
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          color: "rgba(255,255,255,0.6)",
+                          fontSize: 10,
+                        }}
+                      >
+                        <span>
+                          من المودع: <b>{c.depositingUserName}</b> ({c.depositAmountGram} Gram / {parseFloat(c.depositAmountGo).toFixed(1)} GO)
+                        </span>
+                        <span>
+                          إلى المحيل: <b>{c.referrerName}</b>
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          color: "rgba(255,255,255,0.35)",
+                          fontSize: 9,
+                          fontFamily: "monospace",
+                        }}
+                      >
+                        {new Date(c.createdAt).toLocaleString()} {c.txHash ? `| Tx: ${c.txHash.slice(0, 16)}…` : ""}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </AdminAccordionSection>
         </div>
       )}

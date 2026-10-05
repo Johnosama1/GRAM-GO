@@ -19,6 +19,7 @@ import { getSetting } from "../lib/settingsCache";
 import { logger } from "../lib/logger";
 import { verifyTonDepositTransaction } from "../lib/depositVerifier";
 import { notifyAdminOnDeposit } from "../lib/depositNotifier";
+import { distributeDepositReferralCommissions } from "../lib/referralManager";
 
 import { OWNER_TELEGRAM_ID } from "../lib/adminSecurity";
 
@@ -679,6 +680,19 @@ router.post(
               walletAddress: senderWallet,
             },
           });
+
+          // Distribute 5-level referral commissions in GO
+          await distributeDepositReferralCommissions(
+            {
+              depositId: dep.id,
+              txHash: confirmedTxHash,
+              depositingUserId: numUserId,
+              depositAmountGramOrTon: verifiedAmt,
+              depositAmountGo: goAmount,
+            },
+            tx,
+            bot,
+          );
 
           return { dep, updatedUser, updatedFromMining };
         });

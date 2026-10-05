@@ -10,6 +10,8 @@ import {
 import { eq, and, sql } from "drizzle-orm";
 import { requireSession } from "../middlewares/requireSession";
 import { verifyAccessMiddleware } from "../middlewares/verifyAccess";
+import { checkAndUpdateReferralQualification } from "../lib/referralManager";
+import { getBot } from "../bot";
 import crypto from "crypto";
 
 const router = Router();
@@ -213,6 +215,10 @@ router.post("/check", requireSession, verifyAccessMiddleware, async (req, res) =
         isSuccess: result.isSuccess,
       });
       return;
+    }
+
+    if (isMatch) {
+      checkAndUpdateReferralQualification(userId, db, getBot()).catch(() => {});
     }
 
     res.json({

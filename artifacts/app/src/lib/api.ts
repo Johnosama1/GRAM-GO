@@ -320,9 +320,11 @@ export const api = {
   adminUnbanDeposits: (id: number) => apiCall<{ ok: boolean; isDepositBanned: boolean }>(`/admin/users/${id}/deposit-unban`, { method: "POST" }),
   adminDeleteUser: (id: number) => apiCall<{ ok: boolean; success: boolean; targetId: number }>(`/admin/users/${id}`, { method: "DELETE" }),
   adminGetAutoBanned: () => apiCall<AutoBannedItem[]>("/admin/auto-banned"),
-  adminGetReferralSettings: () => apiCall<{ referralRewardAmount: string; referralDepositPercent: string; referralThreshold: string }>("/admin/referral-settings"),
-  adminUpdateReferralSettings: (data: { referralRewardAmount?: string; referralDepositPercent?: string; referralThreshold?: string }) =>
-    apiCall<{ ok: boolean; settings: Record<string, string> }>("/admin/referral-settings", { method: "PUT", body: JSON.stringify(data) }),
+  adminGetReferralSettings: () => apiCall<AdminReferralSettings>("/admin/referral-settings"),
+  adminUpdateReferralSettings: (data: Partial<AdminReferralSettings>) =>
+    apiCall<{ ok: boolean; settings: Record<string, string>; levels: ReferralCommissionRate[] }>("/admin/referral-settings", { method: "PUT", body: JSON.stringify(data) }),
+  adminGetReferralCommissions: (params?: { page?: number; limit?: number; search?: string }) =>
+    apiCall<ReferralCommissionsAuditResponse>(`/admin/referral-commissions?page=${params?.page || 1}&limit=${params?.limit || 50}&search=${encodeURIComponent(params?.search || "")}`),
   adminGetMilestones: () => apiCall<MilestoneItem[]>("/admin/milestones"),
   adminCreateMilestone: (data: { requiredReferrals: number; rewardAmount: number; rewardCurrency: string; isRepeatable: boolean }) =>
     apiCall<MilestoneItem>("/admin/milestones", { method: "POST", body: JSON.stringify(data) }),
@@ -391,6 +393,7 @@ export const api = {
     }),
 
   getUserReferrals: (userId: number) => apiCall<ReferralEntry[]>(`/users/${userId}/referrals`),
+  getReferralSummary: (userId: number) => apiCall<ReferralSummaryResponse>(`/users/${userId}/referrals/summary`),
 
   getMilestones: () => apiCall<MilestoneItem[]>("/milestones"),
 
@@ -485,13 +488,82 @@ export interface User {
   isDepositBanned?: boolean;
 }
 
+export interface ReferralQualificationProgress {
+  isQualified: boolean;
+  dailyCheckin: boolean;
+  dailyCombo: boolean;
+  tasksCompleted: number;
+  tasksRequired: number;
+}
+
+export interface ReferralCommissionRate {
+  level: number;
+  percent: number;
+}
+
 export interface ReferralEntry {
   id: number;
+  referrerId?: number;
+  referredId?: number;
   name: string;
   username: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
   photoUrl: string | null;
-  status: "pending" | "approved";
-  joinedAt: string;
+  level?: number;
+  status: "pending" | "successful" | "approved";
+  progress?: ReferralQualificationProgress;
+  totalCommissionGo?: number;
+  createdAt?: string;
+  joinedAt?: string;
+  successfulAt?: string | null;
+}
+
+export interface ReferralSummaryResponse {
+  levels: ReferralCommissionRate[];
+  totalInvited: number;
+  totalSuccessful: number;
+  totalPending: number;
+  totalEarnedGo: number;
+  botUsername: string;
+  referrals: ReferralEntry[];
+}
+
+export interface AdminReferralSettings {
+  level1Percent: string;
+  level2Percent: string;
+  level3Percent: string;
+  level4Percent: string;
+  level5Percent: string;
+  referralRewardAmount: string;
+  referralDepositPercent?: string;
+  referralThreshold: string;
+  levels?: ReferralCommissionRate[];
+}
+
+export interface ReferralCommissionAuditItem {
+  id: number;
+  depositId: number;
+  txHash: string | null;
+  depositingUserId: number;
+  depositingUserName: string;
+  referrerId: number;
+  referrerName: string;
+  level: number;
+  depositAmountGram: string;
+  depositAmountGo: string;
+  percentage: string;
+  commissionAmountGo: string;
+  currency: string;
+  createdAt: string;
+}
+
+export interface ReferralCommissionsAuditResponse {
+  items: ReferralCommissionAuditItem[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 export interface ComboItem {

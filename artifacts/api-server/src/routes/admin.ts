@@ -15,6 +15,7 @@ import {
   depositsTable,
   contestsTable,
   referralsTable,
+  referralCommissionsTable,
   milestonesTable,
   bansTable,
   securityEventsTable,
@@ -40,6 +41,10 @@ import { checkBotChannelAdmin, extractChannelUsername } from "../lib/telegramCha
 import { setBotEnabled, clearBotEnabledCache, isBotEnabled } from "../bot/control";
 import { clearAllSubCache } from "../bot/subscription";
 import { getSetting, invalidateSetting } from "../lib/settingsCache";
+import {
+  getReferralCommissionPercentages,
+  updateReferralCommissionPercentages,
+} from "../lib/referralManager";
 import { getWalletAddress, isTonConfigured } from "../lib/tonSender";
 import { executeAutoWithdrawal } from "../lib/withdrawalProcessor";
 import { logger } from "../lib/logger";
@@ -861,6 +866,186 @@ router.delete("/referrals/milestones/:id", requireAdminPerm("canManageSettings")
   await db.delete(milestonesTable).where(eq(milestonesTable.id, id));
   await logAdminAudit(req.adminId!, "delete_milestone", { milestoneId: id });
   res.json({ ok: true });
+});
+
+// ── 11.1 REFERRAL SETTINGS (5-LEVEL COMMISSION RATES) ───────────────────────
+async function handleGetReferralSettings(_req: AdminRequest, res: Response) {
+  const [levels, refReward, refThreshold] = await Promise.all([
+    getReferralCommissionPercentages(db),
+    getSetting("referral_reward"),
+    getSetting("referral_threshold"),
+  ]);
+
+  const levelMap = new Map<number, number>(levels.map((l) => [l.level, l.percent]));
+
+  res.json({
+    level1Percent: String(levelMap.get(1) ?? 10),
+    level2Percent: String(levelMap.get(2) ?? 5),
+    level3Percent: String(levelMap.get(3) ?? 3),
+    level4Percent: String(levelMap.get(4) ?? 2),
+    level5Percent: String(levelMap.get(5) ?? 1),
+    referralRewardAmount: refReward || "10",
+    referralDepositPercent: String(levelMap.get(1) ?? 10),
+    referralThreshold: refThreshold || "1",
+    levels,
+  });
+}
+
+async function handleUpdateReferralSettings(req: AdminRequest, res: Response) {
+  const {
+    level1Percent,
+    level2Percent,
+    level3Percent,
+    level4Percent,
+    level5Percent,
+    referralRewardAmount,
+    referralDepositPercent,
+    referralThreshold,
+  } = req.body;
+
+  const rates: Record<number, number> = {};
+  if (level1Percent !== undefined) rates[1] = parseFloat(String(level1Percent));
+  else if (referralDepositPercent !== undefined) rates[1] = parseFloat(String(referralDepositPercent));
+
+  if (level2Percent !== undefined) rates[2] = parseFloat(String(level2Percent));
+  if (level3Percent !== undefined) rates[3] = parseFloat(String(level3Percent));
+  if (level4Percent !== undefined) rates[4] = parseFloat(String(level4Percent));
+  if (level5Percent !== undefined) rates[5] = parseFloat(String(level5Percent));
+
+  // Validate rates
+  for (const [lvl, r] of Object.entries(rates)) {
+    if (isNaN(r) || r < 0 || r > 100) {
+      res.status(400).json({ error: `Level ${lvl} percentage must be a valid number between 0 and 100` });
+      return;
+    }
+  }
+
+  if (Object.keys(rates).length > 0) {
+    await updateReferralCommissionPercentages(rates, req.adminId!, db);
+  }
+
+  if (referralRewardAmount !== undefined) {
+    const val = String(referralRewardAmount);
+    await db
+      .insert(botSettingsTable)
+      .values({ key: "referral_reward", value: val })
+      .onConflictDoUpdate({
+        target: botSettingsTable.key,
+        set: { value: val },
+      });
+    invalidateSetting("referral_reward");
+  }
+
+  if (referralThreshold !== undefined) {
+    const val = String(referralThreshold);
+    await db
+      .insert(botSettingsTable)
+      .values({ key: "referral_threshold", value: val })
+      .onConflictDoUpdate({
+        target: botSettingsTable.key,
+        set: { value: val },
+      });
+    invalidateSetting("referral_threshold");
+  }
+
+  await logAdminAudit(req.adminId!, "update_referral_settings", { rates, referralRewardAmount, referralThreshold });
+
+  const updatedRates = await getReferralCommissionPercentages(db);
+  const updatedMap = new Map<number, number>(updatedRates.map((l) => [l.level, l.percent]));
+
+  res.json({
+    ok: true,
+    success: true,
+    settings: {
+      level1Percent: String(updatedMap.get(1) ?? 10),
+      level2Percent: String(updatedMap.get(2) ?? 5),
+      level3Percent: String(updatedMap.get(3) ?? 3),
+      level4Percent: String(updatedMap.get(4) ?? 2),
+      level5Percent: String(updatedMap.get(5) ?? 1),
+      referralRewardAmount: referralRewardAmount ? String(referralRewardAmount) : "10",
+      referralDepositPercent: String(updatedMap.get(1) ?? 10),
+      referralThreshold: referralThreshold ? String(referralThreshold) : "1",
+    },
+    levels: updatedRates,
+  });
+}
+
+router.get("/referral-settings", handleGetReferralSettings);
+router.get("/referrals/settings", handleGetReferralSettings);
+router.put("/referral-settings", requireAdminPerm("canManageSettings"), handleUpdateReferralSettings);
+router.put("/referrals/settings", requireAdminPerm("canManageSettings"), handleUpdateReferralSettings);
+
+// ── 11.2 REFERRAL COMMISSIONS AUDIT LIST ────────────────────────────────────
+router.get("/referral-commissions", requireAdminPerm("canViewStats"), async (req: AdminRequest, res: Response) => {
+  const page = Math.max(1, parseInt(String(req.query.page)) || 1);
+  const limit = Math.min(100, parseInt(String(req.query.limit)) || 50);
+  const offset = (page - 1) * limit;
+
+  const search = req.query.search ? String(req.query.search).trim() : "";
+  let query = db.select().from(referralCommissionsTable).$dynamic();
+
+  if (search) {
+    const searchId = parseInt(search);
+    if (!isNaN(searchId)) {
+      query = query.where(
+        or(
+          eq(referralCommissionsTable.depositingUserId, searchId),
+          eq(referralCommissionsTable.referrerId, searchId),
+          eq(referralCommissionsTable.depositId, searchId),
+        ),
+      );
+    } else {
+      query = query.where(ilike(referralCommissionsTable.txHash, `%${search}%`));
+    }
+  }
+
+  const [commissions, totalRes] = await Promise.all([
+    query.orderBy(desc(referralCommissionsTable.createdAt)).limit(limit).offset(offset),
+    db.select({ count: sql<number>`COUNT(*)::int` }).from(referralCommissionsTable),
+  ]);
+
+  // Fetch usernames for users in commissions
+  const userIds = new Set<number>();
+  for (const c of commissions) {
+    userIds.add(c.depositingUserId);
+    userIds.add(c.referrerId);
+  }
+
+  const userMap = new Map<number, string>();
+  if (userIds.size > 0) {
+    const users = await db
+      .select({ id: usersTable.id, username: usersTable.username, firstName: usersTable.firstName })
+      .from(usersTable)
+      .where(sql`${usersTable.id} IN (${sql.join(Array.from(userIds), sql`, `)})`);
+    for (const u of users) {
+      userMap.set(u.id, u.username ? `@${u.username}` : (u.firstName || `User #${u.id}`));
+    }
+  }
+
+  const items = commissions.map((c) => ({
+    id: c.id,
+    depositId: c.depositId,
+    txHash: c.txHash,
+    depositingUserId: c.depositingUserId,
+    depositingUserName: userMap.get(c.depositingUserId) || `User #${c.depositingUserId}`,
+    referrerId: c.referrerId,
+    referrerName: userMap.get(c.referrerId) || `User #${c.referrerId}`,
+    level: c.level,
+    depositAmountGram: c.depositAmountGram,
+    depositAmountGo: c.depositAmountGo,
+    percentage: c.percentage,
+    commissionAmountGo: c.commissionAmountGo,
+    currency: c.currency,
+    createdAt: c.createdAt,
+  }));
+
+  res.json({
+    items,
+    total: totalRes[0]?.count || 0,
+    page,
+    limit,
+    totalPages: Math.ceil((totalRes[0]?.count || 0) / limit),
+  });
 });
 
 // ── 12. USERS MANAGEMENT ────────────────────────────────────────────────────

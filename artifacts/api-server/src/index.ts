@@ -37,6 +37,25 @@ const server = app.listen(port, (err?: Error) => {
     )
   `).catch(() => {});
   db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS channel_chat_id TEXT`).catch(() => {});
+  db.execute(sql`ALTER TABLE referrals ADD COLUMN IF NOT EXISTS successful_at TIMESTAMP`).catch(() => {});
+  db.execute(sql`
+    CREATE TABLE IF NOT EXISTS referral_commissions (
+      id                    SERIAL PRIMARY KEY,
+      deposit_id            INTEGER NOT NULL,
+      tx_hash               TEXT,
+      depositing_user_id    BIGINT NOT NULL,
+      referrer_id           BIGINT NOT NULL,
+      level                 INTEGER NOT NULL,
+      deposit_amount_gram   NUMERIC(18,6) NOT NULL,
+      deposit_amount_go     NUMERIC(18,6) NOT NULL,
+      percentage            NUMERIC(10,2) NOT NULL,
+      commission_amount_go  NUMERIC(18,6) NOT NULL,
+      currency              TEXT NOT NULL DEFAULT 'GO',
+      created_at            TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `).catch(() => {});
+  db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ref_comm_deposit ON referral_commissions(deposit_id)`).catch(() => {});
+  db.execute(sql`CREATE INDEX IF NOT EXISTS idx_ref_comm_referrer ON referral_commissions(referrer_id)`).catch(() => {});
 
   if (process.env.DISABLE_BOT !== "true") {
     // Prefer explicit env var; fall back to Replit production domain auto-detection

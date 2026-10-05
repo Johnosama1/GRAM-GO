@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { verifyTonDepositTransaction } from "../lib/depositVerifier";
 import { addGoBalanceAndClaim } from "../lib/miningUtils";
 import { notifyAdminOnDeposit } from "../lib/depositNotifier";
+import { distributeDepositReferralCommissions } from "../lib/referralManager";
 import { getBot } from "./index";
 import { logger } from "../lib/logger";
 
@@ -71,6 +72,19 @@ export async function processPendingDeposits() {
              lastMiningAtAfter = updatedUser.lastMiningAt || new Date();
              unclaimedHarvested = Math.max(0, gramAfter - gramBefore);
            }
+
+           // Distribute 5-level referral commissions in GO
+           await distributeDepositReferralCommissions(
+             {
+               depositId: dep.id,
+               txHash: confirmedTxHash,
+               depositingUserId: dep.userId,
+               depositAmountGramOrTon: verifiedAmt,
+               depositAmountGo: goAmount,
+             },
+             tx,
+             bot,
+           );
         });
 
         // Notify Admin (Idempotent, Comprehensive)

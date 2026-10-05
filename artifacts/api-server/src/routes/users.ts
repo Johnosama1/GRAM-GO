@@ -5,9 +5,13 @@ import { usersTable, wheelSlotsTable, botSettingsTable } from "@workspace/db/sch
 import { addGoBalanceAndClaim, setGoBalanceAndClaim } from "../lib/miningUtils";
 import { eq, sql, and } from "drizzle-orm";
 import { telegramAuth, softTelegramAuth, spinRateLimit } from "../middlewares/telegramAuth";
-import { verifyAccessMiddleware } from "../middlewares/verifyAccess";
 import { requireSession } from "../middlewares/requireSession";
+import { verifyAccessMiddleware } from "../middlewares/verifyAccess";
 import { getSetting } from "../lib/settingsCache";
+import {
+  getUserReferralsWithProgress,
+  getReferralCommissionPercentages,
+} from "../lib/referralManager";
 
 const router = Router();
 
@@ -143,7 +147,7 @@ router.get("/:id", requireSession, async (req, res) => {
   });
 });
 
-// GET /users/:id/referrals — list users referred by this user with pending/approved status
+// GET /users/:id/referrals — list users referred by this user with qualification progress
 router.get("/:id/referrals", requireSession, async (req, res) => {
   const id = parseInt(String(req.params.id));
   if (isNaN(id) || id <= 0) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -152,31 +156,42 @@ router.get("/:id/referrals", requireSession, async (req, res) => {
     res.status(403).json({ error: "Forbidden" }); return;
   }
 
-  const referred = await db
-    .select({
-      id: usersTable.id,
-      firstName: usersTable.firstName,
-      username: usersTable.username,
-      photoUrl: usersTable.photoUrl,
-      ipVerifiedAt: usersTable.ipVerifiedAt,
-      isBlockedForLeaving: usersTable.isBlockedForLeaving,
-      createdAt: usersTable.createdAt,
-    })
-    .from(usersTable)
-    .where(eq(usersTable.referredBy, id))
-    .orderBy(sql`created_at DESC`);
-
-  const result = referred.map(u => ({
-    id: u.id,
-    name: u.firstName || (u.username ? `@${u.username}` : `User #${u.id}`),
-    username: u.username,
-    photoUrl: u.photoUrl ?? null,
-    status: (u.ipVerifiedAt != null && !u.isBlockedForLeaving) ? "approved" : "pending",
-    joinedAt: u.createdAt,
-  }));
-
+  const result = await getUserReferralsWithProgress(id, db);
   res.setHeader("Cache-Control", "private, no-store");
   res.json(result);
+});
+
+// GET /users/:id/referrals/summary — get 5-level commission rates, stats and referrals
+router.get("/:id/referrals/summary", requireSession, async (req, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id) || id <= 0) { res.status(400).json({ error: "Invalid id" }); return; }
+  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
+  if (sessionReq.sessionUserId !== undefined && sessionReq.sessionUserId !== id) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
+  const [levels, referrals] = await Promise.all([
+    getReferralCommissionPercentages(db),
+    getUserReferralsWithProgress(id, db),
+  ]);
+
+  const totalInvited = referrals.length;
+  const totalSuccessful = referrals.filter((r) => r.status === "successful").length;
+  const totalPending = totalInvited - totalSuccessful;
+  const totalCommissionFromReferrals = referrals.reduce((sum, r) => sum + (r.totalCommissionGo || 0), 0);
+
+  const botUsername = (await getSetting("bot_username").catch(() => null)) || "GRAMGO1_bot";
+
+  res.setHeader("Cache-Control", "private, no-store");
+  res.json({
+    levels,
+    totalInvited,
+    totalSuccessful,
+    totalPending,
+    totalEarnedGo: totalCommissionFromReferrals,
+    botUsername,
+    referrals,
+  });
 });
 
 router.post("/:id/spin", requireSession, spinRateLimit, verifyAccessMiddleware, async (req, res) => {
