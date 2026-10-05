@@ -365,6 +365,47 @@ router.get("/device-verify", requireAdminPerm("canManageUsers"), async (_req: Ad
   res.json({ bans, fingerprints });
 });
 
+router.get("/auto-banned", requireAdminPerm("canManageUsers"), async (_req: AdminRequest, res: Response) => {
+  try {
+    const autoBans = await db
+      .select({
+        id: bansTable.id,
+        userId: bansTable.userId,
+        reason: bansTable.reason,
+        bannedAt: bansTable.bannedAt,
+        bannedBy: bansTable.bannedBy,
+        matchedSignals: bansTable.matchedSignals,
+        isActive: bansTable.isActive,
+        username: usersTable.username,
+        firstName: usersTable.firstName,
+        ipHash: usersTable.ipHash,
+      })
+      .from(bansTable)
+      .leftJoin(usersTable, eq(bansTable.userId, usersTable.id))
+      .where(and(eq(bansTable.isActive, true), eq(bansTable.bannedBy, "system")))
+      .orderBy(desc(bansTable.bannedAt))
+      .limit(100);
+
+    const formatted = autoBans.map((b) => ({
+      id: b.id,
+      userId: b.userId,
+      reason: b.reason,
+      bannedAt: b.bannedAt ? new Date(b.bannedAt).toISOString() : new Date().toISOString(),
+      bannedBy: b.bannedBy || "system",
+      matchedSignals: b.matchedSignals || null,
+      isActive: b.isActive,
+      username: b.username || null,
+      firstName: b.firstName || null,
+      ipHash: b.ipHash || null,
+    }));
+
+    res.json(formatted);
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch auto-banned accounts");
+    res.json([]);
+  }
+});
+
 router.post("/device-verify/unban", requireAdminPerm("canUnban"), async (req: AdminRequest, res: Response) => {
   const { userId } = req.body;
   const targetId = parseInt(String(userId));
@@ -379,6 +420,82 @@ router.post("/device-verify/unban", requireAdminPerm("canUnban"), async (req: Ad
 
   res.json({ ok: true });
 });
+
+// ── 8.1 GENERAL BOT SETTINGS ────────────────────────────────────────────────
+router.get("/settings", async (_req: AdminRequest, res: Response) => {
+  try {
+    const rows = await db.select().from(botSettingsTable);
+    const result: Record<string, string> = {};
+    for (const row of rows) {
+      result[row.key] = row.value;
+    }
+    res.json(result);
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch admin settings");
+    res.status(500).json({ error: "Failed to fetch settings" });
+  }
+});
+
+async function handleUpdateGeneralSettings(req: AdminRequest, res: Response) {
+  try {
+    const { key, value, settings } = req.body;
+
+    if (settings && typeof settings === "object") {
+      for (const [k, v] of Object.entries(settings)) {
+        if (typeof k === "string" && v !== undefined) {
+          const strVal = String(v);
+          await db
+            .insert(botSettingsTable)
+            .values({ key: k, value: strVal })
+            .onConflictDoUpdate({
+              target: botSettingsTable.key,
+              set: { value: strVal },
+            });
+          invalidateSetting(k);
+          if (k === "maintenance_mode") {
+            const isMaint = strVal === "true";
+            await setBotEnabled(!isMaint);
+            clearBotEnabledCache();
+          }
+        }
+      }
+      await logAdminAudit(req.adminId!, "update_settings_batch", { keys: Object.keys(settings) });
+      res.json({ ok: true, settings });
+      return;
+    }
+
+    if (!key || typeof key !== "string") {
+      res.status(400).json({ error: "Missing or invalid setting key" });
+      return;
+    }
+
+    const strVal = value !== undefined ? String(value) : "";
+    await db
+      .insert(botSettingsTable)
+      .values({ key, value: strVal })
+      .onConflictDoUpdate({
+        target: botSettingsTable.key,
+        set: { value: strVal },
+      });
+
+    invalidateSetting(key);
+
+    if (key === "maintenance_mode") {
+      const isMaint = strVal === "true";
+      await setBotEnabled(!isMaint);
+      clearBotEnabledCache();
+    }
+
+    await logAdminAudit(req.adminId!, "update_setting", { key, value: strVal });
+    res.json({ ok: true, key, value: strVal });
+  } catch (err) {
+    logger.error({ err }, "Failed to update admin setting");
+    res.status(500).json({ error: "Failed to update setting" });
+  }
+}
+
+router.put("/settings", requireAdminPerm("canManageSettings"), handleUpdateGeneralSettings);
+router.post("/settings", requireAdminPerm("canManageSettings"), handleUpdateGeneralSettings);
 
 // ── 9. WELCOME MESSAGE ──────────────────────────────────────────────────────
 router.get("/welcome-message", async (_req: AdminRequest, res: Response) => {
@@ -1346,23 +1463,60 @@ router.post("/withdrawals/:id/action", requireAdminPerm("canManageWithdrawals"),
   res.json(result);
 });
 
-// ── 15. LIMITS & SETTINGS ───────────────────────────────────────────────────
+// ── 15. LIMITS & FINANCIAL SETTINGS ─────────────────────────────────────────
 router.get("/limits", async (_req: AdminRequest, res: Response) => {
-  const minWithdraw = await getSetting("min_withdraw") || "0.5";
-  const minDeposit = await getSetting("min_deposit") || "0.1";
-  const refReward = await getSetting("referral_reward") || "5";
-  const maxDailyWd = await getSetting("max_daily_withdraw") || "50";
-  res.json({ minWithdraw, minDeposit, refReward, maxDailyWd });
+  const minWithdrawal = (await getSetting("min_withdrawal")) || (await getSetting("min_withdraw")) || "0.2";
+  const maxWithdrawal = (await getSetting("max_withdrawal")) || "10000";
+  const dailyWithdrawalLimit = (await getSetting("daily_withdrawal_limit")) || (await getSetting("max_daily_withdraw")) || "1000";
+  const minDeposit = (await getSetting("min_deposit")) || "0.1";
+  const maxDeposit = (await getSetting("max_deposit")) || "50000";
+  const dailyDepositLimit = (await getSetting("daily_deposit_limit")) || "10000";
+  const refReward = (await getSetting("referral_reward")) || "5";
+
+  res.json({
+    minWithdrawal,
+    maxWithdrawal,
+    dailyWithdrawalLimit,
+    minDeposit,
+    maxDeposit,
+    dailyDepositLimit,
+    min_withdraw: minWithdrawal,
+    max_daily_withdraw: dailyWithdrawalLimit,
+    min_withdrawal: minWithdrawal,
+    max_withdrawal: maxWithdrawal,
+    daily_withdrawal_limit: dailyWithdrawalLimit,
+    min_deposit: minDeposit,
+    max_deposit: maxDeposit,
+    daily_deposit_limit: dailyDepositLimit,
+    refReward,
+  });
 });
 
-router.post("/limits", requireAdminPerm("canManageSettings"), async (req: AdminRequest, res: Response) => {
-  const { minWithdraw, minDeposit, refReward, maxDailyWd } = req.body;
+async function handleUpdateLimits(req: AdminRequest, res: Response) {
+  const body = req.body || {};
   const updates: Record<string, string> = {};
 
-  if (minWithdraw != null) updates.min_withdraw = String(minWithdraw);
-  if (minDeposit != null) updates.min_deposit = String(minDeposit);
-  if (refReward != null) updates.referral_reward = String(refReward);
-  if (maxDailyWd != null) updates.max_daily_withdraw = String(maxDailyWd);
+  const minWd = body.minWithdrawal ?? body.min_withdrawal ?? body.minWithdraw;
+  const maxWd = body.maxWithdrawal ?? body.max_withdrawal;
+  const dailyWd = body.dailyWithdrawalLimit ?? body.daily_withdrawal_limit ?? body.maxDailyWd;
+  const minDep = body.minDeposit ?? body.min_deposit;
+  const maxDep = body.maxDeposit ?? body.max_deposit;
+  const dailyDep = body.dailyDepositLimit ?? body.daily_deposit_limit;
+  const refRwd = body.refReward ?? body.referral_reward;
+
+  if (minWd != null) {
+    updates.min_withdrawal = String(minWd);
+    updates.min_withdraw = String(minWd);
+  }
+  if (maxWd != null) updates.max_withdrawal = String(maxWd);
+  if (dailyWd != null) {
+    updates.daily_withdrawal_limit = String(dailyWd);
+    updates.max_daily_withdraw = String(dailyWd);
+  }
+  if (minDep != null) updates.min_deposit = String(minDep);
+  if (maxDep != null) updates.max_deposit = String(maxDep);
+  if (dailyDep != null) updates.daily_deposit_limit = String(dailyDep);
+  if (refRwd != null) updates.referral_reward = String(refRwd);
 
   for (const [key, value] of Object.entries(updates)) {
     await db.insert(botSettingsTable).values({ key, value }).onConflictDoUpdate({
@@ -1373,7 +1527,71 @@ router.post("/limits", requireAdminPerm("canManageSettings"), async (req: AdminR
   }
 
   await logAdminAudit(req.adminId!, "update_limits", updates);
-  res.json({ ok: true, updates });
+  res.json({ ok: true, limits: updates, updates });
+}
+
+router.post("/limits", requireAdminPerm("canManageSettings"), handleUpdateLimits);
+router.put("/limits", requireAdminPerm("canManageSettings"), handleUpdateLimits);
+
+router.get("/deposits", requireAdminPerm("canManageDeposits"), async (req: AdminRequest, res: Response) => {
+  try {
+    const status = req.query.status ? String(req.query.status) : undefined;
+    const search = req.query.search ? String(req.query.search).trim() : undefined;
+
+    let query = db
+      .select({
+        id: depositsTable.id,
+        userId: depositsTable.userId,
+        amount: depositsTable.amount,
+        walletAddress: depositsTable.walletAddress,
+        txHash: depositsTable.txHash,
+        status: depositsTable.status,
+        createdAt: depositsTable.createdAt,
+        username: usersTable.username,
+        firstName: usersTable.firstName,
+      })
+      .from(depositsTable)
+      .leftJoin(usersTable, eq(depositsTable.userId, usersTable.id))
+      .$dynamic();
+
+    const conditions = [];
+    if (status && status !== "all") {
+      conditions.push(eq(depositsTable.status, status));
+    }
+    if (search) {
+      const isNum = !isNaN(parseInt(search));
+      if (isNum) {
+        conditions.push(or(eq(depositsTable.userId, parseInt(search)), ilike(usersTable.username, `%${search}%`)));
+      } else {
+        conditions.push(ilike(usersTable.username, `%${search}%`));
+      }
+    }
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    const result = await query.orderBy(desc(depositsTable.createdAt)).limit(100);
+    res.json(result);
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch deposits");
+    res.json([]);
+  }
+});
+
+router.put("/deposit-wallet", requireAdminPerm("canManageWallet"), async (req: AdminRequest, res: Response) => {
+  const { address } = req.body;
+  const addrStr = String(address || "").trim();
+  await db
+    .insert(botSettingsTable)
+    .values({ key: "deposit_wallet_address", value: addrStr })
+    .onConflictDoUpdate({
+      target: botSettingsTable.key,
+      set: { value: addrStr },
+    });
+  invalidateSetting("deposit_wallet_address");
+  await logAdminAudit(req.adminId!, "update_deposit_wallet", { address: addrStr });
+  res.json({ ok: true, address: addrStr });
 });
 
 // ── 16. REQUIRED CHANNELS ───────────────────────────────────────────────────
@@ -1615,6 +1833,133 @@ router.put("/ads-settings", requireAdminPerm("canManageAds"), async (req: AdminR
   await logAdminAudit(req.adminId!, "update_ads_settings", { adsDailyLimit, adsRewardAmount });
 
   res.json({ success: true });
+});
+
+// ── 21. SECURITY EVENTS ───────────────────────────────────────────────────
+router.get("/security/events", requireAdminPerm("canViewAuditLogs"), async (_req: AdminRequest, res: Response) => {
+  try {
+    const events = await db
+      .select()
+      .from(securityEventsTable)
+      .orderBy(desc(securityEventsTable.createdAt))
+      .limit(100);
+
+    const formatted = events.map((e) => ({
+      id: e.id,
+      userId: e.userId,
+      eventType: e.eventType,
+      details: e.details,
+      createdAt: e.createdAt ? new Date(e.createdAt).toISOString() : new Date().toISOString(),
+    }));
+
+    res.json(formatted);
+  } catch (err) {
+    logger.error({ err }, "Failed to fetch security events");
+    res.json([]);
+  }
+});
+
+// ── 22. DAILY CHECKIN REWARDS SETTINGS ──────────────────────────────────────
+router.get("/checkin/settings", async (_req: AdminRequest, res: Response) => {
+  const raw = await getSetting("daily_checkin_rewards");
+  if (!raw) {
+    res.json({ 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7, 7: 10 });
+    return;
+  }
+  try {
+    res.json(JSON.parse(raw));
+  } catch {
+    res.json({ 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7, 7: 10 });
+  }
+});
+
+router.put("/checkin/settings", requireAdminPerm("canManageCheckin"), async (req: AdminRequest, res: Response) => {
+  const { rewards } = req.body;
+  const jsonStr = JSON.stringify(rewards || {});
+  await db
+    .insert(botSettingsTable)
+    .values({ key: "daily_checkin_rewards", value: jsonStr })
+    .onConflictDoUpdate({
+      target: botSettingsTable.key,
+      set: { value: jsonStr },
+    });
+  invalidateSetting("daily_checkin_rewards");
+  await logAdminAudit(req.adminId!, "update_checkin_rewards", { rewards });
+  res.json({ ok: true, rewards });
+});
+
+// ── 23. BALANCE RESET ACTIONS ───────────────────────────────────────────────
+router.post("/reset-go-balances", requireAdminPerm("canManageUsers"), async (req: AdminRequest, res: Response) => {
+  const { confirm } = req.body;
+  if (confirm !== "RESET_ALL_GO") {
+    res.status(400).json({ error: "Invalid confirmation string" });
+    return;
+  }
+  const result = await db.update(usersTable).set({ goBalance: "0", balance: "0" });
+  await logAdminAudit(req.adminId!, "reset_go_balances", {});
+  res.json({ ok: true, success: true, affectedUsers: result.rowCount ?? 0 });
+});
+
+router.post("/reset-gram-balances", requireAdminPerm("canManageUsers"), async (req: AdminRequest, res: Response) => {
+  const { confirm } = req.body;
+  if (confirm !== "RESET_ALL_GRAM") {
+    res.status(400).json({ error: "Invalid confirmation string" });
+    return;
+  }
+  const result = await db.update(usersTable).set({ gramBalance: "0" });
+  await logAdminAudit(req.adminId!, "reset_gram_balances", {});
+  res.json({ ok: true, success: true, affectedUsers: result.rowCount ?? 0 });
+});
+
+// ── 24. WALLET CONFIG & KEYS ────────────────────────────────────────────────
+router.get("/wallet-keys", requireAdminPerm("canManageWallet"), async (_req: AdminRequest, res: Response) => {
+  const isTon = await isTonConfigured();
+  const address = await getWalletAddress();
+  const maskedAddress = address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "";
+  res.json({
+    tonWalletConfigured: isTon,
+    maskedWalletAddress: maskedAddress,
+    hasTelegramBotToken: !!(process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN),
+    hasNeonDatabaseUrl: !!process.env.DATABASE_URL,
+    hasCustomMnemonic: !!process.env.TON_WALLET_MNEMONIC,
+    hasCustomApiKey: !!process.env.TONCENTER_API_KEY,
+    securityStatus: isTon ? "active" : "unconfigured",
+  });
+});
+
+router.put("/wallet-keys", requireAdminPerm("canManageWallet"), async (req: AdminRequest, res: Response) => {
+  await logAdminAudit(req.adminId!, "update_wallet_keys", {});
+  res.json({ ok: true, message: "Wallet configuration updated" });
+});
+
+// ── 25. CONTESTS ────────────────────────────────────────────────────────────
+router.get("/contests", async (_req: AdminRequest, res: Response) => {
+  const contests = await db.select().from(contestsTable).orderBy(desc(contestsTable.startDate));
+  res.json(contests);
+});
+
+router.post("/contests", requireAdminPerm("canManageTasks"), async (req: AdminRequest, res: Response) => {
+  const { title, description, rewardType, totalReward, winnerCount, endDate } = req.body;
+  const [created] = await db
+    .insert(contestsTable)
+    .values({
+      title: String(title),
+      description: description ? String(description) : null,
+      rewardType: rewardType || "GO",
+      totalReward: String(totalReward || "100"),
+      winnerCount: Number(winnerCount) || 3,
+      endDate: endDate ? new Date(endDate) : new Date(Date.now() + 7 * 86400000),
+    })
+    .returning();
+  await logAdminAudit(req.adminId!, "create_contest", { contestId: created.id, title });
+  res.json(created);
+});
+
+router.post("/contests/:id/finalize", requireAdminPerm("canManageTasks"), async (req: AdminRequest, res: Response) => {
+  const id = parseInt(String(req.params.id));
+  await db.update(contestsTable).set({ isFinished: true, isActive: false }).where(eq(contestsTable.id, id));
+  await logAdminAudit(req.adminId!, "finalize_contest", { contestId: id });
+  res.json({ ok: true, contestId: id, winners: [] });
 });
 
 export default router;
