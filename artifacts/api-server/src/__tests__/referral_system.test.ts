@@ -236,4 +236,42 @@ describe("5-Level Referral System & Qualification", () => {
       expect(canDistribute).toBe(false);
     });
   });
+
+  describe("8. Referral & Multi-Level Commission Telegram Notifications", () => {
+    it("should format and send new referral notification with live counts and username", async () => {
+      const { sendNewReferralNotification } = await import("../lib/referralManager");
+      let sentChatId: number | null = null;
+      let sentMessage: string = "";
+
+      const mockBot = {
+        sendMessage: vi.fn().mockImplementation((chatId: number, text: string) => {
+          sentChatId = chatId;
+          sentMessage = text;
+          return Promise.resolve();
+        }),
+      };
+
+      const mockClient = {
+        select: vi.fn().mockImplementation(() => ({
+          from: vi.fn().mockImplementation(() => ({
+            where: vi.fn().mockResolvedValue([{ count: 4 }]),
+          })),
+        })),
+      };
+
+      await sendNewReferralNotification(
+        mockBot,
+        123456,
+        { id: 789012, username: "ahmed_user", firstName: "Ahmed", lastName: "Ali" },
+        mockClient as any,
+      );
+
+      expect(mockBot.sendMessage).toHaveBeenCalled();
+      expect(sentChatId).toBe(123456);
+      expect(sentMessage).toContain("@ahmed_user");
+      expect(sentMessage).toContain("Ahmed Ali");
+      expect(sentMessage).toContain("الإحالات الناجحة");
+      expect(sentMessage).toContain("+5 GO");
+    });
+  });
 });

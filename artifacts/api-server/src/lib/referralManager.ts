@@ -182,12 +182,12 @@ export async function checkAndUpdateReferralQualification(
           try {
             await bot.sendMessage(
               ref.referrerId,
-              `🟢 <b>Referral Successful &amp; +5 GO Reward!</b>\n\n` +
-                `🎉 Your friend ${displayName} has completed all qualification requirements:\n` +
-                `✅ Daily Check-in\n` +
-                `✅ 3 Completed Tasks\n\n` +
-                `🎁 <b>You received +5 GO referral qualification reward!</b>\n\n` +
-                `Your referral is now marked <b>🟢 Successful</b> and eligible for 5-level network commissions! ⛏️`,
+              `🟢 <b>إحالة ناجحة ومكافأة +5 GO!</b> 🎉\n\n` +
+                `قام صديقك <b>${displayName}</b> بإكمال جميع شروط التأهيل المطلوبة:\n` +
+                `✅ تسجيل الدخول اليومي (Daily Check-in)\n` +
+                `✅ إكمال 3 مهام (Complete 3 Tasks)\n\n` +
+                `🎁 <b>تمت إضافة مكافأة +5 GO إلى رصيدك الآن بنجاح!</b> 🪙\n\n` +
+                `أصبحت هذه الإحالة الآن <b>🟢 ناجحة (Successful)</b> ومؤهلة لأرباح وعمولات شبكة الإيداع للـ 5 مستويات! ⛏️`,
               { parse_mode: "HTML" },
             );
           } catch {
@@ -425,13 +425,32 @@ export async function distributeDepositReferralCommissions(
     // Telegram Bot notification
     if (bot) {
       try {
+        let levelTitle = "";
+        let relationshipText = "";
+
+        if (level === 1) {
+          levelTitle = `💰 <b>عمولة إيداع مباشرة (المستوى 1) — ${percent}%</b> 🪙`;
+          relationshipText = `قام صديقك المباشر <b>${depositorDisplay}</b> بعملية إيداع!`;
+        } else if (level === 2) {
+          levelTitle = `👥 <b>عمولة شبكة الإحالات (المستوى 2) — ${percent}%</b> 🪙`;
+          relationshipText = `قام الصديق <b>${depositorDisplay}</b> (المدعو عبر صديقك) بعملية إيداع!`;
+        } else {
+          levelTitle = `🌐 <b>عمولة شبكة الإحالات (المستوى ${level}) — ${percent}%</b> 🪙`;
+          relationshipText = `قام الصديق <b>${depositorDisplay}</b> (المستوى ${level} في شبكتك) بعملية إيداع!`;
+        }
+
+        const msgText =
+          `${levelTitle}\n\n` +
+          `👤 <b>الصديق المودع:</b> ${depositorDisplay}\n` +
+          `ℹ️ <b>نوع الإحالة:</b> ${relationshipText}\n\n` +
+          `💵 <b>قيمة الإيداع:</b> ${depositAmountGramOrTon.toFixed(4)} Gram (${depositAmountGo.toFixed(2)} GO)\n` +
+          `🎁 <b>نسبة عمولتك (${level === 1 ? "مباشرة" : "مستوى " + level}):</b> ${percent}%\n` +
+          `🪙 <b>العمولة المكتسبة:</b> <b>+${commissionGo.toFixed(2)} GO</b>\n\n` +
+          `✅ <b>تمت إضافة ${commissionGo.toFixed(2)} عملات GO إلى رصيد حسابك الآن بنجاح!</b> ⛏️`;
+
         await bot.sendMessage(
           referrerId,
-          `🎁 <b>Referral Commission Received!</b>\n\n` +
-            `📊 <b>Level ${level} Commission:</b> +${commissionGo.toFixed(2)} GO (${percent}%)\n` +
-            `👤 <b>From:</b> ${depositorDisplay}\n` +
-            `💎 <b>Deposit:</b> ${depositAmountGramOrTon.toFixed(4)} Gram (${depositAmountGo.toFixed(2)} GO)\n` +
-            `🪙 <b>Credited to GO Balance</b>`,
+          msgText,
           { parse_mode: "HTML" },
         );
       } catch {
@@ -632,4 +651,69 @@ export async function getUserReferralCommissions(
       createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : String(c.createdAt),
     };
   });
+}
+
+/**
+ * Sends a rich Telegram notification to the referrer when a new user joins via their referral link.
+ * Includes:
+ * - New user's username and display name
+ * - Current count of successful referrals
+ * - Current count of pending referrals
+ * - Qualification criteria reminder to earn direct +5 GO and 5-level commissions
+ */
+export async function sendNewReferralNotification(
+  bot: any,
+  referrerId: number,
+  referredUser: { id: number; username?: string | null; firstName?: string | null; lastName?: string | null },
+  client: any = db,
+): Promise<void> {
+  if (!bot) return;
+
+  try {
+    const fullName = [referredUser.firstName, referredUser.lastName].filter(Boolean).join(" ").trim();
+    const userDisplay = referredUser.username
+      ? `@${esc(referredUser.username)}${fullName ? ` (${esc(fullName)})` : ""}`
+      : esc(fullName || `User #${referredUser.id}`);
+
+    // Query count of successful and pending referrals for this referrer
+    const [successfulCountRes, pendingCountRes] = await Promise.all([
+      client
+        .select({ count: sql`COUNT(*)::int` })
+        .from(referralsTable)
+        .where(
+          and(
+            eq(referralsTable.referrerId, referrerId),
+            or(eq(referralsTable.status, "successful"), eq(referralsTable.status, "active")),
+          ),
+        ),
+      client
+        .select({ count: sql`COUNT(*)::int` })
+        .from(referralsTable)
+        .where(
+          and(
+            eq(referralsTable.referrerId, referrerId),
+            eq(referralsTable.status, "pending"),
+          ),
+        ),
+    ]);
+
+    const successfulCount = Number(successfulCountRes[0]?.count || 0);
+    const pendingCount = Number(pendingCountRes[0]?.count || 0);
+
+    const message =
+      `🎉 <b>تم تسجيل إحالة جديدة عبر رابطك!</b>\n\n` +
+      `👤 <b>المستخدم المنضم:</b> ${userDisplay}\n\n` +
+      `📊 <b>إحصائيات إحالاتك الحالية:</b>\n` +
+      `🟢 <b>الإحالات الناجحة:</b> ${successfulCount}\n` +
+      `🟡 <b>قيد الانتظار:</b> ${pendingCount}\n\n` +
+      `🎁 <b>شروط التأهيل لكسب +5 GO:</b>\n` +
+      `1️⃣ تسجيل الدخول اليومي (Daily Check-in)\n` +
+      `2️⃣ إكمال 3 مهام (Complete 3 Tasks)\n\n` +
+      `⚡ بمجرد إتمام الصديق للشروط، ستحصل فوراً على مكافأة <b>+5 GO</b> وتتأهل لعمولات شبكة الإيداع الـ 5 مستويات (10%, 5%, 2%, 1%, 1%)! ⛏️`;
+
+    await bot.sendMessage(referrerId, message, { parse_mode: "HTML" });
+    logger.info({ referrerId, referredUserId: referredUser.id }, "Sent rich new referral notification to inviter");
+  } catch (err) {
+    logger.warn({ err, referrerId, referredId: referredUser.id }, "Failed to send new referral notification");
+  }
 }

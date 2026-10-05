@@ -93,11 +93,13 @@ router.post("/init", telegramAuth, async (req, res) => {
           const { getBot } = await import("../bot");
           const b = getBot();
           if (b) {
-            b.sendMessage(
+            const { sendNewReferralNotification } = await import("../lib/referralManager");
+            await sendNewReferralNotification(
+              b,
               referredById,
-              `👥 A new friend joined via your link!\n⏳ The referral will be calculated after completing qualification requirements (Daily Check-in + 3 Tasks).`,
-              { parse_mode: "HTML" }
-            ).catch(() => {});
+              { id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName },
+              db,
+            );
           }
         } catch { /* ignore */ }
       }

@@ -1091,14 +1091,14 @@ function setupBotHandlers() {
                 .onConflictDoNothing()
                 .catch(() => {});
 
-              // Notify inviter — referral is pending channel verification
-              await bot
-                .sendMessage(
-                  referredBy,
-                  `👥 A new friend joined via your link!\n⏳ The referral will be calculated after verifying his subscription to the channels.`,
-                  { parse_mode: "HTML" },
-                )
-                .catch(() => {});
+              // Notify inviter with rich referral details & live counts
+              const { sendNewReferralNotification } = await import("../lib/referralManager");
+              await sendNewReferralNotification(
+                bot,
+                referredBy,
+                { id: userId, username, firstName, lastName },
+                db,
+              );
             } catch (refErr) {
               logger.error({ refErr }, "Referral registration error");
             }
