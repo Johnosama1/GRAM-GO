@@ -394,6 +394,7 @@ export const api = {
 
   getUserReferrals: (userId: number) => apiCall<ReferralEntry[]>(`/users/${userId}/referrals`),
   getReferralSummary: (userId: number) => apiCall<ReferralSummaryResponse>(`/users/${userId}/referrals/summary`),
+  getUserReferralCommissions: (userId: number) => apiCall<ReferralCommissionHistoryItem[]>(`/users/${userId}/referrals/commissions`),
 
   getMilestones: () => apiCall<MilestoneItem[]>("/milestones"),
 
@@ -519,6 +520,22 @@ export interface ReferralEntry {
   successfulAt?: string | null;
 }
 
+export interface ReferralCommissionHistoryItem {
+  id: number;
+  depositId: number;
+  level: number;
+  depositingUserId: number;
+  depositingUserName: string;
+  depositingUserUsername?: string | null;
+  depositingUserPhotoUrl?: string | null;
+  percentage: number;
+  depositAmountGram: string;
+  depositAmountGo: string;
+  commissionAmountGo: number;
+  currency: string;
+  createdAt: string;
+}
+
 export interface ReferralSummaryResponse {
   levels: ReferralCommissionRate[];
   totalInvited: number;
@@ -527,6 +544,7 @@ export interface ReferralSummaryResponse {
   totalEarnedGo: number;
   botUsername: string;
   referrals: ReferralEntry[];
+  commissions?: ReferralCommissionHistoryItem[];
 }
 
 export interface AdminReferralSettings {

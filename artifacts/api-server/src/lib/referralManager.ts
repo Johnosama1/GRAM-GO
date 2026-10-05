@@ -31,8 +31,8 @@ export interface CommissionRate {
 export const DEFAULT_COMMISSION_RATES: Record<number, number> = {
   1: 10,
   2: 5,
-  3: 3,
-  4: 2,
+  3: 2,
+  4: 1,
   5: 1,
 };
 
@@ -155,18 +155,55 @@ export async function checkAndUpdateReferralQualification(
         ? `@${esc(referredUser.username)}`
         : esc(referredUser?.firstName || `User #${userId}`);
 
-      // Send telegram notification to inviter(s)
+      // Process qualification reward (+1 GO) and send telegram notification to inviter(s)
       for (const ref of pendingReferrals) {
+        // Idempotently credit +1 GO qualification reward
+        try {
+          const existingReward = await client
+            .select({ id: transactionsTable.id })
+            .from(transactionsTable)
+            .where(
+              and(
+                eq(transactionsTable.userId, ref.referrerId),
+                eq(transactionsTable.type, "referral_qualification_reward"),
+                sql`${transactionsTable.details}->>'referredUserId' = ${String(userId)}`,
+              ),
+            )
+            .limit(1);
+
+          if (existingReward.length === 0) {
+            await addGoBalanceAndClaim(client, ref.referrerId, 1);
+            await client.insert(transactionsTable).values({
+              userId: ref.referrerId,
+              type: "referral_qualification_reward",
+              amount: "1",
+              currency: "GO",
+              details: {
+                referredUserId: userId,
+                rewardGo: 1,
+                reason: "qualification_completed",
+              },
+            });
+            logger.info(
+              { referrerId: ref.referrerId, referredUserId: userId },
+              "Credited +1 GO referral qualification reward to referrer",
+            );
+          }
+        } catch (rewardErr) {
+          logger.error({ err: rewardErr, referrerId: ref.referrerId, userId }, "Failed to credit +1 GO referral reward");
+        }
+
         if (bot) {
           try {
             await bot.sendMessage(
               ref.referrerId,
-              `🟢 <b>Referral Successful!</b>\n\n` +
+              `🟢 <b>Referral Successful &amp; +1 GO Reward!</b>\n\n` +
                 `🎉 Your friend ${displayName} has completed all qualification requirements:\n` +
                 `✅ Daily Check-in\n` +
                 `✅ Daily Combo\n` +
                 `✅ 3 Completed Tasks\n\n` +
-                `Your referral is now marked <b>🟢 Successful</b> and is eligible for network commissions! ⛏️`,
+                `🎁 <b>You received +1 GO referral qualification reward!</b>\n\n` +
+                `Your referral is now marked <b>🟢 Successful</b> and eligible for 5-level network commissions! ⛏️`,
               { parse_mode: "HTML" },
             );
           } catch {
@@ -494,26 +531,12 @@ export async function getUserReferralsWithProgress(
       let status = existingRef?.status || "pending";
       let successfulAt = existingRef?.successfulAt || null;
 
-      if (progress.isQualified) {
+      if (progress.isQualified && existingRef?.status !== "successful") {
+        await checkAndUpdateReferralQualification(u.id, client, undefined).catch(() => {});
         status = "successful";
-        if (!successfulAt) {
-          successfulAt = new Date();
-          await client
-            .update(referralsTable)
-            .set({ status: "successful", successfulAt })
-            .where(
-              and(
-                eq(referralsTable.referredId, u.id),
-                eq(referralsTable.referrerId, referrerId),
-              ),
-            )
-            .catch(() => {});
-        }
-      } else {
-        if (status === "active" || status === "approved") {
-          // If was previously active/approved in old system without completing 3 tasks, check
-          status = progress.isQualified ? "successful" : "pending";
-        }
+        if (!successfulAt) successfulAt = new Date();
+      } else if (!progress.isQualified) {
+        status = "pending";
       }
 
       return {
@@ -540,4 +563,58 @@ export async function getUserReferralsWithProgress(
   );
 
   return result;
+}
+
+/**
+ * Lists all 5-level commission history entries earned by a specific referrer.
+ */
+export async function getUserReferralCommissions(
+  referrerId: number,
+  client: any = db,
+) {
+  const rows = await client
+    .select({
+      id: referralCommissionsTable.id,
+      depositId: referralCommissionsTable.depositId,
+      level: referralCommissionsTable.level,
+      depositingUserId: referralCommissionsTable.depositingUserId,
+      depositingUserName: usersTable.firstName,
+      depositingUserLastName: usersTable.lastName,
+      depositingUserUsername: usersTable.username,
+      depositingUserPhotoUrl: usersTable.photoUrl,
+      percentage: referralCommissionsTable.percentage,
+      depositAmountGram: referralCommissionsTable.depositAmountGram,
+      depositAmountGo: referralCommissionsTable.depositAmountGo,
+      commissionAmountGo: referralCommissionsTable.commissionAmountGo,
+      currency: referralCommissionsTable.currency,
+      createdAt: referralCommissionsTable.createdAt,
+    })
+    .from(referralCommissionsTable)
+    .leftJoin(usersTable, eq(referralCommissionsTable.depositingUserId, usersTable.id))
+    .where(eq(referralCommissionsTable.referrerId, referrerId))
+    .orderBy(desc(referralCommissionsTable.createdAt));
+
+  return rows.map((c: any) => {
+    const name = c.depositingUserName
+      ? `${c.depositingUserName} ${c.depositingUserLastName || ""}`.trim()
+      : c.depositingUserUsername
+        ? `@${c.depositingUserUsername}`
+        : `User #${c.depositingUserId}`;
+
+    return {
+      id: c.id,
+      depositId: c.depositId,
+      level: c.level,
+      depositingUserId: c.depositingUserId,
+      depositingUserName: name,
+      depositingUserUsername: c.depositingUserUsername,
+      depositingUserPhotoUrl: c.depositingUserPhotoUrl || null,
+      percentage: parseFloat(c.percentage || "0"),
+      depositAmountGram: c.depositAmountGram,
+      depositAmountGo: c.depositAmountGo,
+      commissionAmountGo: parseFloat(c.commissionAmountGo || "0"),
+      currency: c.currency || "GO",
+      createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : String(c.createdAt),
+    };
+  });
 }

@@ -11,6 +11,7 @@ import { getSetting } from "../lib/settingsCache";
 import {
   getUserReferralsWithProgress,
   getReferralCommissionPercentages,
+  getUserReferralCommissions,
 } from "../lib/referralManager";
 
 const router = Router();
@@ -161,7 +162,7 @@ router.get("/:id/referrals", requireSession, async (req, res) => {
   res.json(result);
 });
 
-// GET /users/:id/referrals/summary — get 5-level commission rates, stats and referrals
+// GET /users/:id/referrals/summary — get 5-level commission rates, stats, referrals, and commission history
 router.get("/:id/referrals/summary", requireSession, async (req, res) => {
   const id = parseInt(String(req.params.id));
   if (isNaN(id) || id <= 0) { res.status(400).json({ error: "Invalid id" }); return; }
@@ -170,15 +171,18 @@ router.get("/:id/referrals/summary", requireSession, async (req, res) => {
     res.status(403).json({ error: "Forbidden" }); return;
   }
 
-  const [levels, referrals] = await Promise.all([
+  const [levels, referrals, commissions] = await Promise.all([
     getReferralCommissionPercentages(db),
     getUserReferralsWithProgress(id, db),
+    getUserReferralCommissions(id, db),
   ]);
 
   const totalInvited = referrals.length;
   const totalSuccessful = referrals.filter((r) => r.status === "successful").length;
   const totalPending = totalInvited - totalSuccessful;
-  const totalCommissionFromReferrals = referrals.reduce((sum, r) => sum + (r.totalCommissionGo || 0), 0);
+  const totalCommissionFromCommissions = commissions.reduce((sum: number, c: any) => sum + (c.commissionAmountGo || 0), 0);
+  const totalCommissionFromReferrals = referrals.reduce((sum: number, r: any) => sum + (r.totalCommissionGo || 0), 0);
+  const totalEarnedGo = Math.max(totalCommissionFromCommissions, totalCommissionFromReferrals);
 
   const botUsername = (await getSetting("bot_username").catch(() => null)) || "GRAMGO1_bot";
 
@@ -188,10 +192,25 @@ router.get("/:id/referrals/summary", requireSession, async (req, res) => {
     totalInvited,
     totalSuccessful,
     totalPending,
-    totalEarnedGo: totalCommissionFromReferrals,
+    totalEarnedGo,
     botUsername,
     referrals,
+    commissions,
   });
+});
+
+// GET /users/:id/referrals/commissions — get 5-level commission audit records for this user
+router.get("/:id/referrals/commissions", requireSession, async (req, res) => {
+  const id = parseInt(String(req.params.id));
+  if (isNaN(id) || id <= 0) { res.status(400).json({ error: "Invalid id" }); return; }
+  const sessionReq = req as import("../middlewares/requireSession").SessionRequest;
+  if (sessionReq.sessionUserId !== undefined && sessionReq.sessionUserId !== id) {
+    res.status(403).json({ error: "Forbidden" }); return;
+  }
+
+  const commissions = await getUserReferralCommissions(id, db);
+  res.setHeader("Cache-Control", "private, no-store");
+  res.json(commissions);
 });
 
 router.post("/:id/spin", requireSession, spinRateLimit, verifyAccessMiddleware, async (req, res) => {

@@ -7,6 +7,7 @@ import {
   ReferralEntry,
   MilestoneItem,
   ReferralCommissionRate,
+  ReferralCommissionHistoryItem,
 } from "../lib/api";
 import {
   Users,
@@ -19,19 +20,19 @@ import {
   Flame,
   ChevronRight,
   Sparkles,
-  Layers,
-  HelpCircle,
-  Clock,
+  BookOpen,
   Coins,
-  Check,
   X,
+  Layers,
+  Award,
+  Check,
 } from "lucide-react";
 
 const DEFAULT_LEVELS: ReferralCommissionRate[] = [
   { level: 1, percent: 10 },
   { level: 2, percent: 5 },
-  { level: 3, percent: 3 },
-  { level: 4, percent: 2 },
+  { level: 3, percent: 2 },
+  { level: 4, percent: 1 },
   { level: 5, percent: 1 },
 ];
 
@@ -52,8 +53,10 @@ export default function ReferralPage() {
   const [loadingReferrals, setLoadingReferrals] = useState(false);
   const [levels, setLevels] = useState<ReferralCommissionRate[]>(DEFAULT_LEVELS);
   const [milestones, setMilestones] = useState<MilestoneItem[]>(DEFAULT_MILESTONES);
+  const [commissions, setCommissions] = useState<ReferralCommissionHistoryItem[]>([]);
   const [activeTab, setActiveTab] = useState<"all" | "successful" | "pending">("all");
   const [totalEarnedCommissionGo, setTotalEarnedCommissionGo] = useState(0);
+  const [showRulesModal, setShowRulesModal] = useState(false);
 
   // 1. Fetch Referral Summary & Dynamic Levels from DB
   useEffect(() => {
@@ -69,13 +72,15 @@ export default function ReferralPage() {
         if (res.referrals && Array.isArray(res.referrals)) {
           setReferrals(res.referrals);
         }
+        if (res.commissions && Array.isArray(res.commissions)) {
+          setCommissions(res.commissions);
+        }
         if (res.botUsername) {
           setBotUsername(res.botUsername);
         }
         setTotalEarnedCommissionGo(res.totalEarnedGo || 0);
       })
       .catch(() => {
-        // Fallback to direct getUserReferrals
         api.getUserReferrals(user.id).then(setReferrals).catch(() => {});
       })
       .finally(() => setLoadingReferrals(false));
@@ -184,51 +189,78 @@ export default function ReferralPage() {
           gap: 16,
         }}
       >
-        {/* HEADER */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, paddingBottom: 4 }}>
-          <div
+        {/* HEADER: TITLE ON LEFT, BOOK ICON ON RIGHT (SAME ROW) */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingBottom: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 14,
+                background: "linear-gradient(135deg, rgba(0, 242, 254, 0.15), rgba(168, 85, 247, 0.15))",
+                border: "1px solid rgba(0, 242, 254, 0.3)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: "0 0 20px rgba(0, 242, 254, 0.2)",
+              }}
+            >
+              <Users size={24} color="#00f2fe" />
+            </div>
+            <div>
+              <h1
+                style={{
+                  color: "#ffffff",
+                  fontSize: 22,
+                  fontWeight: 900,
+                  letterSpacing: "0.04em",
+                  margin: 0,
+                  lineHeight: 1.15,
+                  textShadow: "0 2px 14px rgba(0, 242, 254, 0.35)",
+                }}
+              >
+                Referral Program
+              </h1>
+              <p
+                style={{
+                  color: "rgba(255, 255, 255, 0.55)",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  margin: "2px 0 0",
+                }}
+              >
+                5-Level Network &amp; Instant GO Commissions
+              </p>
+            </div>
+          </div>
+
+          {/* BOOK ICON BUTTON (OPPOSITE SIDE, SAME ROW) */}
+          <button
+            onClick={() => setShowRulesModal(true)}
+            aria-label="Referral Qualification Rules"
             style={{
-              width: 44,
-              height: 44,
-              borderRadius: 14,
-              background: "linear-gradient(135deg, rgba(0, 242, 254, 0.15), rgba(168, 85, 247, 0.15))",
-              border: "1px solid rgba(0, 242, 254, 0.3)",
+              width: 42,
+              height: 42,
+              borderRadius: 13,
+              background: "linear-gradient(135deg, rgba(0, 242, 254, 0.16), rgba(168, 85, 247, 0.12))",
+              border: "1px solid rgba(0, 242, 254, 0.4)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              boxShadow: "0 0 20px rgba(0, 242, 254, 0.2)",
+              cursor: "pointer",
+              color: "#00f2fe",
+              boxShadow: "0 0 16px rgba(0, 242, 254, 0.25)",
+              transition: "transform 0.15s ease, box-shadow 0.15s ease",
+              flexShrink: 0,
             }}
+            onPointerDown={(e) => (e.currentTarget.style.transform = "scale(0.92)")}
+            onPointerUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
           >
-            <Users size={24} color="#00f2fe" />
-          </div>
-          <div>
-            <h1
-              style={{
-                color: "#ffffff",
-                fontSize: 22,
-                fontWeight: 900,
-                letterSpacing: "0.04em",
-                margin: 0,
-                lineHeight: 1.15,
-                textShadow: "0 2px 14px rgba(0, 242, 254, 0.35)",
-              }}
-            >
-              Referral Program
-            </h1>
-            <p
-              style={{
-                color: "rgba(255, 255, 255, 0.55)",
-                fontSize: 12,
-                fontWeight: 600,
-                margin: "2px 0 0",
-              }}
-            >
-              5-Level Network &amp; Instant GO Commissions
-            </p>
-          </div>
+            <BookOpen size={20} color="#00f2fe" strokeWidth={2.4} />
+          </button>
         </div>
 
-        {/* INVITE LINK CARD */}
+        {/* 1. INVITE LINK CARD (TOP PRIORITY POSITION) */}
         <div
           style={{
             position: "relative",
@@ -470,513 +502,7 @@ export default function ReferralPage() {
           </div>
         </div>
 
-        {/* 5-LEVEL COMMISSION STRUCTURE CARD (Single source of truth from DB) */}
-        <div
-          style={{
-            position: "relative",
-            overflow: "hidden",
-            borderRadius: 24,
-            background: "linear-gradient(145deg, rgba(20, 15, 45, 0.88), rgba(10, 8, 25, 0.94))",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            border: "1px solid rgba(168, 85, 247, 0.3)",
-            padding: "18px",
-            boxShadow: "0 12px 36px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(168, 85, 247, 0.2)",
-            display: "flex",
-            flexDirection: "column",
-            gap: 12,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Layers size={18} color="#c084fc" />
-              <h2
-                style={{
-                  color: "#ffffff",
-                  fontSize: 15,
-                  fontWeight: 900,
-                  letterSpacing: "0.03em",
-                  margin: 0,
-                }}
-              >
-                5-LEVEL COMMISSIONS
-              </h2>
-            </div>
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 800,
-                color: "#c084fc",
-                background: "rgba(168, 85, 247, 0.15)",
-                padding: "3px 8px",
-                borderRadius: 8,
-                border: "1px solid rgba(168, 85, 247, 0.3)",
-              }}
-            >
-              1 Gram = 1,000 GO
-            </span>
-          </div>
-
-          <p style={{ color: "rgba(255, 255, 255, 0.65)", fontSize: 12, margin: 0, lineHeight: 1.5 }}>
-            Earn instant commissions in <b style={{ color: "#fbbf24" }}>GO</b> on all qualifying deposits across 5 levels of your network:
-          </p>
-
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(5, 1fr)",
-              gap: 6,
-              marginTop: 4,
-            }}
-          >
-            {levels.map((lvl) => (
-              <div
-                key={lvl.level}
-                style={{
-                  background: "rgba(168, 85, 247, 0.08)",
-                  border: "1px solid rgba(168, 85, 247, 0.25)",
-                  borderRadius: 14,
-                  padding: "10px 4px",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 4,
-                }}
-              >
-                <span
-                  style={{
-                    color: "rgba(255, 255, 255, 0.55)",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    textTransform: "uppercase",
-                  }}
-                >
-                  L{lvl.level}
-                </span>
-                <span
-                  style={{
-                    color: "#ffffff",
-                    fontSize: 16,
-                    fontWeight: 900,
-                    textShadow: "0 0 12px rgba(168, 85, 247, 0.5)",
-                  }}
-                >
-                  {lvl.percent}%
-                </span>
-              </div>
-            ))}
-          </div>
-
-          <div
-            style={{
-              background: "rgba(4, 7, 20, 0.5)",
-              border: "1px solid rgba(255, 255, 255, 0.06)",
-              borderRadius: 12,
-              padding: "10px 12px",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <Coins size={16} color="#fbbf24" style={{ flexShrink: 0 }} />
-            <span style={{ color: "rgba(255, 255, 255, 0.8)", fontSize: 11, lineHeight: 1.4 }}>
-              Commissions are automatically credited to your <b>GO balance</b> to increase your cloud mining rate.
-            </span>
-          </div>
-        </div>
-
-        {/* QUALIFICATION RULES CARD */}
-        <div
-          style={{
-            borderRadius: 20,
-            background: "rgba(8, 12, 30, 0.75)",
-            backdropFilter: "blur(20px)",
-            border: "1px solid rgba(0, 242, 254, 0.16)",
-            padding: "16px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 10,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <HelpCircle size={16} color="#00f2fe" />
-            <span
-              style={{
-                color: "#ffffff",
-                fontSize: 13,
-                fontWeight: 800,
-                letterSpacing: "0.03em",
-              }}
-            >
-              REFERRAL QUALIFICATION CRITERIA
-            </span>
-          </div>
-
-          <p style={{ color: "rgba(255, 255, 255, 0.65)", fontSize: 12, margin: 0, lineHeight: 1.5 }}>
-            To protect against duplicate accounts, a referral starts as <b style={{ color: "#fbbf24" }}>🟡 Pending</b> until the user completes:
-          </p>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-            <div
-              style={{
-                background: "rgba(0, 242, 254, 0.06)",
-                border: "1px solid rgba(0, 242, 254, 0.2)",
-                borderRadius: 12,
-                padding: "8px",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                textAlign: "center",
-                gap: 4,
-              }}
-            >
-              <span style={{ fontSize: 16 }}>📅</span>
-              <span style={{ color: "#ffffff", fontSize: 11, fontWeight: 800 }}>
-                1. Daily Check-in
-              </span>
-            </div>
-
-            <div
-              style={{
-                background: "rgba(0, 242, 254, 0.06)",
-                border: "1px solid rgba(0, 242, 254, 0.2)",
-                borderRadius: 12,
-                padding: "8px",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                textAlign: "center",
-                gap: 4,
-              }}
-            >
-              <span style={{ fontSize: 16 }}>🧩</span>
-              <span style={{ color: "#ffffff", fontSize: 11, fontWeight: 800 }}>
-                2. Daily Combo
-              </span>
-            </div>
-
-            <div
-              style={{
-                background: "rgba(0, 242, 254, 0.06)",
-                border: "1px solid rgba(0, 242, 254, 0.2)",
-                borderRadius: 12,
-                padding: "8px",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                textAlign: "center",
-                gap: 4,
-              }}
-            >
-              <span style={{ fontSize: 16 }}>⭐</span>
-              <span style={{ color: "#ffffff", fontSize: 11, fontWeight: 800 }}>
-                3. Complete 3 Tasks
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* REFERRAL LIST & HISTORY */}
-        <div
-          style={{
-            borderRadius: 24,
-            background: "rgba(8, 12, 30, 0.72)",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            border: "1px solid rgba(0, 242, 254, 0.16)",
-            padding: "18px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 14,
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Users size={18} color="#00f2fe" />
-              <h2 style={{ color: "#ffffff", fontSize: 15, fontWeight: 900, margin: 0 }}>
-                YOUR REFERRALS ({totalInvited})
-              </h2>
-            </div>
-
-            {/* Filter Pills */}
-            <div
-              style={{
-                display: "flex",
-                background: "rgba(4, 7, 20, 0.6)",
-                borderRadius: 12,
-                padding: 3,
-                border: "1px solid rgba(255, 255, 255, 0.08)",
-                gap: 2,
-              }}
-            >
-              <button
-                onClick={() => setActiveTab("all")}
-                style={{
-                  padding: "4px 8px",
-                  borderRadius: 8,
-                  border: "none",
-                  background: activeTab === "all" ? "rgba(0, 242, 254, 0.25)" : "transparent",
-                  color: activeTab === "all" ? "#00f2fe" : "rgba(255, 255, 255, 0.6)",
-                  fontSize: 11,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                }}
-              >
-                All ({totalInvited})
-              </button>
-              <button
-                onClick={() => setActiveTab("successful")}
-                style={{
-                  padding: "4px 8px",
-                  borderRadius: 8,
-                  border: "none",
-                  background: activeTab === "successful" ? "rgba(16, 185, 129, 0.25)" : "transparent",
-                  color: activeTab === "successful" ? "#34d399" : "rgba(255, 255, 255, 0.6)",
-                  fontSize: 11,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                }}
-              >
-                🟢 ({successfulCount})
-              </button>
-              <button
-                onClick={() => setActiveTab("pending")}
-                style={{
-                  padding: "4px 8px",
-                  borderRadius: 8,
-                  border: "none",
-                  background: activeTab === "pending" ? "rgba(251, 191, 36, 0.25)" : "transparent",
-                  color: activeTab === "pending" ? "#fbbf24" : "rgba(255, 255, 255, 0.6)",
-                  fontSize: 11,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                }}
-              >
-                🟡 ({pendingCount})
-              </button>
-            </div>
-          </div>
-
-          {loadingReferrals ? (
-            <div style={{ textAlign: "center", padding: "24px", color: "rgba(255, 255, 255, 0.5)", fontSize: 13 }}>
-              Loading referrals…
-            </div>
-          ) : filteredReferrals.length === 0 ? (
-            <div
-              style={{
-                textAlign: "center",
-                padding: "30px 16px",
-                background: "rgba(4, 7, 20, 0.4)",
-                borderRadius: 16,
-                border: "1px dashed rgba(255, 255, 255, 0.1)",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 10,
-              }}
-            >
-              <Users size={32} color="rgba(255, 255, 255, 0.2)" />
-              <p style={{ color: "rgba(255, 255, 255, 0.6)", fontSize: 13, margin: 0, fontWeight: 600 }}>
-                {activeTab === "all"
-                  ? "No friends invited yet. Share your invite link to start earning GO!"
-                  : activeTab === "successful"
-                    ? "No successful referrals yet. Remind your friends to complete their Check-in, Combo, and 3 Tasks!"
-                    : "No pending referrals."}
-              </p>
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {filteredReferrals.map((ref) => {
-                const isSuccessful = ref.status === "successful" || ref.status === "approved";
-                const progress = ref.progress;
-                const hasCheckin = progress?.dailyCheckin ?? false;
-                const hasCombo = progress?.dailyCombo ?? false;
-                const tasksDone = progress?.tasksCompleted ?? 0;
-                const tasksRequired = progress?.tasksRequired ?? 3;
-
-                return (
-                  <div
-                    key={ref.id}
-                    style={{
-                      background: isSuccessful
-                        ? "linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(4, 7, 20, 0.6))"
-                        : "linear-gradient(135deg, rgba(251, 191, 36, 0.06), rgba(4, 7, 20, 0.6))",
-                      border: isSuccessful
-                        ? "1px solid rgba(16, 185, 129, 0.28)"
-                        : "1px solid rgba(251, 191, 36, 0.24)",
-                      borderRadius: 16,
-                      padding: "14px",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 10,
-                      boxShadow: isSuccessful
-                        ? "0 4px 16px rgba(16, 185, 129, 0.1)"
-                        : "0 4px 16px rgba(0, 0, 0, 0.2)",
-                    }}
-                  >
-                    {/* Top Row: User info + Status badge */}
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        {ref.photoUrl ? (
-                          <img
-                            src={ref.photoUrl}
-                            alt=""
-                            style={{
-                              width: 38,
-                              height: 38,
-                              borderRadius: 12,
-                              border: "1px solid rgba(255, 255, 255, 0.2)",
-                              objectFit: "cover",
-                            }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              width: 38,
-                              height: 38,
-                              borderRadius: 12,
-                              background: isSuccessful
-                                ? "linear-gradient(135deg, #10b981, #059669)"
-                                : "linear-gradient(135deg, #f59e0b, #d97706)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: "#ffffff",
-                              fontWeight: 900,
-                              fontSize: 14,
-                            }}
-                          >
-                            {(ref.name || "U")[0].toUpperCase()}
-                          </div>
-                        )}
-
-                        <div style={{ display: "flex", flexDirection: "column" }}>
-                          <span style={{ color: "#ffffff", fontSize: 14, fontWeight: 800 }}>
-                            {ref.name}
-                          </span>
-                          {ref.username && (
-                            <span style={{ color: "rgba(255, 255, 255, 0.5)", fontSize: 11, fontWeight: 600 }}>
-                              @{ref.username}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Status Badge */}
-                      <span
-                        style={{
-                          padding: "4px 10px",
-                          borderRadius: 10,
-                          fontSize: 11,
-                          fontWeight: 900,
-                          letterSpacing: "0.02em",
-                          background: isSuccessful
-                            ? "rgba(16, 185, 129, 0.18)"
-                            : "rgba(251, 191, 36, 0.18)",
-                          color: isSuccessful ? "#34d399" : "#fbbf24",
-                          border: isSuccessful
-                            ? "1px solid rgba(16, 185, 129, 0.4)"
-                            : "1px solid rgba(251, 191, 36, 0.4)",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        {isSuccessful ? "🟢 Successful" : "🟡 Pending"}
-                      </span>
-                    </div>
-
-                    {/* Qualification Progress Chips */}
-                    <div
-                      style={{
-                        background: "rgba(4, 7, 20, 0.55)",
-                        border: "1px solid rgba(255, 255, 255, 0.06)",
-                        borderRadius: 12,
-                        padding: "8px 10px",
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr 1fr",
-                        gap: 6,
-                        alignItems: "center",
-                      }}
-                    >
-                      {/* Check-in */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        {hasCheckin ? (
-                          <Check size={14} color="#34d399" strokeWidth={3} />
-                        ) : (
-                          <X size={14} color="#f87171" strokeWidth={3} />
-                        )}
-                        <span
-                          style={{
-                            color: hasCheckin ? "#34d399" : "rgba(255, 255, 255, 0.6)",
-                            fontSize: 11,
-                            fontWeight: 700,
-                          }}
-                        >
-                          Check-in
-                        </span>
-                      </div>
-
-                      {/* Combo */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        {hasCombo ? (
-                          <Check size={14} color="#34d399" strokeWidth={3} />
-                        ) : (
-                          <X size={14} color="#f87171" strokeWidth={3} />
-                        )}
-                        <span
-                          style={{
-                            color: hasCombo ? "#34d399" : "rgba(255, 255, 255, 0.6)",
-                            fontSize: 11,
-                            fontWeight: 700,
-                          }}
-                        >
-                          Combo
-                        </span>
-                      </div>
-
-                      {/* Tasks */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <span
-                          style={{
-                            color: tasksDone >= tasksRequired ? "#34d399" : "rgba(255, 255, 255, 0.8)",
-                            fontSize: 11,
-                            fontWeight: 800,
-                          }}
-                        >
-                          Tasks: {tasksDone}/{tasksRequired}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Bottom row: Commission generated */}
-                    {ref.totalCommissionGo !== undefined && ref.totalCommissionGo > 0 && (
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          paddingTop: 4,
-                          borderTop: "1px solid rgba(255, 255, 255, 0.06)",
-                          fontSize: 11,
-                        }}
-                      >
-                        <span style={{ color: "rgba(255, 255, 255, 0.5)", fontWeight: 600 }}>
-                          Commissions Earned:
-                        </span>
-                        <span style={{ color: "#fbbf24", fontWeight: 900 }}>
-                          +{ref.totalCommissionGo.toFixed(2)} GO
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* LEADERBOARD CARD */}
+        {/* 2. LEADERBOARD CARD (TOP PRIORITY POSITION) */}
         <div
           onClick={() => setLocation("/leaderboard")}
           style={{
@@ -1058,7 +584,100 @@ export default function ReferralPage() {
           </div>
         </div>
 
-        {/* REFERRAL MILESTONES */}
+        {/* 3. COMPACT 5-LEVEL COMMISSION STRUCTURE (5 EQUAL BOXES ROW/GRID) */}
+        <div
+          style={{
+            position: "relative",
+            overflow: "hidden",
+            borderRadius: 20,
+            background: "linear-gradient(145deg, rgba(14, 20, 48, 0.88), rgba(7, 10, 26, 0.94))",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            border: "1px solid rgba(0, 242, 254, 0.22)",
+            padding: "14px 16px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10,
+            boxShadow: "0 8px 24px rgba(0, 0, 0, 0.4)",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <Layers size={16} color="#00f2fe" />
+              <span
+                style={{
+                  color: "#ffffff",
+                  fontSize: 13,
+                  fontWeight: 900,
+                  letterSpacing: "0.04em",
+                }}
+              >
+                5-LEVEL COMMISSIONS
+              </span>
+            </div>
+            <span
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                color: "#fbbf24",
+                background: "rgba(251, 191, 36, 0.12)",
+                padding: "2px 8px",
+                borderRadius: 8,
+                border: "1px solid rgba(251, 191, 36, 0.25)",
+              }}
+            >
+              1 Gram = 1,000 GO
+            </span>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(5, 1fr)",
+              gap: 6,
+            }}
+          >
+            {levels.map((lvl) => (
+              <div
+                key={lvl.level}
+                style={{
+                  background: "linear-gradient(145deg, rgba(0, 242, 254, 0.08), rgba(168, 85, 247, 0.04))",
+                  border: "1px solid rgba(0, 242, 254, 0.25)",
+                  borderRadius: 12,
+                  padding: "10px 2px",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 3,
+                }}
+              >
+                <span
+                  style={{
+                    color: "rgba(255, 255, 255, 0.55)",
+                    fontSize: 10,
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  L{lvl.level}
+                </span>
+                <span
+                  style={{
+                    color: "#00f2fe",
+                    fontSize: 15,
+                    fontWeight: 900,
+                    lineHeight: 1.1,
+                    textShadow: "0 0 10px rgba(0, 242, 254, 0.45)",
+                  }}
+                >
+                  {lvl.percent}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 4. REFERRAL MILESTONES */}
         <div
           style={{
             borderRadius: 24,
@@ -1183,7 +802,672 @@ export default function ReferralPage() {
             })}
           </div>
         </div>
+
+        {/* 5. REFERRAL LIST (SIMPLIFIED CARDS WITH PROFILE IMAGE, NO LARGE PROGRESS ROW) */}
+        <div
+          style={{
+            borderRadius: 24,
+            background: "rgba(8, 12, 30, 0.72)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            border: "1px solid rgba(0, 242, 254, 0.16)",
+            padding: "18px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Users size={18} color="#00f2fe" />
+              <h2 style={{ color: "#ffffff", fontSize: 15, fontWeight: 900, margin: 0 }}>
+                YOUR REFERRALS ({totalInvited})
+              </h2>
+            </div>
+
+            {/* Filter Pills */}
+            <div
+              style={{
+                display: "flex",
+                background: "rgba(4, 7, 20, 0.6)",
+                borderRadius: 12,
+                padding: 3,
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                gap: 2,
+              }}
+            >
+              <button
+                onClick={() => setActiveTab("all")}
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: activeTab === "all" ? "rgba(0, 242, 254, 0.25)" : "transparent",
+                  color: activeTab === "all" ? "#00f2fe" : "rgba(255, 255, 255, 0.6)",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                All ({totalInvited})
+              </button>
+              <button
+                onClick={() => setActiveTab("successful")}
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: activeTab === "successful" ? "rgba(16, 185, 129, 0.25)" : "transparent",
+                  color: activeTab === "successful" ? "#34d399" : "rgba(255, 255, 255, 0.6)",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                🟢 ({successfulCount})
+              </button>
+              <button
+                onClick={() => setActiveTab("pending")}
+                style={{
+                  padding: "4px 8px",
+                  borderRadius: 8,
+                  border: "none",
+                  background: activeTab === "pending" ? "rgba(251, 191, 36, 0.25)" : "transparent",
+                  color: activeTab === "pending" ? "#fbbf24" : "rgba(255, 255, 255, 0.6)",
+                  fontSize: 11,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                🟡 ({pendingCount})
+              </button>
+            </div>
+          </div>
+
+          {loadingReferrals ? (
+            <div style={{ textAlign: "center", padding: "24px", color: "rgba(255, 255, 255, 0.5)", fontSize: 13 }}>
+              Loading referrals…
+            </div>
+          ) : filteredReferrals.length === 0 ? (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "30px 16px",
+                background: "rgba(4, 7, 20, 0.4)",
+                borderRadius: 16,
+                border: "1px dashed rgba(255, 255, 255, 0.1)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <Users size={32} color="rgba(255, 255, 255, 0.2)" />
+              <p style={{ color: "rgba(255, 255, 255, 0.6)", fontSize: 13, margin: 0, fontWeight: 600 }}>
+                {activeTab === "all"
+                  ? "No friends invited yet. Share your invite link to start earning GO!"
+                  : activeTab === "successful"
+                    ? "No successful referrals yet. Remind your friends to complete their Check-in, Combo, and 3 Tasks!"
+                    : "No pending referrals."}
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {filteredReferrals.map((ref) => {
+                const isSuccessful = ref.status === "successful" || ref.status === "approved";
+
+                return (
+                  <div
+                    key={ref.id}
+                    style={{
+                      background: isSuccessful
+                        ? "linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(4, 7, 20, 0.65))"
+                        : "linear-gradient(135deg, rgba(251, 191, 36, 0.06), rgba(4, 7, 20, 0.65))",
+                      border: isSuccessful
+                        ? "1px solid rgba(16, 185, 129, 0.28)"
+                        : "1px solid rgba(251, 191, 36, 0.24)",
+                      borderRadius: 16,
+                      padding: "12px 14px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: 10,
+                      boxShadow: isSuccessful
+                        ? "0 4px 16px rgba(16, 185, 129, 0.08)"
+                        : "0 4px 16px rgba(0, 0, 0, 0.2)",
+                    }}
+                  >
+                    {/* Left: Avatar + Names + Level */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0, flex: 1 }}>
+                      {ref.photoUrl ? (
+                        <img
+                          src={ref.photoUrl}
+                          alt=""
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 12,
+                            border: "1px solid rgba(255, 255, 255, 0.2)",
+                            objectFit: "cover",
+                            flexShrink: 0,
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 12,
+                            background: isSuccessful
+                              ? "linear-gradient(135deg, #10b981, #059669)"
+                              : "linear-gradient(135deg, #f59e0b, #d97706)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#ffffff",
+                            fontWeight: 900,
+                            fontSize: 15,
+                            flexShrink: 0,
+                            boxShadow: isSuccessful
+                              ? "0 0 10px rgba(16, 185, 129, 0.3)"
+                              : "0 0 10px rgba(245, 158, 11, 0.3)",
+                          }}
+                        >
+                          {(ref.name || "U")[0].toUpperCase()}
+                        </div>
+                      )}
+
+                      <div style={{ display: "flex", flexDirection: "column", minWidth: 0, flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span
+                            style={{
+                              color: "#ffffff",
+                              fontSize: 14,
+                              fontWeight: 800,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {ref.name}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 800,
+                              color: "rgba(255, 255, 255, 0.6)",
+                              background: "rgba(255, 255, 255, 0.08)",
+                              padding: "1px 5px",
+                              borderRadius: 6,
+                              flexShrink: 0,
+                            }}
+                          >
+                            Level {ref.level || 1}
+                          </span>
+                        </div>
+                        {ref.username && (
+                          <span
+                            style={{
+                              color: "rgba(255, 255, 255, 0.5)",
+                              fontSize: 11,
+                              fontWeight: 600,
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            @{ref.username}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right: Status Badge & Optional Commission */}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+                      <span
+                        style={{
+                          padding: "4px 10px",
+                          borderRadius: 10,
+                          fontSize: 11,
+                          fontWeight: 900,
+                          letterSpacing: "0.02em",
+                          background: isSuccessful
+                            ? "rgba(16, 185, 129, 0.18)"
+                            : "rgba(251, 191, 36, 0.18)",
+                          color: isSuccessful ? "#34d399" : "#fbbf24",
+                          border: isSuccessful
+                            ? "1px solid rgba(16, 185, 129, 0.4)"
+                            : "1px solid rgba(251, 191, 36, 0.4)",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                        }}
+                      >
+                        {isSuccessful ? "🟢 Successful" : "🟡 Pending"}
+                      </span>
+
+                      {ref.totalCommissionGo !== undefined && ref.totalCommissionGo > 0 && (
+                        <span style={{ color: "#fbbf24", fontSize: 11, fontWeight: 900 }}>
+                          +{ref.totalCommissionGo.toFixed(2)} GO
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* 6. REFERRAL COMMISSION HISTORY SECTION (5-LEVEL DEPOSIT COMMISSIONS) */}
+        <div
+          style={{
+            borderRadius: 24,
+            background: "rgba(8, 12, 30, 0.72)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            border: "1px solid rgba(0, 242, 254, 0.16)",
+            padding: "18px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Coins size={18} color="#fbbf24" />
+              <h2 style={{ color: "#ffffff", fontSize: 15, fontWeight: 900, margin: 0 }}>
+                COMMISSION HISTORY
+              </h2>
+            </div>
+            {totalEarnedCommissionGo > 0 && (
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 900,
+                  color: "#fbbf24",
+                  background: "rgba(251, 191, 36, 0.12)",
+                  padding: "3px 8px",
+                  borderRadius: 8,
+                  border: "1px solid rgba(251, 191, 36, 0.25)",
+                }}
+              >
+                +{totalEarnedCommissionGo.toFixed(2)} GO Total
+              </span>
+            )}
+          </div>
+
+          {commissions.length === 0 ? (
+            <div
+              style={{
+                textAlign: "center",
+                padding: "24px 16px",
+                background: "rgba(4, 7, 20, 0.4)",
+                borderRadius: 16,
+                border: "1px dashed rgba(255, 255, 255, 0.1)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <Coins size={28} color="rgba(255, 255, 255, 0.2)" />
+              <p style={{ color: "rgba(255, 255, 255, 0.6)", fontSize: 12, margin: 0, fontWeight: 600 }}>
+                No commission history yet. When your referrals make qualifying deposits, your 5-level commissions in GO will appear here.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {commissions.map((c) => {
+                const dateStr = new Date(c.createdAt).toLocaleString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+
+                return (
+                  <div
+                    key={c.id}
+                    style={{
+                      background: "linear-gradient(135deg, rgba(20, 15, 45, 0.6), rgba(4, 7, 20, 0.7))",
+                      border: "1px solid rgba(168, 85, 247, 0.25)",
+                      borderRadius: 16,
+                      padding: "12px 14px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                      boxShadow: "0 4px 16px rgba(0, 0, 0, 0.25)",
+                    }}
+                  >
+                    {/* Top Row: Level & Rate Badge + Amount */}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span
+                          style={{
+                            padding: "3px 8px",
+                            borderRadius: 8,
+                            fontSize: 11,
+                            fontWeight: 900,
+                            background: "rgba(0, 242, 254, 0.15)",
+                            color: "#00f2fe",
+                            border: "1px solid rgba(0, 242, 254, 0.3)",
+                          }}
+                        >
+                          Level {c.level}
+                        </span>
+                        <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: 11, fontWeight: 700 }}>
+                          ({c.percentage}%)
+                        </span>
+                      </div>
+
+                      <span style={{ color: "#fbbf24", fontSize: 15, fontWeight: 900, textShadow: "0 0 10px rgba(251, 191, 36, 0.3)" }}>
+                        +{c.commissionAmountGo.toFixed(2)} GO
+                      </span>
+                    </div>
+
+                    {/* Middle Row: Depositing User & Clear Statement */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      {c.depositingUserPhotoUrl ? (
+                        <img
+                          src={c.depositingUserPhotoUrl}
+                          alt=""
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 10,
+                            border: "1px solid rgba(255, 255, 255, 0.15)",
+                            objectFit: "cover",
+                          }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 10,
+                            background: "linear-gradient(135deg, #a855f7, #6366f1)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#ffffff",
+                            fontWeight: 900,
+                            fontSize: 13,
+                          }}
+                        >
+                          {(c.depositingUserName || "U")[0].toUpperCase()}
+                        </div>
+                      )}
+
+                      <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                        <span style={{ color: "#ffffff", fontSize: 13, fontWeight: 800 }}>
+                          {c.depositingUserName}
+                        </span>
+                        <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: 11, fontWeight: 600 }}>
+                          Level {c.level} — You earned {c.commissionAmountGo.toFixed(2)} GO from this referral.
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Bottom Row: Deposit Details & Timestamp */}
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        paddingTop: 6,
+                        borderTop: "1px solid rgba(255, 255, 255, 0.06)",
+                        fontSize: 10,
+                        color: "rgba(255, 255, 255, 0.45)",
+                        fontWeight: 600,
+                      }}
+                    >
+                      <span>
+                        Deposit: {parseFloat(c.depositAmountGram).toFixed(4)} Gram ({parseFloat(c.depositAmountGo).toFixed(2)} GO)
+                      </span>
+                      <span>{dateStr}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* 7. QUALIFICATION RULES MODAL / POPUP (OPENED BY BOOK ICON) */}
+      {showRulesModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            background: "rgba(0, 0, 0, 0.75)",
+            backdropFilter: "blur(10px)",
+            WebkitBackdropFilter: "blur(10px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+            animation: "fadeIn 0.2s ease-out",
+          }}
+          onClick={() => setShowRulesModal(false)}
+        >
+          <div
+            style={{
+              position: "relative",
+              width: "100%",
+              maxWidth: 420,
+              borderRadius: 24,
+              background: "linear-gradient(145deg, rgba(14, 20, 48, 0.98), rgba(7, 10, 26, 0.98))",
+              border: "1px solid rgba(0, 242, 254, 0.35)",
+              boxShadow: "0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 242, 254, 0.2)",
+              padding: "22px 20px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+              maxHeight: "85vh",
+              overflowY: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 12,
+                    background: "rgba(0, 242, 254, 0.15)",
+                    border: "1px solid rgba(0, 242, 254, 0.35)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <BookOpen size={18} color="#00f2fe" />
+                </div>
+                <div>
+                  <h3 style={{ color: "#ffffff", fontSize: 16, fontWeight: 900, margin: 0 }}>
+                    Referral Qualification
+                  </h3>
+                  <p style={{ color: "rgba(255, 255, 255, 0.5)", fontSize: 11, fontWeight: 600, margin: 0 }}>
+                    Requirements &amp; Rewards
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setShowRulesModal(false)}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 10,
+                  background: "rgba(255, 255, 255, 0.06)",
+                  border: "1px solid rgba(255, 255, 255, 0.12)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  color: "rgba(255, 255, 255, 0.7)",
+                }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Qualification Conditions */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <span style={{ color: "rgba(255, 255, 255, 0.8)", fontSize: 13, fontWeight: 700 }}>
+                A referral becomes <b style={{ color: "#34d399" }}>Successful</b> after the referred user completes:
+              </span>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+                <div
+                  style={{
+                    background: "rgba(0, 242, 254, 0.06)",
+                    border: "1px solid rgba(0, 242, 254, 0.2)",
+                    borderRadius: 14,
+                    padding: "10px 12px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>📅</span>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <span style={{ color: "#ffffff", fontSize: 13, fontWeight: 800 }}>1. Daily Check-in</span>
+                    <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: 11 }}>Claim at least 1 daily mining check-in</span>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    background: "rgba(0, 242, 254, 0.06)",
+                    border: "1px solid rgba(0, 242, 254, 0.2)",
+                    borderRadius: 14,
+                    padding: "10px 12px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>🧩</span>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <span style={{ color: "#ffffff", fontSize: 13, fontWeight: 800 }}>2. Daily Combo</span>
+                    <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: 11 }}>Complete at least 1 daily combo puzzle</span>
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    background: "rgba(0, 242, 254, 0.06)",
+                    border: "1px solid rgba(0, 242, 254, 0.2)",
+                    borderRadius: 14,
+                    padding: "10px 12px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                  }}
+                >
+                  <span style={{ fontSize: 18 }}>⭐</span>
+                  <div style={{ display: "flex", flexDirection: "column" }}>
+                    <span style={{ color: "#ffffff", fontSize: 13, fontWeight: 800 }}>3. Complete 3 Tasks</span>
+                    <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: 11 }}>Finish at least 3 community or partner tasks</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Status Breakdown */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: 8,
+                background: "rgba(4, 7, 20, 0.6)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: 14,
+                padding: "10px",
+              }}
+            >
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={{ color: "#fbbf24", fontSize: 12, fontWeight: 900 }}>🟡 Pending</span>
+                <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: 10, lineHeight: 1.3 }}>
+                  Until all requirements are completed.
+                </span>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={{ color: "#34d399", fontSize: 12, fontWeight: 900 }}>🟢 Successful</span>
+                <span style={{ color: "rgba(255, 255, 255, 0.55)", fontSize: 10, lineHeight: 1.3 }}>
+                  After all requirements are completed.
+                </span>
+              </div>
+            </div>
+
+            {/* Direct Reward Callout (+1 GO) */}
+            <div
+              style={{
+                background: "linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(245, 158, 11, 0.06))",
+                border: "1px solid rgba(251, 191, 36, 0.35)",
+                borderRadius: 16,
+                padding: "12px 14px",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+              }}
+            >
+              <span style={{ fontSize: 24 }}>🎁</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={{ color: "#fbbf24", fontSize: 13, fontWeight: 900 }}>
+                  +1 GO Qualification Reward
+                </span>
+                <span style={{ color: "rgba(255, 255, 255, 0.75)", fontSize: 11, lineHeight: 1.4 }}>
+                  The referrer receives <b>+1 GO</b> credited directly to their GO balance when the referred friend successfully completes the qualification requirements.
+                </span>
+              </div>
+            </div>
+
+            {/* 5-Level Network Commissions explanation */}
+            <div
+              style={{
+                background: "rgba(168, 85, 247, 0.08)",
+                border: "1px solid rgba(168, 85, 247, 0.25)",
+                borderRadius: 14,
+                padding: "10px 12px",
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+              }}
+            >
+              <Coins size={18} color="#c084fc" style={{ flexShrink: 0 }} />
+              <span style={{ color: "rgba(255, 255, 255, 0.75)", fontSize: 11, lineHeight: 1.4 }}>
+                Successful referrals unlock <b>5-Level Network Commissions</b> paid automatically in GO on confirmed deposits.
+              </span>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setShowRulesModal(false)}
+              style={{
+                width: "100%",
+                padding: "12px",
+                borderRadius: 14,
+                border: "none",
+                background: "linear-gradient(135deg, #00f2fe, #4facfe)",
+                color: "#0a0600",
+                fontSize: 14,
+                fontWeight: 900,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

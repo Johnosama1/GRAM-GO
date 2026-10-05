@@ -304,8 +304,8 @@ export default function AdminPage() {
   const [referralSettings, setReferralSettings] = useState({
     level1Percent: "10",
     level2Percent: "5",
-    level3Percent: "3",
-    level4Percent: "2",
+    level3Percent: "2",
+    level4Percent: "1",
     level5Percent: "1",
     rewardAmount: "10",
     depositPercent: "10",
@@ -529,8 +529,8 @@ export default function AdminPage() {
         setReferralSettings({
           level1Percent: rf.level1Percent || "10",
           level2Percent: rf.level2Percent || "5",
-          level3Percent: rf.level3Percent || "3",
-          level4Percent: rf.level4Percent || "2",
+          level3Percent: rf.level3Percent || "2",
+          level4Percent: rf.level4Percent || "1",
           level5Percent: rf.level5Percent || "1",
           rewardAmount: rf.referralRewardAmount || "10",
           depositPercent: rf.level1Percent || "10",

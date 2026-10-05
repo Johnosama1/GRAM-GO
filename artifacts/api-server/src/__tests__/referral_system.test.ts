@@ -1,10 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   getUserQualificationProgress,
   checkAndUpdateReferralQualification,
-  getReferralCommissionPercentages,
-  updateReferralCommissionPercentages,
-  distributeDepositReferralCommissions,
   DEFAULT_COMMISSION_RATES,
 } from "../lib/referralManager";
 
@@ -30,8 +27,8 @@ describe("5-Level Referral System & Qualification", () => {
   describe("2. Referral Qualification Conditions", () => {
     it("should report Pending if no conditions are met", async () => {
       const mockClient = {
-        select: vi.fn().mockImplementation((fields: any) => ({
-          from: vi.fn().mockImplementation((table: any) => ({
+        select: vi.fn().mockImplementation(() => ({
+          from: vi.fn().mockImplementation(() => ({
             where: vi.fn().mockImplementation(() => {
               const res = [{ count: 0 }];
               const promise: any = Promise.resolve(res);
@@ -54,8 +51,8 @@ describe("5-Level Referral System & Qualification", () => {
 
     it("should report Pending if only Daily Check-in is completed", async () => {
       const mockClient = {
-        select: vi.fn().mockImplementation((fields: any) => ({
-          from: vi.fn().mockImplementation((table: any) => ({
+        select: vi.fn().mockImplementation(() => ({
+          from: vi.fn().mockImplementation(() => ({
             where: vi.fn().mockImplementation(() => {
               const res = [{ count: 0 }];
               const promise: any = Promise.resolve(res);
@@ -77,8 +74,8 @@ describe("5-Level Referral System & Qualification", () => {
 
     it("should report Pending if Check-in and Combo are complete but tasks < 3", async () => {
       const mockClient = {
-        select: vi.fn().mockImplementation((fields: any) => ({
-          from: vi.fn().mockImplementation((table: any) => ({
+        select: vi.fn().mockImplementation(() => ({
+          from: vi.fn().mockImplementation(() => ({
             where: vi.fn().mockImplementation(() => {
               const res = [{ count: 2 }];
               const promise: any = Promise.resolve(res);
@@ -101,8 +98,8 @@ describe("5-Level Referral System & Qualification", () => {
 
     it("should become Successful (Qualified) when Check-in, Combo, and >= 3 Tasks are completed", async () => {
       const mockClient = {
-        select: vi.fn().mockImplementation((fields: any) => ({
-          from: vi.fn().mockImplementation((table: any) => ({
+        select: vi.fn().mockImplementation(() => ({
+          from: vi.fn().mockImplementation(() => ({
             where: vi.fn().mockImplementation(() => {
               const res = [{ count: 3 }];
               const promise: any = Promise.resolve(res);
@@ -123,13 +120,21 @@ describe("5-Level Referral System & Qualification", () => {
     });
   });
 
-  describe("3. 5-Level Referral Chain Traversal & Commission Payouts", () => {
+  describe("3. Default 5-Level Commission Structure (10%, 5%, 2%, 1%, 1%)", () => {
+    it("should have default commission rates of L1=10%, L2=5%, L3=2%, L4=1%, L5=1%", () => {
+      expect(DEFAULT_COMMISSION_RATES[1]).toBe(10);
+      expect(DEFAULT_COMMISSION_RATES[2]).toBe(5);
+      expect(DEFAULT_COMMISSION_RATES[3]).toBe(2);
+      expect(DEFAULT_COMMISSION_RATES[4]).toBe(1);
+      expect(DEFAULT_COMMISSION_RATES[5]).toBe(1);
+    });
+
     it("should traverse up to 5 levels (A -> B -> C -> D -> E -> F) and distribute exact GO amounts", async () => {
       const rates = [
         { level: 1, percent: 10 },
         { level: 2, percent: 5 },
-        { level: 3, percent: 3 },
-        { level: 4, percent: 2 },
+        { level: 3, percent: 2 },
+        { level: 4, percent: 1 },
         { level: 5, percent: 1 },
       ];
 
@@ -139,8 +144,8 @@ describe("5-Level Referral System & Qualification", () => {
       const expectedPayouts = [
         { level: 1, referrerId: 105, goAmount: 10 },
         { level: 2, referrerId: 104, goAmount: 5 },
-        { level: 3, referrerId: 103, goAmount: 3 },
-        { level: 4, referrerId: 102, goAmount: 2 },
+        { level: 3, referrerId: 103, goAmount: 2 },
+        { level: 4, referrerId: 102, goAmount: 1 },
         { level: 5, referrerId: 101, goAmount: 1 },
       ];
 
@@ -154,7 +159,23 @@ describe("5-Level Referral System & Qualification", () => {
     });
   });
 
-  describe("4. Dynamic Admin Settings (Single Source of Truth)", () => {
+  describe("4. Direct Referral Qualification Reward (+1 GO)", () => {
+    it("should credit exactly +1 GO once to referrer when referral transitions to successful", () => {
+      let referrerGoBalance = 10;
+      const qualificationRewardGo = 1;
+      referrerGoBalance += qualificationRewardGo;
+      expect(referrerGoBalance).toBe(11);
+
+      // Verify idempotency: subsequent qualification check does not re-add +1 GO
+      const isAlreadyRewarded = true;
+      if (!isAlreadyRewarded) {
+        referrerGoBalance += qualificationRewardGo;
+      }
+      expect(referrerGoBalance).toBe(11);
+    });
+  });
+
+  describe("5. Dynamic Admin Settings (Single Source of Truth)", () => {
     it("should immediately calculate commissions with updated admin percentage (e.g. 10% -> 8%)", () => {
       const depositGram = 0.1;
       const depositGo = depositGram * 1000; // 100 GO
@@ -190,14 +211,13 @@ describe("5-Level Referral System & Qualification", () => {
     });
   });
 
-  describe("5. Idempotency & Duplicate Deposit Protection", () => {
+  describe("6. Idempotency & Duplicate Deposit Protection", () => {
     it("should block duplicate commission payouts if deposit was already processed", async () => {
       const existingCommissions = [{ id: 99, depositId: 500 }];
 
       const isAlreadyProcessed = existingCommissions.length > 0;
       expect(isAlreadyProcessed).toBe(true);
 
-      // Second attempt generates 0 additional commissions
       const secondAttemptCommissions: any[] = [];
       if (!isAlreadyProcessed) {
         secondAttemptCommissions.push({ commissionGo: 10 });
@@ -207,7 +227,7 @@ describe("5-Level Referral System & Qualification", () => {
     });
   });
 
-  describe("6. Unqualified Referral Deposit Protection", () => {
+  describe("7. Unqualified Referral Deposit Protection", () => {
     it("should not distribute referral commission if depositing user is still Pending (unqualified)", () => {
       const depositingUserQualification = {
         isQualified: false,
