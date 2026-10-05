@@ -72,8 +72,21 @@ export function getTelegramUser() {
 
 export function getStartParam(): string | null {
   const tg = getTelegramWebApp();
-  if (!tg) return null;
-  return tg.initDataUnsafe?.start_param || null;
+  if (tg?.initDataUnsafe?.start_param) {
+    return tg.initDataUnsafe.start_param;
+  }
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return (
+      params.get("tgWebAppStartParam") ||
+      params.get("startapp") ||
+      params.get("start_param") ||
+      params.get("start") ||
+      params.get("ref") ||
+      null
+    );
+  } catch {}
+  return null;
 }
 
 export function initTelegramApp() {

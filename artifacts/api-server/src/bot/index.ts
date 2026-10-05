@@ -44,6 +44,7 @@ import {
 } from "./support";
 import { processWithdrawalVote, getConsensusThreshold } from "./consensus";
 import { logAdminAudit } from "../lib/adminSecurity";
+import { parseReferrerId } from "../lib/referralManager";
 
 const TOKEN =
   process.env.TELEGRAM_BOT_TOKEN ||
@@ -1042,11 +1043,7 @@ function setupBotHandlers() {
         clearSubCache(userId);
 
         const refParam = match?.[1]?.trim();
-        let referredBy: number | undefined;
-        if (refParam?.startsWith("ref_")) {
-          const refId = parseInt(refParam.replace("ref_", ""));
-          if (!isNaN(refId) && refId !== userId) referredBy = refId;
-        }
+        const referredBy = parseReferrerId(refParam, userId);
 
         const existing = await db
           .select()
@@ -1078,7 +1075,6 @@ function setupBotHandlers() {
             .onConflictDoNothing();
 
           // ── Register referral as PENDING ─────────────────────────────────────
-          // Counted only after the referred user is verified subscribed to all channels
           if (referredBy) {
             try {
               await db
@@ -1104,13 +1100,39 @@ function setupBotHandlers() {
             }
           }
         } else {
+          const shouldLinkReferrer = !existing[0].referredBy && referredBy;
           await db
             .update(usersTable)
             .set({
               username: username || existing[0].username,
               firstName: firstName || existing[0].firstName,
+              ...(shouldLinkReferrer ? { referredBy } : {}),
             })
             .where(eq(usersTable.id, userId));
+
+          if (shouldLinkReferrer && referredBy) {
+            try {
+              await db
+                .insert(referralsTable)
+                .values({
+                  referrerId: referredBy,
+                  referredId: userId,
+                  status: "pending",
+                })
+                .onConflictDoNothing()
+                .catch(() => {});
+
+              const { sendNewReferralNotification } = await import("../lib/referralManager");
+              await sendNewReferralNotification(
+                bot,
+                referredBy,
+                { id: userId, username, firstName, lastName },
+                db,
+              );
+            } catch (refErr) {
+              logger.error({ refErr }, "Referral registration update error");
+            }
+          }
         }
 
         const adminInfo = await getAdminInfo(userId, username);

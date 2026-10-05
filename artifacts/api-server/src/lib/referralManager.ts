@@ -42,6 +42,40 @@ const esc = (s: string | null | undefined) =>
     .replace(/>/g, "&gt;");
 
 /**
+ * Safely parses any raw referral string or param into a valid Telegram user ID number.
+ * Supports: "ref_6507841710", "ref6507841710", "r_6507841710", "6507841710", "startapp=ref_6507841710"
+ */
+export function parseReferrerId(raw: any, currentUserId?: number): number | undefined {
+  if (!raw) return undefined;
+  const str = String(raw).trim();
+  if (
+    !str ||
+    str === "broadcast" ||
+    str === "news_broadcast" ||
+    str === "complaint" ||
+    str.startsWith("dm_") ||
+    str.startsWith("reply_")
+  ) {
+    return undefined;
+  }
+  const match = str.match(/(?:ref_?|r_?|=)(\d{5,})/i);
+  if (match && match[1]) {
+    const num = parseInt(match[1], 10);
+    if (!isNaN(num) && num > 0 && (!currentUserId || num !== currentUserId)) {
+      return num;
+    }
+  }
+  const digitsOnly = str.replace(/[^0-9]/g, "");
+  if (digitsOnly.length >= 5) {
+    const num = parseInt(digitsOnly, 10);
+    if (!isNaN(num) && num > 0 && (!currentUserId || num !== currentUserId)) {
+      return num;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Checks a user's progress toward the 2 qualification conditions:
  * 1. Daily Check-in (completed at least 1 checkin or lastDailyClaimAt is set)
  * 2. Complete at least 3 Tasks
@@ -320,13 +354,34 @@ export async function distributeDepositReferralCommissions(
   const visited = new Set<number>([depositingUserId]);
 
   for (let level = 1; level <= 5; level++) {
+    let refId: number | null | undefined = null;
+
     const [u] = await client
       .select({ referredBy: usersTable.referredBy })
       .from(usersTable)
       .where(eq(usersTable.id, currentUserId))
       .limit(1);
 
-    const refId = u?.referredBy;
+    refId = u?.referredBy;
+
+    // Fallback to referralsTable if not present in usersTable
+    if (!refId || refId <= 0) {
+      const [refRow] = await client
+        .select({ referrerId: referralsTable.referrerId })
+        .from(referralsTable)
+        .where(eq(referralsTable.referredId, currentUserId))
+        .limit(1);
+      if (refRow?.referrerId) {
+        refId = refRow.referrerId;
+        // Sync it to usersTable
+        await client
+          .update(usersTable)
+          .set({ referredBy: refId })
+          .where(eq(usersTable.id, currentUserId))
+          .catch(() => {});
+      }
+    }
+
     if (!refId || refId <= 0 || visited.has(refId)) {
       break; // No more referrers or cycle detected
     }
@@ -505,7 +560,42 @@ export async function getUserReferralsWithProgress(
       })
       .from(usersTable)
       .where(sql`${usersTable.referredBy} IN (${sql.join(currentParentIds, sql`, `)})`)
-      .orderBy(desc(usersTable.createdAt));
+      .orderBy(desc(usersTable.createdAt))
+      .catch(() => []);
+
+    // For level 1, also include any direct records in referralsTable
+    if (currentLevel === 1) {
+      const tableDirectRefs = await client
+        .select({ referredId: referralsTable.referredId })
+        .from(referralsTable)
+        .where(eq(referralsTable.referrerId, referrerId))
+        .catch(() => []);
+
+      const missingDirectIds = tableDirectRefs
+        .map((r: any) => r.referredId)
+        .filter((id: number) => !visited.has(id) && !layerUsers.some((u: any) => u.id === id));
+
+      if (missingDirectIds.length > 0) {
+        const extraUsers = await client
+          .select({
+            id: usersTable.id,
+            username: usersTable.username,
+            firstName: usersTable.firstName,
+            lastName: usersTable.lastName,
+            photoUrl: usersTable.photoUrl,
+            tasksCompleted: usersTable.tasksCompleted,
+            lastDailyClaimAt: usersTable.lastDailyClaimAt,
+            comboCompletedAt: usersTable.comboCompletedAt,
+            createdAt: usersTable.createdAt,
+            referredBy: usersTable.referredBy,
+          })
+          .from(usersTable)
+          .where(sql`${usersTable.id} IN (${sql.join(missingDirectIds, sql`, `)})`)
+          .catch(() => []);
+
+        layerUsers.push(...extraUsers);
+      }
+    }
 
     const nextParents: number[] = [];
     for (const u of layerUsers) {
