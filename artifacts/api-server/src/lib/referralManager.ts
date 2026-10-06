@@ -473,28 +473,24 @@ export async function distributeDepositReferralCommissions(
     // Telegram Bot notification
     if (bot) {
       try {
-        let levelTitle = "";
-        let tierDesc = "";
+        const levelTitle = level === 1
+          ? `💰<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji>  <b>Direct Deposit Commission (Level 1) — ${percent}%</b> 🪙<tg-emoji emoji-id="5958354038922681874">🪙</tg-emoji>`
+          : `💰<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji>  <b>Network Deposit Commission (Level ${level}) — ${percent}%</b> 🪙<tg-emoji emoji-id="5958354038922681874">🪙</tg-emoji>`;
 
-        if (level === 1) {
-          levelTitle = `💰 <b>Direct Deposit Commission (Level 1) — ${percent}%</b> 🪙`;
-          tierDesc = `Your direct referral <b>${depositorDisplay}</b> made a deposit!`;
-        } else if (level === 2) {
-          levelTitle = `👥 <b>Network Deposit Commission (Level 2) — ${percent}%</b> 🪙`;
-          tierDesc = `A user invited by your network <b>${depositorDisplay}</b> made a deposit!`;
-        } else {
-          levelTitle = `🌐 <b>Network Deposit Commission (Level ${level}) — ${percent}%</b> 🪙`;
-          tierDesc = `A user in your Level ${level} network <b>${depositorDisplay}</b> made a deposit!`;
-        }
+        const tierDesc = level === 1
+          ? `Your direct referral ${depositorDisplay} made a deposit!`
+          : level === 2
+            ? `A user invited by your network ${depositorDisplay} made a deposit!`
+            : `A user in your Level ${level} network ${depositorDisplay} made a deposit!`;
 
         const msgText =
           `${levelTitle}\n\n` +
-          `👤 <b>Depositor:</b> ${depositorDisplay}\n` +
-          `ℹ️ <b>Referral Tier:</b> ${tierDesc}\n\n` +
-          `💵 <b>Deposit Amount:</b> ${depositAmountGramOrTon.toFixed(4)} Gram (${depositAmountGo.toFixed(2)} GO)\n` +
-          `🎁 <b>Commission Rate (${level === 1 ? "Direct" : "Level " + level}):</b> ${percent}%\n` +
-          `🪙 <b>Earned Reward:</b> <b>+${commissionGo.toFixed(2)} GO</b>\n\n` +
-          `✅ <b>+${commissionGo.toFixed(2)} GO has been added to your GO balance!</b> ⛏️`;
+          `👤<tg-emoji emoji-id="5256143829672672750">👤</tg-emoji>  <b>Depositor:</b> ${depositorDisplay}\n` +
+          `ℹ️<tg-emoji emoji-id="5256143829672672750">👤</tg-emoji> <b>Referral Tier:</b> ${tierDesc}\n\n` +
+          `💵<tg-emoji emoji-id="5409048419211682843">💵</tg-emoji>  <b>Deposit Amount:</b> ${depositAmountGramOrTon.toFixed(4)} Gram (${depositAmountGo.toFixed(2)} GO)\n` +
+          `🎁<tg-emoji emoji-id="5456600441687121522">🤗</tg-emoji> <b>Commission Rate (${level === 1 ? "Direct" : "Level " + level}):</b> ${percent}%\n` +
+          `🪙<tg-emoji emoji-id="5958354038922681874">🪙</tg-emoji>  <b>Earned Reward:</b> <b>+${commissionGo.toFixed(2)} GO</b>\n\n` +
+          `✅<tg-emoji emoji-id="6127223820764844602">✅</tg-emoji> <b>+${commissionGo.toFixed(2)} GO has been added to your GO balance!</b>`;
 
         await bot.sendMessage(
           referrerId,
