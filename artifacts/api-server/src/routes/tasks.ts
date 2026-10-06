@@ -86,7 +86,7 @@ router.get("/", async (req, res) => {
   res.json(active);
 });
 
-router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (req, res) => {
+router.post("/:taskId/complete", requireSession, async (req, res) => {
   invalidateTasksCache();
 
   const taskId = parseInt(String(req.params.taskId));
@@ -133,20 +133,15 @@ router.post("/:taskId/complete", requireSession, verifyAccessMiddleware, async (
     }
   }
 
-  // Channel membership server-side verification using Telegram Bot API getChatMember
-  const channelIdentifier = task.channelChatId || task.channelUsername || extractChannelUsername(task.url);
+  // Channel/Chat membership server-side verification using Telegram Bot API getChatMember
   const isChannelTask = task.category === "channel" || !!task.channelChatId || !!task.channelUsername;
+  const channelIdentifier = task.channelChatId || task.channelUsername || extractChannelUsername(task.url);
 
-  if (isChannelTask) {
-    if (!channelIdentifier) {
-      res.status(400).json({ error: "Incomplete channel data for membership verification" });
-      return;
-    }
-
+  if (isChannelTask && channelIdentifier) {
     const memResult = await verifyUserChannelMembership(userId, channelIdentifier);
     if (!memResult.isMember) {
       res.status(400).json({
-        error: memResult.error || "Please join the channel first, then click verify",
+        error: memResult.error || "يرجى الانضمام إلى القناة أو الشات أولاً ثم الضغط على تحقق",
       });
       return;
     }

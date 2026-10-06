@@ -149,7 +149,7 @@ export async function apiCall<T>(path: string, options?: RequestInit): Promise<T
   if (adminToken) baseHeaders["x-admin-token"] = adminToken;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15_000);
+  const timeout = setTimeout(() => controller.abort(), 30_000);
 
   let res: Response;
   try {
