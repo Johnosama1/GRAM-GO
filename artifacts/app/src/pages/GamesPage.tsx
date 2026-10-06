@@ -102,7 +102,7 @@ export default function GamesPage() {
         minHeight: "100%",
         display: "flex",
         flexDirection: "column",
-        color: SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "rgba(255, 255, 255, 0.4)" : "#ffffff",
+        color: "#ffffff",
         paddingTop: "calc(max(env(safe-area-inset-top, 0px), 12px) + 54px)",
         paddingBottom: "95px",
         paddingLeft: "14px",
@@ -514,263 +514,265 @@ export default function GamesPage() {
         </div>
 
         {/* ══════════════════════════════════════════════════════════════════
-            GAME 2: SWORD ADVENTURE
+            GAME 2: SWORD ADVENTURE (Visible to Admin only during development)
         ══════════════════════════════════════════════════════════════════ */}
-        <div
-          style={{
-            background: "linear-gradient(145deg, rgba(14, 10, 36, 0.9), rgba(5, 7, 22, 0.96))",
-            border: "1.5px solid rgba(168, 85, 247, 0.4)",
-            borderRadius: "22px",
-            padding: "16px 14px",
-            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.6), 0 0 24px rgba(168, 85, 247, 0.18)",
-            backdropFilter: "blur(16px)",
-            position: "relative",
-            overflow: "hidden",
-          }}
-        >
-          {/* Subtle Ambient Glow */}
+        {(!SWORD_ADVENTURE_ADMIN_ONLY || isAdmin) && (
           <div
             style={{
-              position: "absolute",
-              top: -30,
-              left: -30,
-              width: 140,
-              height: 140,
-              borderRadius: "50%",
-              background: "radial-gradient(circle, rgba(168, 85, 247, 0.25) 0%, transparent 70%)",
-              pointerEvents: "none",
-            }}
-          />
-
-          {/* Top Row: ACTION Badge */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: "10px",
-            }}
-          >
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "5px",
-                background: "linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(236, 72, 153, 0.2))",
-                border: "1px solid rgba(168, 85, 247, 0.5)",
-                borderRadius: "12px",
-                padding: "3px 10px",
-                color: "#c084fc",
-                fontSize: "11px",
-                fontWeight: 900,
-                letterSpacing: "0.5px",
-              }}
-            >
-              <Swords size={13} />
-              <span>ACTION</span>
-            </div>
-
-            {/* Live Indicator */}
-            <div
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "5px",
-                background: "rgba(34, 197, 94, 0.12)",
-                border: "1px solid rgba(34, 197, 94, 0.3)",
-                borderRadius: "12px",
-                padding: "3px 8px",
-                color: SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "#9ca3af" : "#4ade80",
-                fontSize: "10.5px",
-                fontWeight: 800,
-              }}
-            >
-              <span
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: "50%",
-                  background: SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "#9ca3af" : "#4ade80",
-                  boxShadow: SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "0 0 6px #9ca3af" : "0 0 6px #4ade80",
-                }}
-              />
-              <span>{SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "COMING SOON" : "PLAYABLE NOW"}</span>
-            </div>
-          </div>
-
-          {/* Banner Artwork Preview */}
-          <div
-            style={{
+              background: "linear-gradient(145deg, rgba(14, 10, 36, 0.9), rgba(5, 7, 22, 0.96))",
+              border: "1.5px solid rgba(168, 85, 247, 0.4)",
+              borderRadius: "22px",
+              padding: "16px 14px",
+              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.6), 0 0 24px rgba(168, 85, 247, 0.18)",
+              backdropFilter: "blur(16px)",
               position: "relative",
-              width: "100%",
-              height: "120px",
-              borderRadius: "14px",
               overflow: "hidden",
-              marginBottom: "10px",
-              border: "1px solid rgba(0, 242, 254, 0.25)",
-              boxShadow: "0 4px 16px rgba(0, 0, 0, 0.5)",
             }}
           >
-            <img
-              src="/games/sword_adventure_banner.jpg"
-              alt="Sword Adventure Banner"
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "cover",
-              }}
-            />
-            {/* Gradient Overlay */}
+            {/* Subtle Ambient Glow */}
             <div
               style={{
                 position: "absolute",
-                inset: 0,
-                background: "linear-gradient(to top, rgba(4, 7, 20, 0.85) 0%, rgba(4, 7, 20, 0.1) 60%, transparent 100%)",
+                top: -30,
+                left: -30,
+                width: 140,
+                height: 140,
+                borderRadius: "50%",
+                background: "radial-gradient(circle, rgba(168, 85, 247, 0.25) 0%, transparent 70%)",
+                pointerEvents: "none",
               }}
             />
-          </div>
 
-          {/* Title & Description */}
-          <h2
-            style={{
-              fontSize: "20px",
-              fontWeight: 900,
-              fontStyle: "italic",
-              margin: "0 0 4px",
-              letterSpacing: "0.5px",
-              background: "linear-gradient(135deg, #ffffff 40%, #c084fc 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            SWORD ADVENTURE
-          </h2>
-
-          <p
-            style={{
-              color: "rgba(255, 255, 255, 0.7)",
-              fontSize: "11.5px",
-              lineHeight: "1.4",
-              margin: "0 0 10px",
-            }}
-          >
-            Control the hero, defeat enemies, avoid obstacles and collect GO coins on the way! You will earn <strong>0.05 GO</strong> for each enemy you defeat.
-          </p>
-
-          {/* Feature Pills */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "6px",
-              flexWrap: "wrap",
-              marginBottom: "12px",
-            }}
-          >
+            {/* Top Row: ACTION Badge */}
             <div
               style={{
-                background: "rgba(0, 242, 254, 0.08)",
-                border: "1px solid rgba(0, 242, 254, 0.25)",
-                borderRadius: "8px",
-                padding: "3px 8px",
-                fontSize: "10.5px",
-                fontWeight: 700,
-                color: "#00f2fe",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: "10px",
               }}
             >
-              ⚔️ Fight Enemies
-            </div>
-            <div
-              style={{
-                background: "rgba(168, 85, 247, 0.08)",
-                border: "1px solid rgba(168, 85, 247, 0.25)",
-                borderRadius: "8px",
-                padding: "3px 8px",
-                fontSize: "10.5px",
-                fontWeight: 700,
-                color: "#c084fc",
-              }}
-            >
-              ⚡ Avoid Obstacles
-            </div>
-            <div
-              style={{
-                background: "rgba(251, 191, 36, 0.08)",
-                border: "1px solid rgba(251, 191, 36, 0.25)",
-                borderRadius: "8px",
-                padding: "3px 8px",
-                fontSize: "10.5px",
-                fontWeight: 700,
-                color: "#fbbf24",
-              }}
-            >
-              🪙 Earn GO
-            </div>
-          </div>
-
-          {/* Bottom Row: Reward Rate & Play Now Button */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "8px",
-              paddingTop: "10px",
-              borderTop: "1px solid rgba(255, 255, 255, 0.08)",
-            }}
-          >
-            {/* Reward per enemy */}
-            <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-              <span style={{ color: "rgba(255, 255, 255, 0.6)", fontSize: "11px", fontWeight: 700 }}>
-                Reward per enemy:
-              </span>
               <div
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: "4px",
-                  background: "rgba(251, 191, 36, 0.15)",
-                  border: "1px solid rgba(251, 191, 36, 0.35)",
-                  borderRadius: "8px",
-                  padding: "2px 6px",
+                  gap: "5px",
+                  background: "linear-gradient(135deg, rgba(168, 85, 247, 0.3), rgba(236, 72, 153, 0.2))",
+                  border: "1px solid rgba(168, 85, 247, 0.5)",
+                  borderRadius: "12px",
+                  padding: "3px 10px",
+                  color: "#c084fc",
+                  fontSize: "11px",
+                  fontWeight: 900,
+                  letterSpacing: "0.5px",
                 }}
               >
-                <img src="/go.png" alt="GO" style={{ width: 14, height: 14, borderRadius: "50%" }} />
-                <span style={{ color: "#fbbf24", fontWeight: 900, fontSize: "12px" }}>
-                  0.05 GO
-                </span>
+                <Swords size={13} />
+                <span>ACTION</span>
+              </div>
+
+              {/* Live / Dev Indicator */}
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "5px",
+                  background: "rgba(34, 197, 94, 0.12)",
+                  border: "1px solid rgba(34, 197, 94, 0.3)",
+                  borderRadius: "12px",
+                  padding: "3px 8px",
+                  color: "#4ade80",
+                  fontSize: "10.5px",
+                  fontWeight: 800,
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: "#4ade80",
+                    boxShadow: "0 0 6px #4ade80",
+                  }}
+                />
+                <span>{SWORD_ADVENTURE_ADMIN_ONLY ? "ADMIN DEV" : "PLAYABLE NOW"}</span>
               </div>
             </div>
 
-            {/* PLAY NOW Button */}
-            <button
-              onClick={() => { if (!(SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin)) setIsSwordGameOpen(true); }}
+            {/* Banner Artwork Preview */}
+            <div
               style={{
-                background: SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "rgba(255, 255, 255, 0.05)" : "linear-gradient(135deg, #a855f7 0%, #7c3aed 50%, #00f2fe 100%)",
-                border: SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "1px solid rgba(255, 255, 255, 0.1)" : "1px solid rgba(168, 85, 247, 0.6)",
-                color: SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "rgba(255, 255, 255, 0.4)" : "#ffffff",
-                fontWeight: 900,
-                fontSize: "12.5px",
-                letterSpacing: "0.5px",
-                padding: "8px 18px",
-                borderRadius: "12px",
-                cursor: SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "not-allowed" : "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "5px",
-                boxShadow: SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "none" : "0 0 20px rgba(168, 85, 247, 0.5)",
-                transition: "all 0.2s ease",
+                position: "relative",
+                width: "100%",
+                height: "120px",
+                borderRadius: "14px",
+                overflow: "hidden",
+                marginBottom: "10px",
+                border: "1px solid rgba(0, 242, 254, 0.25)",
+                boxShadow: "0 4px 16px rgba(0, 0, 0, 0.5)",
               }}
             >
-              <span>{SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin ? "COMING SOON" : "PLAY NOW"}</span>
-              {!(SWORD_ADVENTURE_ADMIN_ONLY && !isAdmin) && <ArrowRight size={14} />}
-            </button>
+              <img
+                src="/games/sword_adventure_banner.jpg"
+                alt="Sword Adventure Banner"
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "cover",
+                }}
+              />
+              {/* Gradient Overlay */}
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "linear-gradient(to top, rgba(4, 7, 20, 0.85) 0%, rgba(4, 7, 20, 0.1) 60%, transparent 100%)",
+                }}
+              />
+            </div>
+
+            {/* Title & Description */}
+            <h2
+              style={{
+                fontSize: "20px",
+                fontWeight: 900,
+                fontStyle: "italic",
+                margin: "0 0 4px",
+                letterSpacing: "0.5px",
+                background: "linear-gradient(135deg, #ffffff 40%, #c084fc 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
+            >
+              SWORD ADVENTURE
+            </h2>
+
+            <p
+              style={{
+                color: "rgba(255, 255, 255, 0.7)",
+                fontSize: "11.5px",
+                lineHeight: "1.4",
+                margin: "0 0 10px",
+              }}
+            >
+              Control the hero, defeat enemies, avoid obstacles and collect GO coins on the way! You will earn <strong>0.05 GO</strong> for each enemy you defeat.
+            </p>
+
+            {/* Feature Pills */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                flexWrap: "wrap",
+                marginBottom: "12px",
+              }}
+            >
+              <div
+                style={{
+                  background: "rgba(0, 242, 254, 0.08)",
+                  border: "1px solid rgba(0, 242, 254, 0.25)",
+                  borderRadius: "8px",
+                  padding: "3px 8px",
+                  fontSize: "10.5px",
+                  fontWeight: 700,
+                  color: "#00f2fe",
+                }}
+              >
+                ⚔️ Fight Enemies
+              </div>
+              <div
+                style={{
+                  background: "rgba(168, 85, 247, 0.08)",
+                  border: "1px solid rgba(168, 85, 247, 0.25)",
+                  borderRadius: "8px",
+                  padding: "3px 8px",
+                  fontSize: "10.5px",
+                  fontWeight: 700,
+                  color: "#c084fc",
+                }}
+              >
+                ⚡ Avoid Obstacles
+              </div>
+              <div
+                style={{
+                  background: "rgba(251, 191, 36, 0.08)",
+                  border: "1px solid rgba(251, 191, 36, 0.25)",
+                  borderRadius: "8px",
+                  padding: "3px 8px",
+                  fontSize: "10.5px",
+                  fontWeight: 700,
+                  color: "#fbbf24",
+                }}
+              >
+                🪙 Earn GO
+              </div>
+            </div>
+
+            {/* Bottom Row: Reward Rate & Play Now Button */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: "8px",
+                paddingTop: "10px",
+                borderTop: "1px solid rgba(255, 255, 255, 0.08)",
+              }}
+            >
+              {/* Reward per enemy */}
+              <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                <span style={{ color: "rgba(255, 255, 255, 0.6)", fontSize: "11px", fontWeight: 700 }}>
+                  Reward per enemy:
+                </span>
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    background: "rgba(251, 191, 36, 0.15)",
+                    border: "1px solid rgba(251, 191, 36, 0.35)",
+                    borderRadius: "8px",
+                    padding: "2px 6px",
+                  }}
+                >
+                  <img src="/go.png" alt="GO" style={{ width: 14, height: 14, borderRadius: "50%" }} />
+                  <span style={{ color: "#fbbf24", fontWeight: 900, fontSize: "12px" }}>
+                    0.05 GO
+                  </span>
+                </div>
+              </div>
+
+              {/* PLAY NOW Button */}
+              <button
+                onClick={() => setIsSwordGameOpen(true)}
+                style={{
+                  background: "linear-gradient(135deg, #a855f7 0%, #7c3aed 50%, #00f2fe 100%)",
+                  border: "1px solid rgba(168, 85, 247, 0.6)",
+                  color: "#ffffff",
+                  fontWeight: 900,
+                  fontSize: "12.5px",
+                  letterSpacing: "0.5px",
+                  padding: "8px 18px",
+                  borderRadius: "12px",
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "5px",
+                  boxShadow: "0 0 20px rgba(168, 85, 247, 0.5)",
+                  transition: "all 0.2s ease",
+                }}
+              >
+                <span>PLAY NOW</span>
+                <ArrowRight size={14} />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* ── 5. Full-Screen Interactive Sword Adventure Game ────────────── */}
-      {isSwordGameOpen && (
+      {isSwordGameOpen && (!SWORD_ADVENTURE_ADMIN_ONLY || isAdmin) && (
         <SwordAdventureGame onClose={() => setIsSwordGameOpen(false)} />
       )}
     </div>
