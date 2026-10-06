@@ -187,6 +187,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
             (key.startsWith("ton-connect") ||
               key.startsWith("user:") ||
               key.startsWith("session_") ||
+              key.startsWith("jjx_session_token") ||
               key.startsWith("jjx_cache_"))
           ) {
             keysToRemove.push(key);

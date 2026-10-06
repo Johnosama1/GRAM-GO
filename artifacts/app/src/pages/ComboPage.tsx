@@ -107,6 +107,7 @@ export default function ComboPage() {
               attempted: true,
               isSuccess: res.isSuccess,
               rewardClaimed: res.isSuccess,
+              rewardAmount: res.reward ?? prev.rewardAmount,
               selectedItems: selectedIds,
             }
           : null
@@ -154,7 +155,7 @@ export default function ComboPage() {
           }}
         >
           <CheckCircle2 size={18} />
-          <span>🎉 +5 GO CLAIMED TODAY (Next in {timeLeft})</span>
+          <span>🎉 +{status?.rewardAmount ?? 5} GO CLAIMED TODAY (Next in {timeLeft})</span>
         </div>
       );
     }
@@ -358,7 +359,7 @@ export default function ComboPage() {
             margin: "0 0 8px",
           }}
         >
-          Pick 3 correct items to win <strong style={{ color: "#fbbf24", fontWeight: 900 }}>+5 GO</strong>
+          Pick 3 correct items to win <strong style={{ color: "#fbbf24", fontWeight: 900 }}>+1 to 6 GO</strong>
         </p>
 
         {/* ── Status Bar: Countdown & Attempt ───────────────────────────── */}

@@ -106,7 +106,7 @@ router.get("/status", requireSession, async (req, res) => {
     isSuccess: attempt?.isSuccess ?? false,
     rewardClaimed: attempt?.rewardClaimed ?? false,
     selectedItems: parsedSelectedItems,
-    rewardAmount: 5,
+    rewardAmount: attempt?.isSuccess && attempt?.rewardAmount ? parseFloat(attempt.rewardAmount) : 5,
     nextComboAt: tomorrow.toISOString(),
     serverTime: new Date().toISOString(),
   });
@@ -144,14 +144,15 @@ router.post("/check", requireSession, verifyAccessMiddleware, async (req, res) =
   const expectedArray = [correctCombo.item1, correctCombo.item2, correctCombo.item3];
   // Order agnostic check. If exact 3 elements exist in the expected list
   const isMatch = validItems.slice().sort().every((id, index) => id === expectedArray.slice().sort()[index]);
-  const rewardFixed = isMatch ? "5.000000" : "0.000000";
+  
+  // Random reward between 1 and 6 GO coins on success
+  const randomReward = isMatch ? Math.floor(Math.random() * 6) + 1 : 0;
+  const rewardFixed = isMatch ? randomReward.toFixed(6) : "0.000000";
 
   const tomorrow = new Date();
   tomorrow.setUTCHours(24, 0, 0, 0);
 
   try {
-
-
     // Database Transaction for safety & anti-duplicate protection
     const result = await db.transaction(async (tx) => {
       // Re-check existing attempt inside transaction to prevent race conditions
@@ -170,6 +171,7 @@ router.post("/check", requireSession, verifyAccessMiddleware, async (req, res) =
         return {
           alreadyAttempted: true,
           isSuccess: txExistingAttempt.isSuccess,
+          reward: parseFloat(txExistingAttempt.rewardAmount || "0"),
         };
       }
 
@@ -188,23 +190,24 @@ router.post("/check", requireSession, verifyAccessMiddleware, async (req, res) =
         await tx
           .update(usersTable)
           .set({
-            goBalance: sql`COALESCE(go_balance, 0) + 5`,
-            balance: sql`COALESCE(balance, 0) + 5`,
+            goBalance: sql`COALESCE(go_balance, 0) + ${randomReward}`,
+            balance: sql`COALESCE(balance, 0) + ${randomReward}`,
           })
           .where(eq(usersTable.id, userId));
 
         await tx.insert(transactionsTable).values({
           userId,
           type: "daily_combo",
-          amount: "5.000000",
+          amount: rewardFixed,
           currency: "GO",
-          details: { comboDate: todayStr, selectedItems: validItems },
+          details: { comboDate: todayStr, selectedItems: validItems, reward: randomReward },
         }).catch(() => {});
       }
 
       return {
         alreadyAttempted: false,
         isSuccess: isMatch,
+        reward: randomReward,
       };
     });
 
@@ -213,6 +216,7 @@ router.post("/check", requireSession, verifyAccessMiddleware, async (req, res) =
         error: "You have already used your daily combo attempt for today.",
         attempted: true,
         isSuccess: result.isSuccess,
+        reward: result.reward,
       });
       return;
     }
@@ -224,11 +228,11 @@ router.post("/check", requireSession, verifyAccessMiddleware, async (req, res) =
     res.json({
       ok: true,
       isSuccess: isMatch,
-      reward: isMatch ? 5 : 0,
+      reward: isMatch ? result.reward : 0,
       selectedItems: validItems,
       nextComboAt: tomorrow.toISOString(),
       message: isMatch
-        ? "🎉 Combo Completed! You earned: +5 GO"
+        ? `🎉 Combo Completed! You earned: +${result.reward} GO`
         : "❌ Wrong Combo. You didn't complete today's combo. Come back tomorrow!",
     });
   } catch (err) {

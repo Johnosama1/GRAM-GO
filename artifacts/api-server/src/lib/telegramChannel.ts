@@ -23,16 +23,25 @@ export function normalizeChatId(channelInput?: string | null): string | null {
   const trimmed = channelInput.trim();
   if (!trimmed) return null;
 
+  // Numeric Chat ID (e.g. -1001234567890, -123456)
+  if (trimmed.startsWith("-100") || (trimmed.startsWith("-") && /^-?\d+$/.test(trimmed))) {
+    return trimmed;
+  }
+
+  // Plain digits ID
+  if (/^\d{6,}$/.test(trimmed)) {
+    return `-100${trimmed}`;
+  }
+
   // URL extraction
   const urlMatch = trimmed.match(/t\.me\/([A-Za-z0-9_+-]+)/);
   if (urlMatch) {
-    const username = urlMatch[1].replace(/^@/, "");
+    const slug = urlMatch[1];
+    if (slug.startsWith("+") || slug.toLowerCase().startsWith("joinchat")) {
+      return slug;
+    }
+    const username = slug.replace(/^@/, "");
     return `@${username}`;
-  }
-
-  // Numeric Chat ID (e.g. -1001234567890)
-  if (trimmed.startsWith("-100") || (trimmed.startsWith("-") && /^-?\d+$/.test(trimmed))) {
-    return trimmed;
   }
 
   // Username

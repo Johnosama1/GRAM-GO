@@ -6,18 +6,23 @@ function getTelegramInitData(): string {
 }
 
 // ── Session token (issued by /api/session/issue after verification) ──
-let _sessionToken: string | null = null;
+let _sessionToken: string | null = typeof window !== "undefined" ? localStorage.getItem("jjx_session_token") : null;
 
 export function setSessionToken(token: string) {
   _sessionToken = token;
+  try { localStorage.setItem("jjx_session_token", token); } catch {}
 }
 
 export function getSessionToken(): string | null {
+  if (!_sessionToken && typeof window !== "undefined") {
+    _sessionToken = localStorage.getItem("jjx_session_token");
+  }
   return _sessionToken;
 }
 
 export function clearSessionToken() {
   _sessionToken = null;
+  try { localStorage.removeItem("jjx_session_token"); } catch {}
 }
 
 // ── Admin token (issued by /api/admin/unlock) ────────────────────────
@@ -138,7 +143,8 @@ export async function apiCall<T>(path: string, options?: RequestInit): Promise<T
   const initData = getTelegramInitData();
   const baseHeaders: Record<string, string> = { "Content-Type": "application/json" };
   if (initData) baseHeaders["x-telegram-init-data"] = initData;
-  if (_sessionToken) baseHeaders["x-session-token"] = _sessionToken;
+  const sessionToken = getSessionToken();
+  if (sessionToken) baseHeaders["x-session-token"] = sessionToken;
   const adminToken = getAdminToken();
   if (adminToken) baseHeaders["x-admin-token"] = adminToken;
 

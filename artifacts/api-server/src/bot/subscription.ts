@@ -72,28 +72,42 @@ export async function getRequiredChannels(): Promise<RequiredChannel[]> {
   }
 }
 
+function formatChatTarget(usernameOrId: string): string {
+  const trimmed = usernameOrId.trim();
+  if (trimmed.startsWith("-100") || (trimmed.startsWith("-") && /^-?\d+$/.test(trimmed))) {
+    return trimmed;
+  }
+  if (/^\d{6,}$/.test(trimmed)) {
+    return `-100${trimmed}`;
+  }
+  return trimmed.startsWith("@") ? trimmed : `@${trimmed}`;
+}
+
 // ── Check one channel membership ────────────────────────────────────────────
 async function checkChannel(
   bot: TelegramBot,
   userId: number,
   channel: RequiredChannel
 ): Promise<boolean> {
-  const target = channel.username.startsWith("@")
-    ? channel.username
-    : `@${channel.username}`;
+  const target = formatChatTarget(channel.username);
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const member = await bot.getChatMember(target, userId);
-      return ["member", "administrator", "creator"].includes(member.status);
+      const isMember =
+        member.status === "creator" ||
+        member.status === "administrator" ||
+        member.status === "member" ||
+        (member.status === "restricted" && (member as any).is_member !== false);
+      return isMember;
     } catch (err: unknown) {
       if (attempt === 0) {
-        await new Promise((r) => setTimeout(r, 500));
+        await new Promise((r) => setTimeout(r, 400));
         continue;
       }
       const msg = err instanceof Error ? err.message : String(err);
       logger.warn(
-        { channel: channel.username, userId, err: msg },
-        "getChatMember failed — channel may be private or bot not admin"
+        { channel: channel.username, target, userId, err: msg },
+        "getChatMember failed — channel/chat may be private or bot not admin"
       );
     }
   }

@@ -2057,6 +2057,9 @@ function setupBotHandlers() {
     wrapHandler(async (msg) => {
       if (!msg.from) return;
 
+      // Ignore group/supergroup messages to prevent server lag and rate limits
+      if (msg.chat.type !== "private") return;
+
       // Commands handled by onText — skip here to avoid double processing
       if (msg.text?.startsWith("/")) return;
 

@@ -70,7 +70,16 @@ export function requireSession(
   }
 
   // Fallback to cryptographically verified Telegram initData
-
+  const initData = req.headers["x-telegram-init-data"] as string | undefined;
+  if (initData) {
+    const initResult = parseTelegramInitData(initData);
+    if (initResult.valid && initResult.userId) {
+      logger.debug({ userId: initResult.userId }, "session validated via initData fallback");
+      req.sessionUserId = initResult.userId;
+      next();
+      return;
+    }
+  }
 
   // In development without initData, allow through
   if (process.env.NODE_ENV !== "production") {
