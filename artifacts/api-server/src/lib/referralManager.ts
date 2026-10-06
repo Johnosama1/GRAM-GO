@@ -216,12 +216,12 @@ export async function checkAndUpdateReferralQualification(
           try {
             await bot.sendMessage(
               ref.referrerId,
-              `🟢 <b>Referral Qualified &amp; +5 GO Reward!</b> 🎉\n\n` +
+              `🟢 <tg-emoji emoji-id="6073224395248112957">🟢</tg-emoji> <b>Referral Qualified &amp; +5 GO Reward!</b> 🎉<tg-emoji emoji-id="5461151367559141950">🎉</tg-emoji>\n\n` +
                 `Your friend <b>${displayName}</b> has completed all qualification requirements:\n` +
-                `✅ Daily Check-in\n` +
-                `✅ Complete 3 Tasks\n\n` +
-                `🎁 <b>+5 GO bonus has been credited to your GO balance!</b> 🪙\n\n` +
-                `Your referral is now marked <b>🟢 Successful</b>! ⛏️`,
+                `1️⃣ <tg-emoji emoji-id="5440539497383087970">🥇</tg-emoji> Daily Check-in\n` +
+                `2️⃣ <tg-emoji emoji-id="5447203607294265305">🥈</tg-emoji> Complete 3 Tasks\n\n` +
+                `🎁<tg-emoji emoji-id="5456600441687121522">🤗</tg-emoji> <b>+5 GO bonus has been credited to your GO balance!</b> 🪙<tg-emoji emoji-id="5958354038922681874">🪙</tg-emoji>\n\n` +
+                `Your referral is now marked <b>🟢 <tg-emoji emoji-id="6073224395248112957">🟢</tg-emoji> Successful</b>! ⛏️`,
               { parse_mode: "HTML" },
             );
           } catch {
@@ -780,15 +780,15 @@ export async function sendNewReferralNotification(
     const pendingCount = Number(pendingCountRes[0]?.count || 0);
 
     const message =
-      `🎉 <b>New Referral Joined via Your Link!</b>\n\n` +
-      `👤 <b>New Member:</b> ${userDisplay}\n\n` +
-      `📊 <b>Your Referral Network Stats:</b>\n` +
-      `🟢 <b>Successful:</b> ${successfulCount}\n` +
-      `🟡 <b>Pending:</b> ${pendingCount}\n\n` +
-      `🎁 <b>Qualification to Earn +5 GO:</b>\n` +
-      `1️⃣ Daily Check-in\n` +
-      `2️⃣ Complete 3 Tasks\n\n` +
-      `⚡ Once your friend completes the qualification requirements, you will immediately receive <b>+5 GO</b> bonus! ⛏️`;
+      `🎉<tg-emoji emoji-id="5461151367559141950">🎉</tg-emoji> <b>New Referral Joined via Your Link!</b>\n\n` +
+      `👤<tg-emoji emoji-id="5256143829672672750">👤</tg-emoji> <b>New Member:</b> ${userDisplay}\n\n` +
+      `📊 <tg-emoji emoji-id="5963150327686372487">📊</tg-emoji> <b>Your Referral Network Stats:</b>\n` +
+      `🟢 <tg-emoji emoji-id="6073224395248112957">🟢</tg-emoji> <b>Successful:</b> ${successfulCount}\n` +
+      `🟡 <tg-emoji emoji-id="5226560988291019577">🟡</tg-emoji> <b>Pending:</b> ${pendingCount}\n\n` +
+      `🎁<tg-emoji emoji-id="5456600441687121522">🤗</tg-emoji> <b>Qualification to Earn +5 GO:</b>\n` +
+      `1️⃣ <tg-emoji emoji-id="5440539497383087970">🥇</tg-emoji> Daily Check-in\n` +
+      `2️⃣ <tg-emoji emoji-id="5447203607294265305">🥈</tg-emoji> Complete 3 Tasks\n\n` +
+      `⚡️<tg-emoji emoji-id="5456140674028019486">⚡️</tg-emoji> Once your friend completes the qualification requirements, you will immediately receive <b>+5 GO</b> bonus!`;
 
     await bot.sendMessage(referrerId, message, { parse_mode: "HTML" });
     logger.info({ referrerId, referredUserId: referredUser.id }, "Sent rich new referral notification to inviter");
