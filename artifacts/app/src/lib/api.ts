@@ -177,7 +177,7 @@ export async function apiCall<T>(path: string, options?: RequestInit): Promise<T
       clearSessionToken();
     }
 
-    const e = new Error(err.error || "Request failed") as Error & { status: number; body: unknown };
+    const e = new Error(err.error || err.message || "Request failed") as Error & { status: number; body: unknown };
     e.status = res.status;
     e.body = err;
     throw e;

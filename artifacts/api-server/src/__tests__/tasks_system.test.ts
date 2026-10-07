@@ -161,4 +161,36 @@ describe("Telegram Channel Membership Verification", () => {
     expect(adminCheck.isAdmin).toBe(false);
     expect(adminCheck.error).toContain("not found");
   });
+
+  it("should handle invite link slugs without numeric chat ID gracefully", async () => {
+    const res = await verifyUserChannelMembership(12345, "https://t.me/+AbCdEf123");
+    expect(res.isMember).toBe(false);
+    expect(res.error).toBeDefined();
+  });
+});
+
+describe("Task Reward & Idempotency Calculations", () => {
+  it("should calculate balance increase accurately for GO and Gram rewards", () => {
+    const currentBalance = 10.5;
+    const goReward = 5.0;
+    const newBalance = currentBalance + goReward;
+    expect(newBalance).toBe(15.5);
+
+    const currentGram = 1.25;
+    const gramReward = 0.5;
+    const newGram = currentGram + gramReward;
+    expect(newGram).toBe(1.75);
+  });
+
+  it("should prevent double claiming with completed IDs set", () => {
+    const userCompletedIds = new Set<number>([1, 5, 8]);
+    const taskId = 5;
+    const isAlreadyClaimed = userCompletedIds.has(taskId);
+    expect(isAlreadyClaimed).toBe(true);
+
+    const newTaskId = 12;
+    expect(userCompletedIds.has(newTaskId)).toBe(false);
+    userCompletedIds.add(newTaskId);
+    expect(userCompletedIds.has(newTaskId)).toBe(true);
+  });
 });

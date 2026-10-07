@@ -47,14 +47,37 @@ function openTelegramOrExternalUrl(url: string) {
   window.open(url, "_blank", "noopener,noreferrer");
 }
 
+const getOpenedTasksKey = (uid?: number) => `jjx_opened_tasks_${uid || "guest"}`;
+
+function getStoredOpenedTasks(uid?: number): Set<number> {
+  try {
+    const raw = sessionStorage.getItem(getOpenedTasksKey(uid)) || localStorage.getItem(getOpenedTasksKey(uid));
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) return new Set(arr.map(Number));
+    }
+  } catch {}
+  return new Set();
+}
+
+function saveStoredOpenedTask(taskId: number, uid?: number) {
+  try {
+    const existing = getStoredOpenedTasks(uid);
+    existing.add(taskId);
+    const arr = Array.from(existing);
+    sessionStorage.setItem(getOpenedTasksKey(uid), JSON.stringify(arr));
+    localStorage.setItem(getOpenedTasksKey(uid), JSON.stringify(arr));
+  } catch {}
+}
+
 export default function TasksPage() {
-  const { user, refresh, initialized, retryInit, setCanClaimCheckin } =
+  const { user, refresh, initialized, retryInit, setCanClaimCheckin, updateUser } =
     useUser();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [completed, setCompleted] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState<number | null>(null);
-  const [urlOpened, setUrlOpened] = useState<Set<number>>(new Set());
+  const [urlOpened, setUrlOpened] = useState<Set<number>>(() => getStoredOpenedTasks(user?.id));
   const [message, setMessage] = useState<{
     taskId: number | string;
     text: string;
@@ -62,6 +85,12 @@ export default function TasksPage() {
   } | null>(null);
   const [taskThreshold, setTaskThreshold] = useState(5);
   const [selectedCategory, setSelectedCategory] = useState("all");
+
+  useEffect(() => {
+    if (user?.id) {
+      setUrlOpened(getStoredOpenedTasks(user.id));
+    }
+  }, [user?.id]);
 
   // Daily Check-in State
   const [checkin, setCheckin] = useState<CheckinStatus | null>(null);
@@ -199,32 +228,41 @@ export default function TasksPage() {
       return;
     }
     openTelegramOrExternalUrl(targetUrl);
+    saveStoredOpenedTask(task.id, user?.id);
     setUrlOpened((prev) => new Set([...prev, task.id]));
   };
 
   const handleVerify = async (task: Task) => {
     if (!user || completing !== null) return;
     setCompleting(task.id);
+    setMessage(null);
     try {
-      await api.completeTask(task.id, user.id);
+      const res = await api.completeTask(task.id, user.id);
       invalidateUserCaches(user.id);
       setCompleted((prev) => (prev.includes(task.id) ? prev : [...prev, task.id]));
+      if (res && res.user) {
+        updateUser(res.user);
+      }
+      const rewardTxt = task.rewardAmount ? ` (+${task.rewardAmount} ${task.rewardCurrency || "GO"})` : "";
       setMessage({
         taskId: task.id,
-        text: "✅ Task completed! You received your reward!",
+        text: `✅ Task completed! You received your reward!${rewardTxt}`,
         type: "success",
       });
-      await refresh();
+      refresh().catch(() => {});
       loadUserTasks(false);
-    } catch (e: unknown) {
+    } catch (e: any) {
+      const errMsg = e?.body?.error || e?.message || "Task verification failed";
       setMessage({
         taskId: task.id,
-        text: e instanceof Error ? e.message : "Task verification failed",
+        text: errMsg,
         type: "error",
       });
     } finally {
       setCompleting(null);
-      setTimeout(() => setMessage(null), 5000);
+      setTimeout(() => {
+        setMessage((curr) => (curr?.taskId === task.id ? null : curr));
+      }, 5000);
     }
   };
 
@@ -974,13 +1012,13 @@ export default function TasksPage() {
                           style={{
                             display: "flex",
                             alignItems: "center",
-                            gap: 4,
+                            gap: 5,
                             padding: "9px 14px",
                             borderRadius: 12,
                             fontWeight: 800,
                             fontSize: 12,
                             border: "none",
-                            cursor: "pointer",
+                            cursor: completing === task.id ? "wait" : "pointer",
                             fontFamily: "inherit",
                             background: showOpen
                               ? "linear-gradient(135deg, #60a5fa, #3b82f6)"
@@ -989,20 +1027,32 @@ export default function TasksPage() {
                             boxShadow: showOpen
                               ? "0 4px 14px rgba(59,130,246,0.45)"
                               : "0 4px 14px rgba(251,191,36,0.45)",
-                            opacity: completing === task.id ? 0.55 : 1,
+                            opacity: completing === task.id ? 0.7 : 1,
                             whiteSpace: "nowrap",
                             transition: "all 0.2s",
                           }}
                         >
-                          {showOpen ? (
+                          {completing === task.id ? (
+                            <>
+                              <div
+                                style={{
+                                  width: 12,
+                                  height: 12,
+                                  borderRadius: "50%",
+                                  border: "2px solid currentColor",
+                                  borderTopColor: "transparent",
+                                  animation: "spin 0.75s linear infinite",
+                                }}
+                              />
+                              <span>Claiming...</span>
+                            </>
+                          ) : showOpen ? (
                             <>
                               <ExternalLink size={11} /> Open
                             </>
-                          ) : completing === task.id ? (
-                            "..."
                           ) : (
                             <>
-                              <CheckCircle size={11} /> Verify
+                              <CheckCircle size={11} /> Claim Reward
                             </>
                           )}
                         </button>

@@ -186,6 +186,14 @@ export async function verifyUserChannelMembership(
     };
   }
 
+  // If chatId is an invite link slug without numeric id (+xyz or joinchat), getChatMember cannot query invite hashes directly
+  if (chatId.startsWith("+") || chatId.toLowerCase().startsWith("joinchat")) {
+    return {
+      isMember: false,
+      error: "The bot is not an administrator in this channel to verify membership. Please contact administration.",
+    };
+  }
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 3000);
