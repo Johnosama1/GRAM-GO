@@ -92,5 +92,9 @@ export function requireSession(
     }
   }
 
+  if (token) {
+    res.status(401).json({ error: "session_expired", message: "Session expired" });
+    return;
+  }
   res.status(401).json({ error: "session_required", message: "Session required: please open app from Telegram" });
 }
