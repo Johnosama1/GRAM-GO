@@ -681,142 +681,54 @@ router.post("/upload-image", express.json({ limit: "15mb" }), requireAdminPerm("
 router.post("/upload", express.json({ limit: "15mb" }), requireAdminPerm("canManageTasks"), handleAdminUpload);
 
 router.post("/tasks", requireAdminPerm("canManageTasks"), async (req: AdminRequest, res: Response) => {
-  const {
-    category,
-    title,
-    description,
-    url,
-    icon,
-    rewardAmount,
-    rewardCurrency,
-    maxClaims,
-    isActive,
-    channelPhotoUrl,
-    channelUsername,
-    channelChatId,
-    botUsername,
-    botLink,
-    requiredReferrals,
-    verificationType,
-  } = req.body;
+  try {
+    const {
+      category,
+      title,
+      description,
+      url,
+      icon,
+      rewardAmount,
+      rewardCurrency,
+      maxClaims,
+      isActive,
+      channelPhotoUrl,
+      channelUsername,
+      channelChatId,
+      botUsername,
+      botLink,
+      requiredReferrals,
+      verificationType,
+    } = req.body;
 
-  if (!title || typeof title !== "string" || !title.trim()) {
-    res.status(400).json({ error: "Title is required" });
-    return;
-  }
-
-  const parsedCategory = category || "normal";
-
-  if (parsedCategory === "referral" && (!requiredReferrals || Number(requiredReferrals) <= 0)) {
-    res.status(400).json({ error: "Required referrals must be > 0" });
-    return;
-  }
-
-  if (parsedCategory === "bot" && !botUsername) {
-    res.status(400).json({ error: "Bot username is required" });
-    return;
-  }
-
-  let resolvedChatId: string | null = channelChatId ? String(channelChatId).trim() : null;
-  let resolvedPhotoUrl: string | null = channelPhotoUrl || null;
-  let resolvedUsername: string | null = channelUsername ? String(channelUsername).trim().replace(/^@/, "") : extractChannelUsername(url);
-
-  if (parsedCategory === "channel") {
-    const channelTarget = resolvedChatId || channelUsername || url;
-    if (!channelTarget) {
-      res.status(400).json({ error: "معرّف القناة أو الرابط مطلوب" });
+    if (!title || typeof title !== "string" || !title.trim()) {
+      res.status(400).json({ error: "Title is required" });
       return;
     }
 
-    const adminCheck = await checkBotChannelAdmin(String(channelTarget));
-    if (!adminCheck.ok || !adminCheck.isAdmin) {
-      res.status(400).json({
-        error: adminCheck.error || "البوت ليس مشرفاً في القناة. يرجى إضافة البوت كمشرف في القناة أولاً.",
-      });
+    const parsedCategory = category || "normal";
+
+    if (parsedCategory === "referral" && (!requiredReferrals || Number(requiredReferrals) <= 0)) {
+      res.status(400).json({ error: "Required referrals must be > 0" });
       return;
     }
 
-    if (adminCheck.chatId) {
-      resolvedChatId = adminCheck.chatId;
+    if (parsedCategory === "bot" && !botUsername) {
+      res.status(400).json({ error: "Bot username is required" });
+      return;
     }
-    if (adminCheck.photoUrl && !resolvedPhotoUrl) {
-      resolvedPhotoUrl = adminCheck.photoUrl;
-    }
-    if (adminCheck.username) {
-      resolvedUsername = adminCheck.username;
-    }
-  }
 
-  let parsedMaxClaims: number | null = null;
-  if (maxClaims !== undefined && maxClaims !== null && maxClaims !== "" && maxClaims !== "unlimited") {
-    const n = parseInt(String(maxClaims), 10);
-    if (!isNaN(n) && n > 0) {
-      parsedMaxClaims = n;
-    }
-  }
+    let resolvedChatId: string | null = channelChatId ? String(channelChatId).trim() : null;
+    let resolvedPhotoUrl: string | null = channelPhotoUrl || null;
+    let resolvedUsername: string | null = channelUsername ? String(channelUsername).trim().replace(/^@/, "") : extractChannelUsername(url);
 
-  const [newTask] = await db
-    .insert(tasksTable)
-    .values({
-      category: parsedCategory,
-      title: title.trim(),
-      description: description ? String(description).trim() : null,
-      url: url ? String(url).trim() : null,
-      icon: icon || "⭐",
-      rewardAmount: String(rewardAmount || "0.5"),
-      rewardCurrency: rewardCurrency || "GO",
-      maxClaims: parsedMaxClaims,
-      channelPhotoUrl: resolvedPhotoUrl,
-      channelUsername: resolvedUsername,
-      channelChatId: resolvedChatId,
-      botUsername: botUsername ? String(botUsername).trim().replace(/^@/, "") : null,
-      botLink: botLink ? String(botLink).trim() : null,
-      requiredReferrals: requiredReferrals ? parseInt(String(requiredReferrals)) : null,
-      verificationType: parsedCategory === "channel" ? "telegram_channel" : (verificationType || "manual"),
-      isActive: isActive !== false,
-    })
-    .returning();
+    if (parsedCategory === "channel") {
+      const channelTarget = resolvedChatId || channelUsername || url;
+      if (!channelTarget) {
+        res.status(400).json({ error: "معرّف القناة أو الرابط مطلوب" });
+        return;
+      }
 
-  invalidateTasksCache();
-  await logAdminAudit(req.adminId!, "create_task", { taskId: newTask.id, title: newTask.title, maxClaims: parsedMaxClaims });
-  res.json({ ...newTask, claimedCount: 0 });
-});
-
-router.put("/tasks/:id", requireAdminPerm("canManageTasks"), async (req: AdminRequest, res: Response) => {
-  const taskId = parseInt(String(req.params.id));
-  const {
-    category,
-    title,
-    description,
-    url,
-    icon,
-    rewardAmount,
-    rewardCurrency,
-    maxClaims,
-    isActive,
-    channelPhotoUrl,
-    channelUsername,
-    channelChatId,
-    botUsername,
-    botLink,
-    requiredReferrals,
-    verificationType,
-  } = req.body;
-
-  if (!title || typeof title !== "string" || !title.trim()) {
-    res.status(400).json({ error: "Title is required" });
-    return;
-  }
-
-  const parsedCategory = category || "normal";
-
-  let resolvedChatId: string | null = channelChatId ? String(channelChatId).trim() : null;
-  let resolvedPhotoUrl: string | null = channelPhotoUrl || null;
-  let resolvedUsername: string | null = channelUsername ? String(channelUsername).trim().replace(/^@/, "") : extractChannelUsername(url);
-
-  if (parsedCategory === "channel") {
-    const channelTarget = resolvedChatId || channelUsername || url;
-    if (channelTarget) {
       const adminCheck = await checkBotChannelAdmin(String(channelTarget));
       if (!adminCheck.ok || !adminCheck.isAdmin) {
         res.status(400).json({
@@ -824,6 +736,7 @@ router.put("/tasks/:id", requireAdminPerm("canManageTasks"), async (req: AdminRe
         });
         return;
       }
+
       if (adminCheck.chatId) {
         resolvedChatId = adminCheck.chatId;
       }
@@ -834,42 +747,143 @@ router.put("/tasks/:id", requireAdminPerm("canManageTasks"), async (req: AdminRe
         resolvedUsername = adminCheck.username;
       }
     }
-  }
 
-  let parsedMaxClaims: number | null = null;
-  if (maxClaims !== undefined && maxClaims !== null && maxClaims !== "" && maxClaims !== "unlimited") {
-    const n = parseInt(String(maxClaims), 10);
-    if (!isNaN(n) && n > 0) {
-      parsedMaxClaims = n;
+    let parsedMaxClaims: number | null = null;
+    if (maxClaims !== undefined && maxClaims !== null && maxClaims !== "" && maxClaims !== "unlimited") {
+      const n = parseInt(String(maxClaims), 10);
+      if (!isNaN(n) && n > 0) {
+        parsedMaxClaims = n;
+      }
     }
+
+    const [newTask] = await db
+      .insert(tasksTable)
+      .values({
+        category: parsedCategory,
+        title: title.trim(),
+        description: description ? String(description).trim() : null,
+        url: url ? String(url).trim() : null,
+        icon: icon || "⭐",
+        rewardAmount: String(rewardAmount || "0.5"),
+        rewardCurrency: rewardCurrency || "GO",
+        maxClaims: parsedMaxClaims,
+        channelPhotoUrl: resolvedPhotoUrl,
+        channelUsername: resolvedUsername,
+        channelChatId: resolvedChatId,
+        botUsername: botUsername ? String(botUsername).trim().replace(/^@/, "") : null,
+        botLink: botLink ? String(botLink).trim() : null,
+        requiredReferrals: requiredReferrals ? parseInt(String(requiredReferrals)) : null,
+        verificationType: parsedCategory === "channel" ? "telegram_channel" : (verificationType || "manual"),
+        isActive: isActive !== false,
+      })
+      .returning();
+
+    invalidateTasksCache();
+    await logAdminAudit(req.adminId!, "create_task", { taskId: newTask.id, title: newTask.title, maxClaims: parsedMaxClaims });
+    res.json({ ...newTask, claimedCount: 0 });
+  } catch (err) {
+    console.error("[admin] POST /api/admin/tasks error:", err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "فشل إنشاء المهمة. يرجى مراجعة إعدادات قاعدة البيانات.",
+    });
   }
+});
 
-  const [updatedTask] = await db
-    .update(tasksTable)
-    .set({
-      category: parsedCategory,
-      title: title.trim(),
-      description: description ? String(description).trim() : null,
-      url: url ? String(url).trim() : null,
-      icon: icon || "⭐",
-      rewardAmount: String(rewardAmount || "0.5"),
-      rewardCurrency: rewardCurrency || "GO",
-      maxClaims: parsedMaxClaims,
-      channelPhotoUrl: resolvedPhotoUrl,
-      channelUsername: resolvedUsername,
-      channelChatId: resolvedChatId,
-      botUsername: botUsername ? String(botUsername).trim().replace(/^@/, "") : null,
-      botLink: botLink ? String(botLink).trim() : null,
-      requiredReferrals: requiredReferrals ? parseInt(String(requiredReferrals)) : null,
-      verificationType: parsedCategory === "channel" ? "telegram_channel" : (verificationType || "manual"),
-      isActive: isActive !== false,
-    })
-    .where(eq(tasksTable.id, taskId))
-    .returning();
+router.put("/tasks/:id", requireAdminPerm("canManageTasks"), async (req: AdminRequest, res: Response) => {
+  try {
+    const taskId = parseInt(String(req.params.id));
+    const {
+      category,
+      title,
+      description,
+      url,
+      icon,
+      rewardAmount,
+      rewardCurrency,
+      maxClaims,
+      isActive,
+      channelPhotoUrl,
+      channelUsername,
+      channelChatId,
+      botUsername,
+      botLink,
+      requiredReferrals,
+      verificationType,
+    } = req.body;
 
-  invalidateTasksCache();
-  await logAdminAudit(req.adminId!, "update_task", { taskId, title: updatedTask.title, maxClaims: parsedMaxClaims });
-  res.json(updatedTask);
+    if (!title || typeof title !== "string" || !title.trim()) {
+      res.status(400).json({ error: "Title is required" });
+      return;
+    }
+
+    const parsedCategory = category || "normal";
+
+    let resolvedChatId: string | null = channelChatId ? String(channelChatId).trim() : null;
+    let resolvedPhotoUrl: string | null = channelPhotoUrl || null;
+    let resolvedUsername: string | null = channelUsername ? String(channelUsername).trim().replace(/^@/, "") : extractChannelUsername(url);
+
+    if (parsedCategory === "channel") {
+      const channelTarget = resolvedChatId || channelUsername || url;
+      if (channelTarget) {
+        const adminCheck = await checkBotChannelAdmin(String(channelTarget));
+        if (!adminCheck.ok || !adminCheck.isAdmin) {
+          res.status(400).json({
+            error: adminCheck.error || "البوت ليس مشرفاً في القناة. يرجى إضافة البوت كمشرف في القناة أولاً.",
+          });
+          return;
+        }
+        if (adminCheck.chatId) {
+          resolvedChatId = adminCheck.chatId;
+        }
+        if (adminCheck.photoUrl && !resolvedPhotoUrl) {
+          resolvedPhotoUrl = adminCheck.photoUrl;
+        }
+        if (adminCheck.username) {
+          resolvedUsername = adminCheck.username;
+        }
+      }
+    }
+
+    let parsedMaxClaims: number | null = null;
+    if (maxClaims !== undefined && maxClaims !== null && maxClaims !== "" && maxClaims !== "unlimited") {
+      const n = parseInt(String(maxClaims), 10);
+      if (!isNaN(n) && n > 0) {
+        parsedMaxClaims = n;
+      }
+    }
+
+    const [updatedTask] = await db
+      .update(tasksTable)
+      .set({
+        category: parsedCategory,
+        title: title.trim(),
+        description: description ? String(description).trim() : null,
+        url: url ? String(url).trim() : null,
+        icon: icon || "⭐",
+        rewardAmount: String(rewardAmount || "0.5"),
+        rewardCurrency: rewardCurrency || "GO",
+        maxClaims: parsedMaxClaims,
+        channelPhotoUrl: resolvedPhotoUrl,
+        channelUsername: resolvedUsername,
+        channelChatId: resolvedChatId,
+        botUsername: botUsername ? String(botUsername).trim().replace(/^@/, "") : null,
+        botLink: botLink ? String(botLink).trim() : null,
+        requiredReferrals: requiredReferrals ? parseInt(String(requiredReferrals)) : null,
+        verificationType: parsedCategory === "channel" ? "telegram_channel" : (verificationType || "manual"),
+        isActive: isActive !== false,
+      })
+      .where(eq(tasksTable.id, taskId))
+      .returning();
+
+    invalidateTasksCache();
+    await logAdminAudit(req.adminId!, "update_task", { taskId, title: updatedTask.title, maxClaims: parsedMaxClaims });
+    res.json(updatedTask);
+  } catch (err) {
+    console.error("[admin] PUT /api/admin/tasks/:id error:", err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : "فشل تعديل المهمة.",
+    });
+  }
 });
 
 router.delete("/tasks/:id", requireAdminPerm("canManageTasks"), async (req: AdminRequest, res: Response) => {

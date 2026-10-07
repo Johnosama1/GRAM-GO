@@ -99,7 +99,7 @@ async function runStartupMigrations() {
     console.warn("[startup] referrals table migration skipped:", e instanceof Error ? e.message : e);
   }
 
-  // ── Create uploads table if missing (Task Images) ─────────────────
+  // ── Create uploads & ensure all tasks columns exist (Tasks System) ─────────────────
   try {
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS uploads (
@@ -111,8 +111,58 @@ async function runStartupMigrations() {
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
+    await db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reward_amount NUMERIC(18, 6) NOT NULL DEFAULT 5`);
+    await db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reward_currency TEXT NOT NULL DEFAULT 'GO'`);
+    await db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS max_claims INTEGER`);
+    await db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'all'`);
+    await db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS channel_username TEXT`);
     await db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS channel_chat_id TEXT`);
-    console.log("[startup] uploads table and tasks columns OK");
+    await db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS bot_username TEXT`);
+    await db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS bot_link TEXT`);
+    await db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS required_referrals INTEGER`);
+    await db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS verification_type TEXT`);
+    await db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS channel_photo_url TEXT`);
+    
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS user_tasks (
+        id           SERIAL PRIMARY KEY,
+        user_id      BIGINT NOT NULL,
+        task_id      INTEGER NOT NULL,
+        completed_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS user_tasks_user_id_task_id_unique ON user_tasks(user_id, task_id)`);
+
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS task_submissions (
+        id           SERIAL PRIMARY KEY,
+        user_id      BIGINT NOT NULL,
+        task_id      INTEGER NOT NULL,
+        proof        TEXT,
+        status       TEXT NOT NULL DEFAULT 'pending',
+        reviewed_by  BIGINT,
+        reviewed_at  TIMESTAMP,
+        created_at   TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS contests (
+        id           SERIAL PRIMARY KEY,
+        title        TEXT NOT NULL,
+        description  TEXT,
+        reward_type  TEXT NOT NULL DEFAULT 'GO',
+        total_reward NUMERIC(18, 6) NOT NULL DEFAULT 100,
+        winner_count INTEGER NOT NULL DEFAULT 3,
+        start_date   TIMESTAMP NOT NULL DEFAULT NOW(),
+        end_date     TIMESTAMP NOT NULL,
+        is_active    BOOLEAN NOT NULL DEFAULT true,
+        is_finished  BOOLEAN NOT NULL DEFAULT false,
+        winners      JSONB DEFAULT '[]'::jsonb,
+        created_at   TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    console.log("[startup] uploads, tasks schema, user_tasks, task_submissions, contests OK");
   } catch (e) {
     console.warn("[startup] uploads/tasks table migration skipped:", e instanceof Error ? e.message : e);
   }

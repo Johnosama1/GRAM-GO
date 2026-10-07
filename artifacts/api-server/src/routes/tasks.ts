@@ -27,63 +27,71 @@ function extractChannelUsername(url: string | null): string | null {
 }
 
 router.get("/", async (req, res) => {
-  const nowDate = new Date();
-  const userId = req.query.userId ? parseInt(String(req.query.userId)) : undefined;
+  try {
+    const nowDate = new Date();
+    const userId = req.query.userId ? parseInt(String(req.query.userId)) : undefined;
 
-  let userCompletedIds = new Set<number>();
-  if (userId && !isNaN(userId) && userId > 0) {
-    try {
-      const userCompleted = await db
-        .select({ taskId: userTasksTable.taskId })
-        .from(userTasksTable)
-        .where(eq(userTasksTable.userId, userId));
-      userCompletedIds = new Set(userCompleted.map((c) => c.taskId));
-    } catch {
-      // ignore
+    let userCompletedIds = new Set<number>();
+    if (userId && !isNaN(userId) && userId > 0) {
+      try {
+        const userCompleted = await db
+          .select({ taskId: userTasksTable.taskId })
+          .from(userTasksTable)
+          .where(eq(userTasksTable.userId, userId));
+        userCompletedIds = new Set(userCompleted.map((c) => c.taskId));
+      } catch {
+        // ignore
+      }
     }
+
+    // Always query database directly with aggregated claimed count
+    const tasksWithClaims = await db
+      .select({
+        id: tasksTable.id,
+        title: tasksTable.title,
+        description: tasksTable.description,
+        url: tasksTable.url,
+        icon: tasksTable.icon,
+        channelPhotoUrl: tasksTable.channelPhotoUrl,
+        rewardAmount: tasksTable.rewardAmount,
+        rewardCurrency: tasksTable.rewardCurrency,
+        maxClaims: tasksTable.maxClaims,
+        isActive: tasksTable.isActive,
+        category: tasksTable.category,
+        channelUsername: tasksTable.channelUsername,
+        channelChatId: tasksTable.channelChatId,
+        botUsername: tasksTable.botUsername,
+        botLink: tasksTable.botLink,
+        requiredReferrals: tasksTable.requiredReferrals,
+        verificationType: tasksTable.verificationType,
+        expiresAt: tasksTable.expiresAt,
+        createdAt: tasksTable.createdAt,
+        claimedCount: sql<number>`COALESCE(COUNT(${userTasksTable.id})::int, 0)`,
+      })
+      .from(tasksTable)
+      .leftJoin(userTasksTable, eq(tasksTable.id, userTasksTable.taskId))
+      .where(eq(tasksTable.isActive, true))
+      .groupBy(tasksTable.id)
+      .orderBy(sql`${tasksTable.createdAt} DESC`);
+
+    // Filter out expired tasks and finite tasks that reached seats limit (unless already completed by the requesting user)
+    const active = tasksWithClaims.filter((t) => {
+      if (t.expiresAt && new Date(t.expiresAt) <= nowDate) return false;
+      if (t.maxClaims !== null && t.maxClaims !== undefined && t.maxClaims > 0) {
+        if (t.claimedCount >= t.maxClaims && !userCompletedIds.has(t.id)) return false;
+      }
+      return true;
+    });
+
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    res.json(active);
+  } catch (err) {
+    console.error("[tasks] GET /api/tasks error:", err);
+    res.status(500).json({
+      error: "Failed to fetch tasks",
+      message: err instanceof Error ? err.message : String(err),
+    });
   }
-
-  // Always query database directly with aggregated claimed count
-  const tasksWithClaims = await db
-    .select({
-      id: tasksTable.id,
-      title: tasksTable.title,
-      description: tasksTable.description,
-      url: tasksTable.url,
-      icon: tasksTable.icon,
-      channelPhotoUrl: tasksTable.channelPhotoUrl,
-      rewardAmount: tasksTable.rewardAmount,
-      rewardCurrency: tasksTable.rewardCurrency,
-      maxClaims: tasksTable.maxClaims,
-      isActive: tasksTable.isActive,
-      category: tasksTable.category,
-      channelUsername: tasksTable.channelUsername,
-      channelChatId: tasksTable.channelChatId,
-      botUsername: tasksTable.botUsername,
-      botLink: tasksTable.botLink,
-      requiredReferrals: tasksTable.requiredReferrals,
-      verificationType: tasksTable.verificationType,
-      expiresAt: tasksTable.expiresAt,
-      createdAt: tasksTable.createdAt,
-      claimedCount: sql<number>`COALESCE(COUNT(${userTasksTable.id})::int, 0)`,
-    })
-    .from(tasksTable)
-    .leftJoin(userTasksTable, eq(tasksTable.id, userTasksTable.taskId))
-    .where(eq(tasksTable.isActive, true))
-    .groupBy(tasksTable.id)
-    .orderBy(sql`${tasksTable.createdAt} DESC`);
-
-  // Filter out expired tasks and finite tasks that reached seats limit (unless already completed by the requesting user)
-  const active = tasksWithClaims.filter((t) => {
-    if (t.expiresAt && new Date(t.expiresAt) <= nowDate) return false;
-    if (t.maxClaims !== null && t.maxClaims !== undefined && t.maxClaims > 0) {
-      if (t.claimedCount >= t.maxClaims && !userCompletedIds.has(t.id)) return false;
-    }
-    return true;
-  });
-
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
-  res.json(active);
 });
 
 router.post("/:taskId/complete", requireSession, async (req, res) => {

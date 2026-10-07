@@ -36,7 +36,54 @@ const server = app.listen(port, (err?: Error) => {
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     )
   `).catch(() => {});
+  db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reward_amount NUMERIC(18, 6) NOT NULL DEFAULT 5`).catch(() => {});
+  db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS reward_currency TEXT NOT NULL DEFAULT 'GO'`).catch(() => {});
+  db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS max_claims INTEGER`).catch(() => {});
+  db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'all'`).catch(() => {});
+  db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS channel_username TEXT`).catch(() => {});
   db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS channel_chat_id TEXT`).catch(() => {});
+  db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS bot_username TEXT`).catch(() => {});
+  db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS bot_link TEXT`).catch(() => {});
+  db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS required_referrals INTEGER`).catch(() => {});
+  db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS verification_type TEXT`).catch(() => {});
+  db.execute(sql`ALTER TABLE tasks ADD COLUMN IF NOT EXISTS channel_photo_url TEXT`).catch(() => {});
+  db.execute(sql`
+    CREATE TABLE IF NOT EXISTS user_tasks (
+      id           SERIAL PRIMARY KEY,
+      user_id      BIGINT NOT NULL,
+      task_id      INTEGER NOT NULL,
+      completed_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `).catch(() => {});
+  db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS user_tasks_user_id_task_id_unique ON user_tasks(user_id, task_id)`).catch(() => {});
+  db.execute(sql`
+    CREATE TABLE IF NOT EXISTS task_submissions (
+      id           SERIAL PRIMARY KEY,
+      user_id      BIGINT NOT NULL,
+      task_id      INTEGER NOT NULL,
+      proof        TEXT,
+      status       TEXT NOT NULL DEFAULT 'pending',
+      reviewed_by  BIGINT,
+      reviewed_at  TIMESTAMP,
+      created_at   TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `).catch(() => {});
+  db.execute(sql`
+    CREATE TABLE IF NOT EXISTS contests (
+      id           SERIAL PRIMARY KEY,
+      title        TEXT NOT NULL,
+      description  TEXT,
+      reward_type  TEXT NOT NULL DEFAULT 'GO',
+      total_reward NUMERIC(18, 6) NOT NULL DEFAULT 100,
+      winner_count INTEGER NOT NULL DEFAULT 3,
+      start_date   TIMESTAMP NOT NULL DEFAULT NOW(),
+      end_date     TIMESTAMP NOT NULL,
+      is_active    BOOLEAN NOT NULL DEFAULT true,
+      is_finished  BOOLEAN NOT NULL DEFAULT false,
+      winners      JSONB DEFAULT '[]'::jsonb,
+      created_at   TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `).catch(() => {});
   db.execute(sql`ALTER TABLE referrals ADD COLUMN IF NOT EXISTS successful_at TIMESTAMP`).catch(() => {});
   db.execute(sql`
     CREATE TABLE IF NOT EXISTS referral_commissions (
