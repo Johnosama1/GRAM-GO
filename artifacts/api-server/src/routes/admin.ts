@@ -724,14 +724,14 @@ router.post("/tasks", requireAdminPerm("canManageTasks"), async (req: AdminReque
   if (parsedCategory === "channel") {
     const channelTarget = resolvedChatId || channelUsername || url;
     if (!channelTarget) {
-      res.status(400).json({ error: "Channel identifier or link is required" });
+      res.status(400).json({ error: "معرّف القناة أو الرابط مطلوب" });
       return;
     }
 
     const adminCheck = await checkBotChannelAdmin(String(channelTarget));
-    if (!adminCheck.isAdmin) {
+    if (!adminCheck.ok || !adminCheck.isAdmin) {
       res.status(400).json({
-        error: adminCheck.error || "Bot is not an administrator in the channel. Please add GRAM GO bot as an administrator in the channel first.",
+        error: adminCheck.error || "البوت ليس مشرفاً في القناة. يرجى إضافة البوت كمشرف في القناة أولاً.",
       });
       return;
     }
@@ -742,8 +742,8 @@ router.post("/tasks", requireAdminPerm("canManageTasks"), async (req: AdminReque
     if (adminCheck.photoUrl && !resolvedPhotoUrl) {
       resolvedPhotoUrl = adminCheck.photoUrl;
     }
-    if (!resolvedUsername && adminCheck.title) {
-      resolvedUsername = extractChannelUsername(channelTarget) || resolvedUsername;
+    if (adminCheck.username) {
+      resolvedUsername = adminCheck.username;
     }
   }
 
@@ -772,7 +772,7 @@ router.post("/tasks", requireAdminPerm("canManageTasks"), async (req: AdminReque
       botUsername: botUsername ? String(botUsername).trim().replace(/^@/, "") : null,
       botLink: botLink ? String(botLink).trim() : null,
       requiredReferrals: requiredReferrals ? parseInt(String(requiredReferrals)) : null,
-      verificationType: verificationType || "manual",
+      verificationType: parsedCategory === "channel" ? "telegram_channel" : (verificationType || "manual"),
       isActive: isActive !== false,
     })
     .returning();
@@ -818,9 +818,9 @@ router.put("/tasks/:id", requireAdminPerm("canManageTasks"), async (req: AdminRe
     const channelTarget = resolvedChatId || channelUsername || url;
     if (channelTarget) {
       const adminCheck = await checkBotChannelAdmin(String(channelTarget));
-      if (!adminCheck.isAdmin) {
+      if (!adminCheck.ok || !adminCheck.isAdmin) {
         res.status(400).json({
-          error: adminCheck.error || "Bot is not an administrator in the channel. Please add GRAM GO bot as an administrator in the channel first.",
+          error: adminCheck.error || "البوت ليس مشرفاً في القناة. يرجى إضافة البوت كمشرف في القناة أولاً.",
         });
         return;
       }
@@ -830,8 +830,8 @@ router.put("/tasks/:id", requireAdminPerm("canManageTasks"), async (req: AdminRe
       if (adminCheck.photoUrl && !resolvedPhotoUrl) {
         resolvedPhotoUrl = adminCheck.photoUrl;
       }
-      if (!resolvedUsername && adminCheck.title) {
-        resolvedUsername = extractChannelUsername(channelTarget) || resolvedUsername;
+      if (adminCheck.username) {
+        resolvedUsername = adminCheck.username;
       }
     }
   }
@@ -861,7 +861,7 @@ router.put("/tasks/:id", requireAdminPerm("canManageTasks"), async (req: AdminRe
       botUsername: botUsername ? String(botUsername).trim().replace(/^@/, "") : null,
       botLink: botLink ? String(botLink).trim() : null,
       requiredReferrals: requiredReferrals ? parseInt(String(requiredReferrals)) : null,
-      verificationType: verificationType || "manual",
+      verificationType: parsedCategory === "channel" ? "telegram_channel" : (verificationType || "manual"),
       isActive: isActive !== false,
     })
     .where(eq(tasksTable.id, taskId))

@@ -117,7 +117,7 @@ describe("Telegram Channel Membership Verification", () => {
 
     const res = await verifyUserChannelMembership(12345, "@GramGoOfficial");
     expect(res.isMember).toBe(false);
-    expect(res.error).toContain("Please join the channel");
+    expect(res.error).toContain("لم يتم العثور على اشتراكك في القناة");
   });
 
   it("should check if bot is administrator in the target channel", async () => {
@@ -159,7 +159,7 @@ describe("Telegram Channel Membership Verification", () => {
     const adminCheck = await checkBotChannelAdmin("@NonExistentChannel");
     expect(adminCheck.ok).toBe(false);
     expect(adminCheck.isAdmin).toBe(false);
-    expect(adminCheck.error).toContain("not found");
+    expect(adminCheck.error).toContain("غير موجودة");
   });
 
   it("should handle invite link slugs without numeric chat ID gracefully", async () => {

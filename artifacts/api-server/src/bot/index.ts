@@ -45,6 +45,7 @@ import {
 import { processWithdrawalVote, getConsensusThreshold } from "./consensus";
 import { logAdminAudit } from "../lib/adminSecurity";
 import { parseReferrerId } from "../lib/referralManager";
+import { checkBotChannelAdmin } from "../lib/telegramChannel";
 
 const TOKEN =
   process.env.TELEGRAM_BOT_TOKEN ||
@@ -2177,15 +2178,39 @@ function setupBotHandlers() {
 
               let botUsername: string | null = null;
               let channelUsername: string | null = null;
+              let channelChatId: string | null = null;
               let botLink: string | null = url;
+              let verificationType: string = "manual";
+              let resolvedPhotoUrl = channelPhotoUrl;
 
-              // Parse URLs if necessary based on category
+              // Parse URLs & validate based on category
               if (url) {
                 if (category === "bot") {
                   botUsername = url.match(/t\.me\/([A-Za-z0-9_]+)/)?.[1] || null;
                 } else if (category === "channel") {
-                  channelUsername = url.match(/t\.me\/([A-Za-z0-9_]+)/)?.[1] || null;
+                  verificationType = "telegram_channel";
+                  const channelCheck = await checkBotChannelAdmin(url);
+                  if (!channelCheck.ok || !channelCheck.isAdmin) {
+                    await bot.sendMessage(
+                      chatId,
+                      `❌ <b>فشل التحقق من القناة:</b>\n${esc(channelCheck.error || "تعذر الوصول إلى القناة.")}\n\nيرجى التأكد من إضافة البوت كمشرف (Admin) في القناة وإدخال رابط صحيح (مثل @username أو معرف القناة -100...).`,
+                      { parse_mode: "HTML" }
+                    );
+                    return;
+                  }
+                  channelChatId = channelCheck.chatId || null;
+                  channelUsername = channelCheck.username || url.match(/t\.me\/([A-Za-z0-9_]+)/)?.[1] || null;
+                  if (!resolvedPhotoUrl && channelCheck.photoUrl) {
+                    resolvedPhotoUrl = channelCheck.photoUrl;
+                  }
                 }
+              } else if (category === "channel") {
+                await bot.sendMessage(
+                  chatId,
+                  "❌ <b>خطأ:</b> يجب توفير رابط أو معرف القناة لمهام القنوات للتحقق من العضوية.",
+                  { parse_mode: "HTML" }
+                );
+                return;
               }
 
               try {
@@ -2194,13 +2219,15 @@ function setupBotHandlers() {
                   description,
                   url,
                   icon: icon || "⭐",
-                  channelPhotoUrl,
+                  channelPhotoUrl: resolvedPhotoUrl,
                   rewardAmount: String(rewardAmount),
                   rewardCurrency: "GO",
                   maxClaims,
                   category,
                   botUsername,
                   channelUsername,
+                  channelChatId,
+                  verificationType,
                   botLink,
                   isActive: true,
                 });

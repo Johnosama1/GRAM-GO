@@ -134,32 +134,21 @@ router.post("/:taskId/complete", requireSession, async (req, res) => {
   }
 
   // Channel/Chat membership server-side verification using Telegram Bot API getChatMember
-  const isChannelTask = task.category === "channel" || !!task.channelChatId || !!task.channelUsername;
+  const isChannelTask = task.category === "channel" || task.verificationType === "telegram_channel" || !!task.channelChatId || !!task.channelUsername;
   const channelIdentifier = task.channelChatId || (task.channelUsername ? `@${task.channelUsername.replace(/^@/, "")}` : null) || extractChannelUsername(task.url);
 
-  if (isChannelTask && channelIdentifier) {
+  if (isChannelTask) {
+    if (!channelIdentifier) {
+      res.status(400).json({ error: "بيانات القناة غير مكتملة للتحقق من العضوية" });
+      return;
+    }
+
     const memResult = await verifyUserChannelMembership(userId, channelIdentifier);
     if (!memResult.isMember) {
-      if (
-        memResult.status === "left" ||
-        memResult.status === "kicked" ||
-        memResult.error?.includes("join the channel") ||
-        memResult.error?.includes("الانضمام")
-      ) {
-        res.status(400).json({
-          error: "يرجى الانضمام إلى القناة أولاً ثم الضغط على استلام المكافأة",
-        });
-        return;
-      }
-      // If the channel is an external sponsor channel where the bot is not admin and verificationType is not strictly configured with channelChatId
-      if (task.verificationType !== "telegram_channel" && !task.channelChatId && (memResult.error?.includes("administrator") || memResult.error?.includes("not found"))) {
-        // Fallback pass-through for non-admin sponsor channels
-      } else {
-        res.status(400).json({
-          error: memResult.error || "يرجى الانضمام إلى القناة أولاً ثم الضغط على استلام المكافأة",
-        });
-        return;
-      }
+      res.status(400).json({
+        error: memResult.error || "لم يتم العثور على اشتراكك في القناة. يرجى الانضمام إلى القناة أولاً ثم الضغط على استلام الهدية.",
+      });
+      return;
     }
   }
 
