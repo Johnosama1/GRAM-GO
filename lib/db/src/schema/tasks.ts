@@ -1,4 +1,4 @@
-import { pgTable, serial, text, boolean, timestamp, integer, bigint, numeric, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, timestamp, integer, bigint, numeric, jsonb, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -24,12 +24,18 @@ export const tasksTable = pgTable("tasks", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-export const userTasksTable = pgTable("user_tasks", {
-  id: serial("id").primaryKey(),
-  userId: bigint("user_id", { mode: "number" }).notNull(),
-  taskId: integer("task_id").notNull(),
-  completedAt: timestamp("completed_at").notNull().defaultNow(),
-});
+export const userTasksTable = pgTable(
+  "user_tasks",
+  {
+    id: serial("id").primaryKey(),
+    userId: bigint("user_id", { mode: "number" }).notNull(),
+    taskId: integer("task_id").notNull(),
+    completedAt: timestamp("completed_at").notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("user_tasks_user_id_task_id_unique").on(table.userId, table.taskId),
+  ]
+);
 
 export const contestsTable = pgTable("contests", {
   id: serial("id").primaryKey(),

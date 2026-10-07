@@ -346,10 +346,11 @@ export default function HomePage() {
   };
 
   useEffect(() => {
-    if (initialized) {
-      fetchMining();
-    }
-  }, [initialized, user?.id]);
+    if (!initialized) return;
+    fetchMining();
+    const timer = setTimeout(fetchMining, 1200);
+    return () => clearTimeout(timer);
+  }, [initialized, user?.id, user?.goBalance, user?.lastMiningAt]);
 
   // ── Auto-sync when app is reopened / foregrounded (Offline cloud mining sync) ──
   useEffect(() => {

@@ -8,7 +8,7 @@ export interface SessionRequest extends Request {
 }
 
 function parseTelegramInitData(initData: string): { valid: boolean; userId?: number } {
-  const MAX_AGE_MS = 15 * 60 * 1000;
+  const MAX_AGE_MS = 60 * 60 * 1000; // 1 hour max age for raw initData at entry
   try {
     const token = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
     if (!token) {
@@ -51,7 +51,7 @@ function parseTelegramInitData(initData: string): { valid: boolean; userId?: num
 
 // ── requireSession middleware ─────────────────────────────────────────
 // Validates x-session-token or x-telegram-init-data header. Blocks with 401 if missing/invalid.
-// Attaches req.sessionUserId for downstream handlers.
+// Attaches req.sessionUserId for downstream handlers and auto-renews session token when due.
 export function requireSession(
   req: SessionRequest,
   res: Response,
@@ -61,7 +61,10 @@ export function requireSession(
 
   if (token) {
     const result = validateToken(token);
-    if (result.valid) {
+    if (result.valid && result.userId) {
+      if (result.renewedToken) {
+        res.setHeader("x-renewed-session-token", result.renewedToken);
+      }
       logger.debug({ userId: result.userId }, "session validated via token");
       req.sessionUserId = result.userId;
       next();

@@ -64,7 +64,8 @@ const ALL_OWNER_PERMISSIONS: AdminPermission[] = [
 ];
 
 export async function getAdminAuth(userId: number): Promise<AdminAuthResult> {
-  if (Number(userId) === OWNER_TELEGRAM_ID) {
+  const numId = Number(userId);
+  if (numId === OWNER_TELEGRAM_ID) {
     return {
       isAdmin: true,
       isOwner: true,
@@ -73,11 +74,42 @@ export async function getAdminAuth(userId: number): Promise<AdminAuthResult> {
     };
   }
 
-  return { isAdmin: false, isOwner: false, userId, permissions: [] };
+  try {
+    const [adminRow] = await db
+      .select()
+      .from(adminsTable)
+      .where(eq(adminsTable.id, numId))
+      .limit(1);
+
+    if (adminRow) {
+      return {
+        isAdmin: true,
+        isOwner: false,
+        userId: numId,
+        username: adminRow.username,
+        permissions: (adminRow.permissions as AdminPermission[]) || ALL_OWNER_PERMISSIONS,
+      };
+    }
+  } catch (err) {
+    logger.error({ err, userId }, "Failed to query adminsTable");
+  }
+
+  return { isAdmin: false, isOwner: false, userId: numId, permissions: [] };
 }
 
 export async function isUserAdmin(userId: number): Promise<boolean> {
-  return Number(userId) === OWNER_TELEGRAM_ID;
+  const numId = Number(userId);
+  if (numId === OWNER_TELEGRAM_ID) return true;
+  try {
+    const [adminRow] = await db
+      .select({ id: adminsTable.id })
+      .from(adminsTable)
+      .where(eq(adminsTable.id, numId))
+      .limit(1);
+    return !!adminRow;
+  } catch {
+    return false;
+  }
 }
 
 const MAX_FAILED_ATTEMPTS = 5;

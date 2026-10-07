@@ -19,7 +19,7 @@ const router = Router();
 
 // ── Parse + validate Telegram WebApp initData ─────────────────────────
 function parseInitData(initData: string): { valid: boolean; userId?: number } {
-  const MAX_AGE_MS = 15 * 60 * 1000;
+  const MAX_AGE_MS = 60 * 60 * 1000; // 1 hour max age at login/issuance
   try {
     const token = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
     if (!token) {

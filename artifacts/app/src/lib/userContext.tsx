@@ -162,13 +162,18 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   };
 
   const init = async () => {
+    // Guarantee splash screen dismissal and initialization within 3.5s
+    const safetyTimer = setTimeout(() => {
+      hideSplash();
+      setLoading(false);
+      setInitialized(true);
+    }, 3500);
+
     try {
-      // ── Clear storage on version bump ──────────────────────────────
-      const APP_VER = "4.0";
+      // ── Storage cache version check ──────────────────────────────
+      const APP_VER = "4.2";
       const VER_KEY = "jjx_app_ver";
       if (localStorage.getItem(VER_KEY) !== APP_VER) {
-        localStorage.clear();
-        sessionStorage.clear();
         localStorage.setItem(VER_KEY, APP_VER);
       }
 
@@ -210,6 +215,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       }
       hideSplash();
 
+      // Check admin status immediately based on owner ID
+      const isOwner = Number(tgUser.id) === 6145230334;
+      if (isOwner) {
+        setIsAdminState(true);
+      }
+
       // ── Step 2: Parallel background verification & data fetch ──────
       const [initRes, fpRes, slotsRes] = await Promise.allSettled([
         // 1. Backend user init
@@ -244,7 +255,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
       // Check for ban from device fingerprinting
       if (fpRes.status === "fulfilled" && fpRes.value && fpRes.value.banned) {
-        // Bypass ban - fallthrough to load normally
         console.warn("Bypass ban (fingerprint)");
       }
 
@@ -252,20 +262,32 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       if (initRes.status === "rejected") {
         const err = initRes.reason;
         if (err instanceof Error && (err.message === "محظور" || err.message.includes("banned"))) {
-          // Bypass ban - fallthrough to load normally
           console.warn("Bypass ban (rejected)");
         } else {
-          console.warn("User init failed, proceeding with cache if available:", err);
+          console.warn("User init failed, scheduling retry in background:", err);
+          // Auto background retry
+          setTimeout(() => {
+            api.initUser({
+              id: tgUser.id,
+              username: tgUser.username ?? undefined,
+              first_name: tgUser.first_name ?? undefined,
+              last_name: tgUser.last_name ?? undefined,
+              photo_url: tgUser.photo_url ?? undefined,
+              start_param: getStartParam() || undefined,
+            })
+              .then((fresh) => {
+                setUser(fresh);
+                writeCache(`user:${fresh.id}`, fresh);
+                doIssueSession(fresh.id).catch(() => {});
+                api.adminCheck(fresh.id).then((r) => setIsAdminState(r.isAdmin)).catch(() => {});
+              })
+              .catch(() => {});
+          }, 1500);
         }
       }
 
       if (initRes.status === "fulfilled" && initRes.value) {
         const freshUser = initRes.value;
-        if (freshUser.isVisible === false) {
-          // Bypass ban - fallthrough to load normally
-          console.warn("Bypass ban (isVisible)");
-        }
-
         const freshSlots = (slotsRes.status === "fulfilled" ? slotsRes.value : cachedSlots ?? []) as WheelSlot[];
         setUser(freshUser);
         setSlots(freshSlots);
@@ -280,7 +302,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           window.history.replaceState({}, document.title, newUrl);
         }
 
-        // Step 4: Check admin status (strictly for 6145230334)
+        // Step 4: Check admin status
         const isOwnerAdmin = Number(freshUser.id) === 6145230334;
         setIsAdminState(isOwnerAdmin);
         api.adminCheck(freshUser.id)
@@ -295,7 +317,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         // Step 6: Check daily checkin availability
         checkCheckinStatus().catch(() => {});
       } else if (cachedUser) {
-        // Init failed (server busy), but we have cached user! We can still issue a session and let them use the app
+        // Init failed, but we have cached user
         setUser(cachedUser);
         if (cachedSlots) {
           setSlots(cachedSlots);
@@ -325,7 +347,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           goBalance: "0",
           gramBalance: "0",
           miningRate: 0.03,
-          lastMiningAt: new Date().toISOString(),
+          lastMiningAt: new Date(Date.now() - 3600000).toISOString(),
           spins: 0,
           createdAt: new Date().toISOString(),
           tonBalance: "0",
@@ -347,26 +369,22 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         setUser(fallbackUser);
         if (cachedSlots) setSlots(cachedSlots);
 
+        const isOwnerAdmin = Number(fallbackUser.id) === 6145230334;
+        setIsAdminState(isOwnerAdmin);
         doIssueSession(fallbackUser.id).catch(() => {});
       }
 
+      clearTimeout(safetyTimer);
       setLoading(false);
       setInitialized(true);
       hideSplash();
 
     } catch (e: unknown) {
-      if (e instanceof Error && e.message === "محظور") {
-        console.warn("User initialization note: Banned bypass");
-        // We ensure we don't hang if this block gets hit
-        setLoading(false);
-        setInitialized(true);
-        hideSplash();
-      } else {
-        console.warn("User initialization note:", e);
-        setLoading(false);
-        setInitialized(true);
-        hideSplash();
-      }
+      console.warn("User initialization note:", e);
+      clearTimeout(safetyTimer);
+      setLoading(false);
+      setInitialized(true);
+      hideSplash();
     }
   };
 
@@ -392,6 +410,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setUser(u);
       writeCache(`user:${u.id}`, u);
       checkCheckinStatus().catch(() => {});
+      api.adminCheck(u.id).then((r) => setIsAdminState(r.isAdmin)).catch(() => {});
     } catch (e) {
       console.error("Failed to refresh user", e);
     }

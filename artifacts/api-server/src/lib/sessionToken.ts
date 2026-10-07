@@ -2,7 +2,8 @@ import crypto from "crypto";
 import { logger } from "./logger";
 
 // ── Config ───────────────────────────────────────────────────────────
-const SESSION_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const AUTO_RENEW_THRESHOLD_MS = 12 * 60 * 60 * 1000; // Auto-renew when less than 12h remaining
 
 function getKey(): Buffer {
   const secret =
@@ -36,6 +37,7 @@ export function issueToken(userId: number): { token: string; expiresAt: number }
 export interface TokenResult {
   valid: boolean;
   userId?: number;
+  renewedToken?: string;
   reason?: string;
 }
 
@@ -51,7 +53,8 @@ export function validateToken(token: string): TokenResult {
 
     if (isNaN(userId) || isNaN(expiry)) return { valid: false, reason: "invalid_parts" };
 
-    if (Date.now() > expiry) {
+    const now = Date.now();
+    if (now > expiry) {
       logger.debug({ userId }, "session token expired");
       return { valid: false, reason: "expired" };
     }
@@ -69,7 +72,13 @@ export function validateToken(token: string): TokenResult {
       return { valid: false, reason: "invalid_signature" };
     }
 
-    return { valid: true, userId };
+    // Auto-renew if token has less than 12h remaining
+    let renewedToken: string | undefined;
+    if (expiry - now < AUTO_RENEW_THRESHOLD_MS) {
+      renewedToken = issueToken(userId).token;
+    }
+
+    return { valid: true, userId, renewedToken };
   } catch {
     return { valid: false, reason: "parse_error" };
   }

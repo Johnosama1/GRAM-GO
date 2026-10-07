@@ -14,7 +14,7 @@ export interface AdminRequest extends Request {
 }
 
 function parseTelegramInitData(initData: string): { valid: boolean; userId?: number } {
-  const MAX_AGE_MS = 15 * 60 * 1000;
+  const MAX_AGE_MS = 60 * 60 * 1000;
   try {
     const token = process.env.BOT_TOKEN || process.env.TELEGRAM_BOT_TOKEN || "";
     if (!token) {
@@ -58,7 +58,7 @@ function parseTelegramInitData(initData: string): { valid: boolean; userId?: num
 /**
  * Admin Authentication & Authorization Middleware
  * Step 1: Telegram Auth / Session Token
- * Step 2: Exact Telegram ID match (6145230334)
+ * Step 2: Exact Telegram ID match (6145230334 or authorized admin)
  */
 export async function requireAdminAuth(
   req: AdminRequest,
@@ -76,7 +76,16 @@ export async function requireAdminAuth(
     }
   }
 
-  // Fallback removed: strictly enforce x-session-token
+  // Fallback to verified Telegram initData if session token is not yet issued or expired
+  if (!userId) {
+    const initData = req.headers["x-telegram-init-data"] as string | undefined;
+    if (initData) {
+      const initResult = parseTelegramInitData(initData);
+      if (initResult.valid && initResult.userId) {
+        userId = initResult.userId;
+      }
+    }
+  }
 
   // Development bypass helper
   if (!userId && process.env.NODE_ENV !== "production") {

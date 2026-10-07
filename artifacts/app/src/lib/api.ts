@@ -182,6 +182,12 @@ export async function apiCall<T>(path: string, options?: RequestInit): Promise<T
     e.body = err;
     throw e;
   }
+
+  const renewedToken = res.headers.get("x-renewed-session-token");
+  if (renewedToken) {
+    setSessionToken(renewedToken);
+  }
+
   return res.json();
 }
 

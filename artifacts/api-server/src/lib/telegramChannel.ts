@@ -237,7 +237,20 @@ export async function verifyUserChannelMembership(
       { signal: controller.signal }
     );
     const data: any = await res.json().catch(() => ({ ok: false }));
-    clearTimeout(timeout);
+    // Log the exact Telegram getChatMember response safely (without bot token)
+    logger.info(
+      {
+        userId,
+        chatId,
+        channelInput,
+        telegramOk: data.ok,
+        status: data.result?.status,
+        isMember: data.result?.is_member,
+        description: data.description,
+        errorCode: data.error_code,
+      },
+      "Telegram getChatMember API response"
+    );
 
     if (data.ok && data.result) {
       const status = data.result.status;
@@ -248,14 +261,17 @@ export async function verifyUserChannelMembership(
         (status === "restricted" && data.result.is_member !== false);
 
       if (isMemberStatus) {
+        logger.info({ userId, chatId, status }, "Task channel verification passed");
         return { isMember: true, status };
       } else if (status === "kicked") {
+        logger.warn({ userId, chatId, status }, "Task channel verification rejected (kicked)");
         return {
           isMember: false,
           status: "kicked",
           error: "تم رفض الطلب: حسابك محظور من هذه القناة.",
         };
       } else {
+        logger.warn({ userId, chatId, status }, "Task channel verification rejected (not member)");
         return {
           isMember: false,
           status: status || "left",
@@ -266,6 +282,8 @@ export async function verifyUserChannelMembership(
 
     // Handle Telegram API errors
     const desc = data.description || "";
+    logger.warn({ userId, chatId, description: desc }, "Task channel verification Telegram error");
+
     if (
       desc.includes("bot is not a member") ||
       desc.includes("member list is inaccessible") ||

@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 
-// ── How old can an initData be before we reject it? (15 min) ─────────
-const MAX_AGE_MS = 15 * 60 * 1000;
+// ── How old can an initData be before we reject it at initial entry? (1 hour) ─────────
+const MAX_AGE_MS = 60 * 60 * 1000;
 
 function verifyTelegramHash(
   initData: string,
