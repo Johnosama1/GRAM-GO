@@ -135,7 +135,7 @@ export function invalidateUserCaches(userId?: number) {
     _withdrawalsCache.clear();
     _depositsCache.clear();
   }
-  _tasksCache = null;
+  // Remove global _tasksCache wipe, as user-specific completed tasks update is enough
 }
 
 // ── Core fetch wrapper ────────────────────────────────────────────────

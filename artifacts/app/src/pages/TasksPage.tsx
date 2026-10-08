@@ -402,7 +402,7 @@ export default function TasksPage() {
 {/* ══════════════════════════════════════════════════════════════════
           1. DAILY CHECK-IN CARD
       ══════════════════════════════════════════════════════════════════ */}
-        {checkin && (selectedCategory === "daily" || selectedCategory === "all") && (
+        {(selectedCategory === "daily" || selectedCategory === "all") && (
           <div
             style={{
               background:
@@ -426,7 +426,7 @@ export default function TasksPage() {
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ position: "relative" }}>
                   <Calendar size={18} color="#00f2fe" />
-                  {checkin.canClaim && (
+                  {checkin?.canClaim && (
                     <span
                       style={{
                         position: "absolute",
@@ -464,7 +464,7 @@ export default function TasksPage() {
                   gap: 4,
                 }}
               >
-                🔥 Day {checkin.currentStreak}/10
+                🔥 Day {checkin?.currentStreak}/10
               </div>
             </div>
 
@@ -476,7 +476,7 @@ export default function TasksPage() {
                 gap: 6,
               }}
             >
-              {checkin.days.map((d) => {
+              {checkin ? checkin.days.map((d) => {
                 const isClaimed = d.status === "claimed";
                 const isAvailable = d.status === "available";
 
@@ -578,7 +578,11 @@ export default function TasksPage() {
                     </div>
                   </div>
                 );
-              })}
+              }) : (
+                <div style={{ gridColumn: "1 / -1", textAlign: "center", padding: "10px 0" }}>
+                  <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>Loading Daily Check-in...</span>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -586,18 +590,33 @@ export default function TasksPage() {
 {/* ══════════════════════════════════════════════════════════════════
           2. ADS TASK CARD (Watch Advertisement)
       ══════════════════════════════════════════════════════════════════ */}
-        {adsStatus && (selectedCategory === "ads" || selectedCategory === "all") && (
-          hasAdsgram ? (
-            <ActiveAdsTaskCard
-              adsStatus={adsStatus}
-              refresh={refresh}
-              setMessage={setMessage}
-              setAdsStatus={setAdsStatus}
-              adsTimeLeft={adsTimeLeft}
-              blockId={ADSGRAM_BLOCK_ID}
-            />
+        {(selectedCategory === "ads" || selectedCategory === "all") && (
+          adsStatus ? (
+            hasAdsgram ? (
+              <ActiveAdsTaskCard
+                adsStatus={adsStatus}
+                refresh={refresh}
+                setMessage={setMessage}
+                setAdsStatus={setAdsStatus}
+                adsTimeLeft={adsTimeLeft}
+                blockId={ADSGRAM_BLOCK_ID}
+              />
+            ) : (
+              <DisabledAdsTaskCard adsStatus={adsStatus} />
+            )
           ) : (
-            <DisabledAdsTaskCard adsStatus={adsStatus} />
+            <div
+              style={{
+                background: "rgba(255, 255, 255, 0.03)",
+                border: "1px solid rgba(255, 255, 255, 0.08)",
+                borderRadius: 22,
+                padding: "16px",
+                marginBottom: 12,
+                textAlign: "center"
+              }}
+            >
+              <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>Loading Ads Task...</span>
+            </div>
           )
         )}
 
