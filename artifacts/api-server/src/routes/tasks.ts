@@ -204,7 +204,15 @@ router.post("/:taskId/complete", requireSession, async (req, res) => {
       }
 
       // 4. Record completion
-      await tx.insert(userTasksTable).values({ userId, taskId });
+      try {
+        await tx.insert(userTasksTable).values({ userId, taskId });
+      } catch (insertError: any) {
+        if (insertError.code === "23505" || insertError.message?.includes("unique constraint")) {
+          const [existingUser] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
+          return { user: existingUser, alreadyCompleted: true };
+        }
+        throw insertError;
+      }
 
       // 5. Grant reward
       const [user] = await tx.select().from(usersTable).where(eq(usersTable.id, userId)).limit(1);
